@@ -10,8 +10,10 @@ export interface AuthContextType {
     login: (credentials: LoginCredentials) => Promise<void>
     register: (credentials: RegisterCredentials) => Promise<void>
     logout: () => Promise<void>
+    setIsAuthenticated: (value: boolean) => void
     error: string | null
     loading: boolean
+    isInitializing: boolean
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
@@ -24,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const [token, setToken] = React.useState<string | null>(null)
     const [error, setError] = React.useState<string | null>(null)
     const [loading, setLoading] = React.useState(false)
+    const [isInitializing, setIsInitializing] = React.useState(true) // Только для первого запуска
 
     // Initialize auth state on mount
     React.useEffect(() => {
@@ -47,6 +50,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
             } catch (err) {
                 console.error('Failed to initialize auth:', err)
+            } finally {
+                setIsInitializing(false) // Инициализация завершена
             }
         }
 
@@ -55,10 +60,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Listen for auth changes
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange((event, session) => {
             if (session) {
                 setToken(session.access_token)
-                setIsAuthenticated(true)
+
+                // Если это восстановление сессии при загрузке или обновление токена - 
+                // устанавливаем авторизацию автоматически.
+                // При SIGNED_IN (новый вход) мы ждем ручного подтверждения через SuccessScreen.
+                if (event !== 'SIGNED_IN') {
+                    setIsAuthenticated(true)
+                }
             } else {
                 setToken(null)
                 setUser(null)
@@ -76,7 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const response = await authService.login(credentials)
             setToken(response.token)
             setUser(response.user)
-            setIsAuthenticated(true)
+            // Мы НЕ устанавливаем isAuthenticated здесь, 
+            // чтобы LoginForm мог показать SuccessScreen.
+            // ScreenSuccess вызовет completeAuth или мы сделаем это сами позже.
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Login failed'
             setError(message)
@@ -93,7 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const response = await authService.register(credentials)
             setToken(response.token)
             setUser(response.user)
-            setIsAuthenticated(true)
+            // Мы НЕ устанавливаем isAuthenticated здесь, 
+            // чтобы показать SuccessScreen
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Registration failed'
             setError(message)
@@ -123,8 +137,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         login,
         register,
         logout,
+        setIsAuthenticated,
         error,
         loading,
+        isInitializing,
     }
 
     return (

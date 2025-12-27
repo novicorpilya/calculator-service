@@ -1,4 +1,4 @@
-// filepath: src/components/auth/RegisterForm.tsx
+
 
 import React from 'react'
 import { Mail, Lock, Building2, Phone, MapPin, Eye, EyeOff } from 'lucide-react'
@@ -12,9 +12,12 @@ interface RegisterFormProps {
     loading: boolean
     error?: string | null
     fieldErrors?: AuthFormState['fieldErrors']
+    agreeToTerms: boolean
+    isFormValid?: boolean
     onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => void
     onTogglePassword: () => void
+    onAgreeToTermsChange: (checked: boolean) => void
     onSubmit: () => void
     onSwitchToLogin: () => void
 }
@@ -25,9 +28,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     loading,
     error,
     fieldErrors = {},
+    agreeToTerms,
+    isFormValid = true,
     onInputChange,
     onBlur,
     onTogglePassword,
+    onAgreeToTermsChange,
     onSubmit,
     onSwitchToLogin,
 }) => {
@@ -144,8 +150,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 <label className="flex items-start cursor-pointer">
                     <input
                         type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 mt-1"
-                        required
+                        checked={agreeToTerms}
+                        onChange={(e) => onAgreeToTermsChange(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 mt-1 cursor-pointer text-blue-600 focus:ring-blue-500"
                     />
                     <span className="ml-2 text-gray-700 text-sm">
                         Я согласен с{' '}
@@ -161,8 +168,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
                 <Button
                     onClick={onSubmit}
-                    disabled={loading}
-                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-75"
+                    disabled={loading || !isFormValid}
+                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {loading ? 'Регистрация...' : 'Создать аккаунт'}
                 </Button>

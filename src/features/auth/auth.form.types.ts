@@ -1,4 +1,4 @@
-// filepath: src/features/auth/auth.form.types.ts
+
 
 export type AuthMode = 'login' | 'register' | 'success'
 
@@ -33,6 +33,7 @@ export interface AuthFormState {
   formData: RegisterFormData
   showPassword: boolean
   rememberMe: boolean
+  agreeToTerms: boolean
   fieldErrors: FieldErrors
   touched: {
     email: boolean

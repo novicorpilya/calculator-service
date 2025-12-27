@@ -1,4 +1,4 @@
-// filepath: src/components/auth/LoginForm.tsx
+
 
 import React from 'react'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
@@ -13,6 +13,7 @@ interface LoginFormProps {
     error?: string | null
     fieldErrors?: AuthFormState['fieldErrors']
     rememberMe: boolean
+    isFormValid?: boolean
     onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => void
     onTogglePassword: () => void
@@ -28,6 +29,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     error,
     fieldErrors = {},
     rememberMe,
+    isFormValid = true,
     onInputChange,
     onBlur,
     onTogglePassword,
@@ -96,8 +98,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
                 <Button
                     onClick={onSubmit}
-                    disabled={loading}
-                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-75"
+                    disabled={loading || !isFormValid}
+                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {loading ? 'Вход...' : 'Войти'}
                 </Button>

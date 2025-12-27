@@ -1,4 +1,4 @@
-// filepath: src/features/auth/auth.service.ts
+
 
 import { supabase } from '@/services/supabase'
 import type { LoginCredentials, RegisterCredentials, User } from '@/features/auth/auth.types'

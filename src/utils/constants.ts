@@ -4,7 +4,6 @@ export const ROUTES = {
   LOGIN: '/auth/login',
   REGISTER: '/auth/register',
   CLIENT_DASHBOARD: '/dashboard/client',
-  MANAGER_DASHBOARD: '/dashboard/manager',
 }
 
 export const API_ENDPOINTS = {

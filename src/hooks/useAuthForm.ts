@@ -1,9 +1,10 @@
-// filepath: src/hooks/useAuthForm.ts
+
 
 import { useState } from 'react'
 import { useAuth } from '@/app/providers/useAuthHook'
 import type { AuthFormState, RegisterFormData, LoginFormData } from '@/features/auth/auth.form.types'
 import type { LoginCredentials, RegisterCredentials } from '@/features/auth/auth.types'
+import { translateAuthError } from '@/utils/errorTranslations'
 
 const INITIAL_FORM_DATA: RegisterFormData = {
   email: '',
@@ -14,36 +15,37 @@ const INITIAL_FORM_DATA: RegisterFormData = {
   address: '',
 }
 
-// Ключи для localStorage
-const REMEMBERED_EMAIL_KEY = 'remembered_email'
-const REMEMBERED_PASSWORD_KEY = 'remembered_password'
+// Ключ для localStorage (только предпочтение галочки, НЕ чувствительные данные)
+const REMEMBER_ME_PREFERENCE_KEY = 'remember_me_preference'
 
-// Функции для работы с сохраненными данными
-const loadRememberedCredentials = (): { email: string; password: string } => {
+/**
+ * Получает предпочтение пользователя "Запомнить меня"
+ * При первом заходе (ключа нет) — возвращает true по умолчанию
+ * Если пользователь снял галочку — возвращает false
+ */
+const getRememberMePreference = (): boolean => {
   try {
-    const email = localStorage.getItem(REMEMBERED_EMAIL_KEY) || ''
-    const password = localStorage.getItem(REMEMBERED_PASSWORD_KEY) || ''
-    return { email, password }
+    const preference = localStorage.getItem(REMEMBER_ME_PREFERENCE_KEY)
+    // Если ключа нет (первый заход) — по умолчанию true
+    if (preference === null) {
+      return true
+    }
+    // Иначе возвращаем сохранённое значение
+    return preference === 'true'
   } catch {
-    return { email: '', password: '' }
+    // При ошибке (например, localStorage недоступен) — по умолчанию true
+    return true
   }
 }
 
-const saveRememberedCredentials = (email: string, password: string): void => {
+/**
+ * Сохраняет предпочтение "Запомнить меня"
+ */
+const saveRememberMePreference = (value: boolean): void => {
   try {
-    localStorage.setItem(REMEMBERED_EMAIL_KEY, email)
-    localStorage.setItem(REMEMBERED_PASSWORD_KEY, password)
+    localStorage.setItem(REMEMBER_ME_PREFERENCE_KEY, String(value))
   } catch (error) {
-    console.error('Failed to save remembered credentials:', error)
-  }
-}
-
-const clearRememberedCredentials = (): void => {
-  try {
-    localStorage.removeItem(REMEMBERED_EMAIL_KEY)
-    localStorage.removeItem(REMEMBERED_PASSWORD_KEY)
-  } catch (error) {
-    console.error('Failed to clear remembered credentials:', error)
+    console.error('Failed to save remember me preference:', error)
   }
 }
 
@@ -55,23 +57,23 @@ const validatePassword = (password: string): { valid: boolean; error?: string } 
   if (password.length < 8) {
     return { valid: false, error: 'Пароль должен содержать минимум 8 символов' }
   }
-  
+
   if (!/[A-ZА-Я]/.test(password)) {
     return { valid: false, error: 'Пароль должен содержать хотя бы одну заглавную букву' }
   }
-  
+
   if (!/[a-zа-я]/.test(password)) {
     return { valid: false, error: 'Пароль должен содержать хотя бы одну строчную букву' }
   }
-  
+
   if (!/[0-9]/.test(password)) {
     return { valid: false, error: 'Пароль должен содержать хотя бы одну цифру' }
   }
-  
+
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
     return { valid: false, error: 'Пароль должен содержать хотя бы один специальный символ (!@#$%^&* и т.д.)' }
   }
-  
+
   return { valid: true }
 }
 
@@ -80,31 +82,27 @@ const validateEmail = (email: string): { valid: boolean; error?: string } => {
   if (!email) {
     return { valid: false, error: 'Email обязателен для заполнения' }
   }
-  
+
   if (!EMAIL_REGEX.test(email)) {
     return { valid: false, error: 'Введите корректный email адрес' }
   }
-  
+
   return { valid: true }
 }
 
 export const useAuthForm = () => {
-  const { login: authLogin, register: authRegister } = useAuth()
-  
-  // Загружаем сохраненные данные при инициализации
-  const rememberedCredentials = loadRememberedCredentials()
-  const initialFormData: RegisterFormData = {
-    ...INITIAL_FORM_DATA,
-    email: rememberedCredentials.email,
-    password: rememberedCredentials.password,
-  }
-  
+  const { login: authLogin, register: authRegister, setIsAuthenticated } = useAuth()
+
+  // Загружаем предпочтение галочки "Запомнить меня" при инициализации
+  const rememberMePreference = getRememberMePreference()
+
   const [state, setState] = useState<AuthFormState>({
     mode: 'login',
     loading: false,
-    formData: initialFormData,
+    formData: INITIAL_FORM_DATA,
     showPassword: false,
-    rememberMe: true, // По умолчанию активна
+    rememberMe: rememberMePreference, // Загружаем сохранённое предпочтение
+    agreeToTerms: true, // По умолчанию галочка установлена
     fieldErrors: {},
     touched: {
       email: false,
@@ -118,21 +116,14 @@ export const useAuthForm = () => {
   const [error, setError] = useState<string | null>(null)
 
   const handleModeChange = (mode: 'login' | 'register') => {
-    // При переключении на логин загружаем сохраненные данные
-    const rememberedCredentials = loadRememberedCredentials()
-    const formDataForMode = mode === 'login' 
-      ? {
-          ...INITIAL_FORM_DATA,
-          email: rememberedCredentials.email,
-          password: rememberedCredentials.password,
-        }
-      : INITIAL_FORM_DATA
-    
+    // Загружаем предпочтение галочки при переключении на логин
+    const rememberMePreference = mode === 'login' ? getRememberMePreference() : state.rememberMe
+
     setState((prev) => ({
       ...prev,
       mode,
-      formData: formDataForMode,
-      rememberMe: mode === 'login' ? true : prev.rememberMe, // При логине по умолчанию true
+      formData: INITIAL_FORM_DATA,
+      rememberMe: rememberMePreference, // Загружаем сохранённое предпочтение
       fieldErrors: {},
       touched: {
         email: false,
@@ -151,11 +142,16 @@ export const useAuthForm = () => {
       ...prev,
       rememberMe: checked,
     }))
-    
-    // Если убрали галочку, очищаем сохраненные данные
-    if (!checked) {
-      clearRememberedCredentials()
-    }
+
+    // Сохраняем предпочтение пользователя в localStorage
+    saveRememberMePreference(checked)
+  }
+
+  const handleAgreeToTermsChange = (checked: boolean) => {
+    setState((prev) => ({
+      ...prev,
+      agreeToTerms: checked,
+    }))
   }
 
   // Validate single field
@@ -169,7 +165,7 @@ export const useAuthForm = () => {
         return emailValidation.error
       }
     }
-    
+
     if (name === 'password') {
       if (!value) {
         return 'Заполните поле'
@@ -182,7 +178,7 @@ export const useAuthForm = () => {
         }
       }
     }
-    
+
     if (name === 'confirmPassword') {
       if (!value) {
         return 'Заполните поле'
@@ -193,44 +189,51 @@ export const useAuthForm = () => {
         return 'Пароли не совпадают'
       }
     }
-    
+
     if (name === 'organizationName' || name === 'phone' || name === 'address') {
       if (!value.trim()) {
         return 'Заполните поле'
       }
     }
-    
+
     return undefined
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
+    let { name, value } = e.target
+
+    // Фильтрация для поля телефона: только цифры, +, -, (, ), пробел
+    if (name === 'phone') {
+      // Оставляем только разрешенные символы
+      value = value.replace(/[^0-9+\-()\s]/g, '')
+    }
+
     setState((prev) => {
       const newFormData = {
         ...prev.formData,
         [name]: value,
       }
-      
+
       // Обновляем ошибки для измененного поля
       const newFieldErrors: Record<string, string | undefined> = {
         ...prev.fieldErrors,
       }
-      
+
       // Если поле было touched, валидируем его
       if (prev.touched[name as keyof typeof prev.touched]) {
         newFieldErrors[name] = validateField(name, value)
       }
-      
+
       // Если изменился password и confirmPassword был touched, перевалидируем confirmPassword
       if (name === 'password' && prev.touched.confirmPassword) {
         newFieldErrors.confirmPassword = validateField('confirmPassword', prev.formData.confirmPassword, value)
       }
-      
+
       // Если изменился confirmPassword и password был touched, перевалидируем confirmPassword
       if (name === 'confirmPassword' && prev.touched.password) {
         newFieldErrors.confirmPassword = validateField('confirmPassword', value, prev.formData.password)
       }
-      
+
       return {
         ...prev,
         formData: newFormData,
@@ -242,24 +245,24 @@ export const useAuthForm = () => {
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    
+
     // Помечаем поле как touched
     setState((prev) => {
       const newFieldErrors: Record<string, string | undefined> = {
         ...prev.fieldErrors,
         [name]: validateField(name, value),
       }
-      
+
       // Если потеряли фокус на password и confirmPassword был touched, перевалидируем confirmPassword
       if (name === 'password' && prev.touched.confirmPassword) {
         newFieldErrors.confirmPassword = validateField('confirmPassword', prev.formData.confirmPassword, value)
       }
-      
+
       // Если потеряли фокус на confirmPassword и password был touched, перевалидируем confirmPassword
       if (name === 'confirmPassword' && prev.touched.password) {
         newFieldErrors.confirmPassword = validateField('confirmPassword', value, prev.formData.password)
       }
-      
+
       return {
         ...prev,
         touched: {
@@ -325,18 +328,14 @@ export const useAuthForm = () => {
 
     try {
       await authLogin(loginData as LoginCredentials)
-      
-      // Сохраняем данные если rememberMe активен
-      if (state.rememberMe) {
-        saveRememberedCredentials(loginData.email, loginData.password)
-      } else {
-        clearRememberedCredentials()
-      }
-      
+
+      // Предпочтение галочки уже сохранено при изменении (handleRememberMeChange)
+      // Сессия управляется Supabase автоматически
+
       setState((prev) => ({ ...prev, mode: 'success' }))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ошибка входа'
-      setError(message)
+      const originalMessage = err instanceof Error ? err.message : 'Ошибка входа'
+      setError(translateAuthError(originalMessage))
       setState((prev) => ({ ...prev, loading: false }))
     }
   }
@@ -420,25 +419,26 @@ export const useAuthForm = () => {
       await authRegister(registerData as RegisterCredentials)
       setState((prev) => ({ ...prev, mode: 'success' }))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ошибка регистрации'
-      setError(message)
+      const originalMessage = err instanceof Error ? err.message : 'Ошибка регистрации'
+      setError(translateAuthError(originalMessage))
       setState((prev) => ({ ...prev, loading: false }))
     }
   }
 
+  const handleContinue = () => {
+    setIsAuthenticated(true)
+  }
+
   const handleReset = () => {
-    // Загружаем сохраненные данные при сбросе
-    const rememberedCredentials = loadRememberedCredentials()
+    // Загружаем предпочтение галочки при сбросе
+    const rememberMePreference = getRememberMePreference()
     setState({
       mode: 'login',
       loading: false,
-      formData: {
-        ...INITIAL_FORM_DATA,
-        email: rememberedCredentials.email,
-        password: rememberedCredentials.password,
-      },
+      formData: INITIAL_FORM_DATA,
       showPassword: false,
-      rememberMe: true,
+      rememberMe: rememberMePreference,
+      agreeToTerms: true,
       fieldErrors: {},
       touched: {
         email: false,
@@ -452,16 +452,73 @@ export const useAuthForm = () => {
     setError(null)
   }
 
+  // Проверка валидности формы логина (для disabled кнопки)
+  const isLoginFormValid = (): boolean => {
+    const { email, password } = state.formData
+
+    // Проверяем что поля заполнены
+    if (!email.trim() || !password) {
+      return false
+    }
+
+    // Проверяем валидность email
+    const emailValidation = validateEmail(email.trim())
+    if (!emailValidation.valid) {
+      return false
+    }
+
+    // Для логина достаточно что пароль не пустой
+    return true
+  }
+
+  // Проверка валидности формы регистрации (для disabled кнопки)
+  const isRegisterFormValid = (): boolean => {
+    const { email, password, confirmPassword, organizationName, phone, address } = state.formData
+
+    // Проверяем согласие с условиями
+    if (!state.agreeToTerms) {
+      return false
+    }
+
+    // Проверяем что все поля заполнены
+    if (!email.trim() || !password || !confirmPassword || !organizationName.trim() || !phone.trim() || !address.trim()) {
+      return false
+    }
+
+    // Проверяем валидность email
+    const emailValidation = validateEmail(email.trim())
+    if (!emailValidation.valid) {
+      return false
+    }
+
+    // Проверяем валидность пароля
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.valid) {
+      return false
+    }
+
+    // Проверяем совпадение паролей
+    if (password !== confirmPassword) {
+      return false
+    }
+
+    return true
+  }
+
   return {
     ...state,
     error,
+    isLoginFormValid: isLoginFormValid(),
+    isRegisterFormValid: isRegisterFormValid(),
     handleModeChange,
     handleInputChange,
     handleBlur,
     handleTogglePassword,
     handleRememberMeChange,
+    handleAgreeToTermsChange,
     handleLogin,
     handleRegister,
+    handleContinue,
     handleReset,
   }
 }

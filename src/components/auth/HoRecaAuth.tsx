@@ -1,4 +1,4 @@
-// filepath: src/components/auth/HoRecaAuth.tsx
+
 
 import React from 'react'
 import { useAuthForm } from '@/hooks/useAuthForm'
@@ -13,18 +13,22 @@ export const HoRecaAuth: React.FC = () => {
         error,
         fieldErrors,
         rememberMe,
+        agreeToTerms,
+        isLoginFormValid,
+        isRegisterFormValid,
         handleModeChange,
         handleInputChange,
         handleBlur,
         handleTogglePassword,
         handleRememberMeChange,
+        handleAgreeToTermsChange,
         handleLogin,
         handleRegister,
-        handleReset,
+        handleContinue,
     } = useAuthForm()
 
     if (mode === 'success') {
-        return <SuccessScreen onContinue={handleReset} />
+        return <SuccessScreen onContinue={handleContinue} />
     }
 
     return (
@@ -42,6 +46,7 @@ export const HoRecaAuth: React.FC = () => {
                             error={error}
                             fieldErrors={fieldErrors}
                             rememberMe={rememberMe}
+                            isFormValid={isLoginFormValid}
                             onInputChange={handleInputChange}
                             onBlur={handleBlur}
                             onTogglePassword={handleTogglePassword}
@@ -56,9 +61,12 @@ export const HoRecaAuth: React.FC = () => {
                             loading={loading}
                             error={error}
                             fieldErrors={fieldErrors}
+                            agreeToTerms={agreeToTerms}
+                            isFormValid={isRegisterFormValid}
                             onInputChange={handleInputChange}
                             onBlur={handleBlur}
                             onTogglePassword={handleTogglePassword}
+                            onAgreeToTermsChange={handleAgreeToTermsChange}
                             onSubmit={handleRegister}
                             onSwitchToLogin={() => handleModeChange('login')}
                         />

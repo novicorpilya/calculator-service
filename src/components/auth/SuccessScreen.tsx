@@ -1,4 +1,4 @@
-// filepath: src/components/auth/SuccessScreen.tsx
+
 
 import React from 'react'
 import { CheckCircle2, ArrowRight } from 'lucide-react'

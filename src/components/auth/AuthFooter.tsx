@@ -1,4 +1,4 @@
-// filepath: src/components/auth/AuthFooter.tsx
+
 
 import React from 'react'
 

@@ -1,6 +1,8 @@
-// filepath: src/services/supabase/client.ts
+
 
 import { createClient } from '@supabase/supabase-js'
+
+import { authStorage } from './storage'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -11,7 +13,14 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: authStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+})
 
 // Export types
 export type { User } from '@supabase/supabase-js'

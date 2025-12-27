@@ -1,4 +1,4 @@
-// filepath: src/components/auth/index.ts
+
 
 export { AuthHeader } from './AuthHeader'
 export { AuthFooter } from './AuthFooter'
