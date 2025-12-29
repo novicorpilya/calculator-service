@@ -10,10 +10,14 @@ export interface AuthContextType {
     login: (credentials: LoginCredentials) => Promise<void>
     register: (credentials: RegisterCredentials) => Promise<void>
     logout: () => Promise<void>
+    resetPassword: (email: string) => Promise<void>
+    updatePassword: (password: string) => Promise<void>
     setIsAuthenticated: (value: boolean) => void
+    setIsRecoveryFlow: (value: boolean) => void
     error: string | null
     loading: boolean
     isInitializing: boolean
+    isRecoveryFlow: boolean
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
@@ -26,58 +30,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const [token, setToken] = React.useState<string | null>(null)
     const [error, setError] = React.useState<string | null>(null)
     const [loading, setLoading] = React.useState(false)
-    const [isInitializing, setIsInitializing] = React.useState(true) // Только для первого запуска
+    const [isInitializing, setIsInitializing] = React.useState(true)
+    const [isRecoveryFlow, setIsRecoveryFlow] = React.useState(false)
 
-    // Initialize auth state on mount
     React.useEffect(() => {
-        const initializeAuth = async () => {
+        let isMounted = true;
+
+        const checkRecovery = () => {
+            return window.location.hash.includes('type=recovery') ||
+                window.location.search.includes('type=recovery') ||
+                window.location.hash.includes('access_token');
+        };
+
+        const init = async () => {
             try {
-                // Get current session from Supabase
-                const { data } = await supabase.auth.getSession()
-                if (data.session) {
-                    setToken(data.session.access_token)
+                if (checkRecovery()) setIsRecoveryFlow(true);
+                const { data: { session } } = await supabase.auth.getSession()
+
+                if (session && isMounted) {
+                    setToken(session.access_token)
                     const userProfile = await authService.getCurrentUser()
-                    if (userProfile) {
+                    if (userProfile && isMounted) {
                         setUser(userProfile)
-                        setIsAuthenticated(true)
-                    } else {
-                        // Profile doesn't exist, logout
-                        await supabase.auth.signOut()
-                        setToken(null)
-                        setUser(null)
-                        setIsAuthenticated(false)
+                        if (!checkRecovery()) setIsAuthenticated(true)
                     }
                 }
             } catch (err) {
-                console.error('Failed to initialize auth:', err)
+                // Молчаливая обработка ошибок инициализации
             } finally {
-                setIsInitializing(false) // Инициализация завершена
+                if (isMounted) setIsInitializing(false)
             }
-        }
+        };
 
-        initializeAuth()
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!isMounted) return;
 
-        // Listen for auth changes
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
             if (session) {
                 setToken(session.access_token)
+                if (event === 'PASSWORD_RECOVERY') setIsRecoveryFlow(true)
 
-                // Если это восстановление сессии при загрузке или обновление токена - 
-                // устанавливаем авторизацию автоматически.
-                // При SIGNED_IN (новый вход) мы ждем ручного подтверждения через SuccessScreen.
-                if (event !== 'SIGNED_IN') {
-                    setIsAuthenticated(true)
+                if (session.user) {
+                    authService.getUserProfile(session.user.id).then(profile => {
+                        if (profile && isMounted) setUser(profile);
+                    }).catch(() => {
+                        // Молчаливая обработка фонового обновления
+                    });
                 }
             } else {
-                setToken(null)
-                setUser(null)
-                setIsAuthenticated(false)
+                if (event === 'SIGNED_OUT') {
+                    setToken(null)
+                    setUser(null)
+                    setIsAuthenticated(false)
+                    setIsRecoveryFlow(false)
+                }
             }
         })
 
-        return () => subscription.unsubscribe()
+        init();
+
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe()
+        }
     }, [])
 
     const login = async (credentials: LoginCredentials) => {
@@ -87,12 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const response = await authService.login(credentials)
             setToken(response.token)
             setUser(response.user)
-            // Мы НЕ устанавливаем isAuthenticated здесь, 
-            // чтобы LoginForm мог показать SuccessScreen.
-            // ScreenSuccess вызовет completeAuth или мы сделаем это сами позже.
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Login failed'
-            setError(message)
+            setIsAuthenticated(true)
+        } catch (err: any) {
+            setError(err.message)
             throw err
         } finally {
             setLoading(false)
@@ -106,15 +117,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const response = await authService.register(credentials)
             setToken(response.token)
             setUser(response.user)
-            // Мы НЕ устанавливаем isAuthenticated здесь, 
-            // чтобы показать SuccessScreen
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Registration failed'
-            setError(message)
+            setIsAuthenticated(true)
+        } catch (err: any) {
+            setError(err.message)
             throw err
         } finally {
             setLoading(false)
         }
+    }
+
+    const resetPassword = async (email: string) => {
+        setLoading(true)
+        setError(null)
+        try {
+            await authService.resetPassword(email)
+        } catch (err: any) {
+            setError(err.message)
+            throw err
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const updatePassword = async (password: string) => {
+        setError(null)
+        await authService.updatePassword(password)
     }
 
     const logout = async () => {
@@ -125,28 +152,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             setToken(null)
             setUser(null)
             setIsAuthenticated(false)
-            setError(null)
+            setIsRecoveryFlow(false)
             setLoading(false)
         }
     }
 
-    const value: AuthContextType = {
-        isAuthenticated,
-        user,
-        token,
-        login,
-        register,
-        logout,
-        setIsAuthenticated,
-        error,
-        loading,
-        isInitializing,
-    }
-
     return (
-        <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+        <AuthContext.Provider value={{
+            isAuthenticated,
+            user,
+            token,
+            login,
+            register,
+            logout,
+            resetPassword,
+            updatePassword,
+            setIsAuthenticated,
+            setIsRecoveryFlow,
+            error,
+            loading,
+            isInitializing,
+            isRecoveryFlow
+        }}>
+            {children}
+        </AuthContext.Provider>
     )
 }
 
-// Export context for use in hook
 export { AuthContext }

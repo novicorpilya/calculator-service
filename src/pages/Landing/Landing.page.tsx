@@ -14,7 +14,7 @@ export const Landing: React.FC<LandingProps> = ({ onStart }) => {
                     <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                         <div className="w-4 h-4 bg-white rounded-sm rotate-45" />
                     </div>
-                    <span>Horeca<span className="text-blue-600">Clean</span></span>
+                    <span className="text-2xl font-black text-gray-900">HICS</span>
                 </div>
                 <button
                     onClick={onStart}
@@ -126,7 +126,7 @@ export const Landing: React.FC<LandingProps> = ({ onStart }) => {
             </main>
 
             <footer className="w-full py-10 px-6 text-center text-gray-400 text-xs mt-auto border-t border-gray-50">
-                &copy; 2025 HorecaClean Inventory. Все права защищены.
+                &copy; 2025 HICS Inventory. Все права защищены.
             </footer>
         </div>
     )

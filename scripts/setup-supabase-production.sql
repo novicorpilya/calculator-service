@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   organization_name VARCHAR(255),
   phone VARCHAR(20),
   address TEXT,
-  role VARCHAR(50) DEFAULT 'manager' CHECK (role IN ('client', 'manager', 'admin')),
+  role VARCHAR(50) DEFAULT 'client' CHECK (role IN ('client', 'manager', 'admin')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

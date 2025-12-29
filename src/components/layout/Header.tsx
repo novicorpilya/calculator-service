@@ -1,6 +1,6 @@
 import React from 'react'
 import { LogOut, User } from 'lucide-react'
-import { useAuth } from '@/app/providers/useAuthHook'
+import { useAuth } from '@/features/auth'
 
 export const Header: React.FC = () => {
     const { user, logout } = useAuth()

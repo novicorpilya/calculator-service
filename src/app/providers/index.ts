@@ -1,1 +1,2 @@
-export { useAuth } from '@/app/providers/useAuthHook'
+export { AuthProvider } from './AuthProvider'
+export type { AuthContextType } from './AuthProvider'

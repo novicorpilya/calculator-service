@@ -1,71 +1,63 @@
+import React, { forwardRef } from 'react'
 
-
-import React from 'react'
-
-interface IconInputProps {
-    type?: string
-    placeholder?: string
-    value?: string
-    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
-    onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void
-    disabled?: boolean
-    className?: string
+interface IconInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     icon?: React.ReactNode
     rightIcon?: React.ReactNode
     onRightIconClick?: () => void
-    name?: string
-    required?: boolean
     error?: string
 }
 
-export const IconInput: React.FC<IconInputProps> = ({
+export const IconInput = forwardRef<HTMLInputElement, IconInputProps>(({
     type = 'text',
-    placeholder,
-    value,
-    onChange,
-    onBlur,
-    disabled = false,
     className = '',
     icon,
     rightIcon,
     onRightIconClick,
-    name,
-    required = false,
     error,
-}) => {
+    ...props
+}, ref) => {
     const hasError = !!error
-    const borderColor = hasError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-transparent focus:ring-blue-500'
-    
+
     return (
-        <div className="relative">
+        <div className="relative group w-full">
             {icon && (
-                <div className={`absolute left-3 top-3 w-5 h-5 flex-shrink-0 ${hasError ? 'text-red-400' : 'text-gray-400'}`}>
-                    {icon}
+                <div className={`absolute left-4 top-[14px] w-5 h-5 flex items-center justify-center transition-colors duration-200 z-10 pointer-events-none
+                    ${hasError ? 'text-red-500' : 'text-gray-400 group-focus-within:text-blue-500'}`}>
+                    {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { size: 20 }) : icon}
                 </div>
             )}
+
             <input
+                ref={ref}
                 type={type}
-                name={name}
-                placeholder={placeholder}
-                value={value}
-                onChange={onChange}
-                onBlur={onBlur}
-                disabled={disabled}
-                required={required}
-                className={`w-full ${icon ? 'pl-10' : 'pl-4'} ${rightIcon ? 'pr-10' : 'pr-4'} py-2.5 border ${borderColor} rounded-lg focus:ring-2 outline-none transition disabled:bg-gray-100 disabled:cursor-not-allowed ${hasError ? 'bg-red-50' : ''} ${className}`}
+                className={`w-full ${icon ? 'pl-12' : 'pl-4'} ${rightIcon ? 'pr-12' : 'pr-4'} py-3 
+                    bg-gray-50 border-2 rounded-xl outline-none transition-shadow duration-200 
+                    font-medium text-gray-900 placeholder:text-gray-400
+                    ${hasError
+                        ? 'border-red-200 focus:border-red-500 bg-red-50/30'
+                        : 'border-transparent focus:border-blue-500 bg-gray-50 focus:bg-white focus:shadow-sm'
+                    } ${className}`}
+                {...props}
             />
+
             {rightIcon && (
                 <button
                     type="button"
                     onClick={onRightIconClick}
-                    className={`absolute right-3 top-3 transition ${hasError ? 'text-red-400 hover:text-red-600' : 'text-gray-400 hover:text-gray-600'}`}
+                    className={`absolute right-4 top-[14px] w-5 h-5 flex items-center justify-center transition-colors z-10
+                        ${hasError ? 'text-red-400 hover:text-red-600' : 'text-gray-400 hover:text-blue-500'}`}
                 >
-                    {rightIcon}
+                    {React.isValidElement(rightIcon) ? React.cloneElement(rightIcon as React.ReactElement<any>, { size: 20 }) : rightIcon}
                 </button>
             )}
+
             {error && (
-                <p className="mt-1 text-sm text-red-600">{error}</p>
+                <p className="mt-1.5 ml-1 text-[10px] font-black text-red-500 uppercase tracking-widest animate-in fade-in slide-in-from-top-1">
+                    {error}
+                </p>
             )}
         </div>
     )
-}
+})
+
+IconInput.displayName = 'IconInput'

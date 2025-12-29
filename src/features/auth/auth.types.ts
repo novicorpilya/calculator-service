@@ -1,4 +1,5 @@
-// Auth types
+// Auth types matching our Middle+ Form requirements
+
 export interface User {
   id: string
   email: string
@@ -17,13 +18,15 @@ export interface AuthState {
 export interface LoginCredentials {
   email: string
   password: string
+  rememberMe?: boolean
 }
 
 export interface RegisterCredentials extends LoginCredentials {
-  confirmPassword: string
   organizationName: string
   phone: string
   address: string
+  agreeToTerms?: boolean
+  confirmPassword: string
 }
 
 export interface AuthError {

@@ -1,7 +1,4 @@
-
-
 import { createClient } from '@supabase/supabase-js'
-
 import { authStorage } from './storage'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -13,6 +10,10 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
+/**
+ * Инициализация клиента Supabase с кастомным хранилищем.
+ * Это позволяет динамически управлять сессией через localStorage/sessionStorage.
+ */
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     storage: authStorage,
@@ -22,5 +23,4 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 })
 
-// Export types
 export type { User } from '@supabase/supabase-js'

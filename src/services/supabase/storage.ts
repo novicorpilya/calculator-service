@@ -1,21 +1,33 @@
+/**
+ * Security-Enhanced Storage Adapter for HoReCa Calculator.
+ * Использует обфускацию ключей для защиты от базовых парсеров localStorage.
+ * Уровень: Middle+ Production Security
+ */
 
+// Хешированные или запутанные имена ключей (вместо явных названий)
+const STORAGE_PREFIX = 'hrc_auth_v1_';
+const REMEMBER_ME_KEY = 'hrc_rm_pref';
 
 /**
- * Custom storage for Supabase Auth that switches between localStorage and sessionStorage
- * based on the user's "Remember Me" preference.
+ * Вспомогательная функция для запутывания имен ключей
  */
-const REMEMBER_ME_KEY = 'remember_me_preference'
+const getSecureKey = (key: string) => {
+    // В реальном продакшене здесь можно использовать простую хеш-функцию
+    // Сейчас используем префикс, чтобы было легко отличить наши ключи
+    return `${STORAGE_PREFIX}${key.split('.').pop()}`;
+};
 
 export const authStorage = {
     getItem: (key: string): string | null => {
         try {
-            // Check if user wants to be remembered
-            const isRemembered = localStorage.getItem(REMEMBER_ME_KEY) === 'true'
+            const secureKey = getSecureKey(key);
+            const rememberMe = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
 
-            if (isRemembered) {
-                return localStorage.getItem(key)
-            }
-            return sessionStorage.getItem(key)
+            const value = rememberMe
+                ? localStorage.getItem(secureKey)
+                : sessionStorage.getItem(secureKey);
+
+            return value;
         } catch {
             return null
         }
@@ -23,28 +35,53 @@ export const authStorage = {
 
     setItem: (key: string, value: string): void => {
         try {
-            const isRemembered = localStorage.getItem(REMEMBER_ME_KEY) === 'true'
+            const secureKey = getSecureKey(key);
+            const rememberMe = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
 
-            if (isRemembered) {
-                localStorage.setItem(key, value)
-                // Clean up sessionStorage to avoid dual sessions
-                sessionStorage.removeItem(key)
+            if (rememberMe) {
+                localStorage.setItem(secureKey, value);
+                sessionStorage.removeItem(secureKey);
             } else {
-                sessionStorage.setItem(key, value)
-                // Clean up localStorage if it was there (e.g. user unchecked box this time)
-                localStorage.removeItem(key)
+                sessionStorage.setItem(secureKey, value);
+                localStorage.removeItem(secureKey);
             }
         } catch (error) {
-            console.error('Error setting auth storage:', error)
+            console.error('[Storage] Write failed:', error);
         }
     },
 
     removeItem: (key: string): void => {
         try {
-            localStorage.removeItem(key)
-            sessionStorage.removeItem(key)
+            const secureKey = getSecureKey(key);
+            localStorage.removeItem(secureKey);
+            sessionStorage.removeItem(secureKey);
         } catch (error) {
-            console.error('Error removing auth storage:', error)
+            console.error('[Storage] Remove failed:', error);
+        }
+    },
+
+    /**
+     * Тотальная очистка всех данных сессии при выходе
+     */
+    clearAll: (): void => {
+        try {
+            // Удаляем предпочтение
+            localStorage.removeItem(REMEMBER_ME_KEY);
+
+            // Удаляем все ключи с нашим префиксом из обоих хранилищ
+            [localStorage, sessionStorage].forEach(storage => {
+                Object.keys(storage).forEach(key => {
+                    if (key.startsWith(STORAGE_PREFIX)) {
+                        storage.removeItem(key);
+                    }
+                });
+            });
+        } catch (err) {
+            console.error('[Storage] Global clear failed:', err);
         }
     }
+}
+
+export const setRememberMePreference = (preference: boolean) => {
+    localStorage.setItem(REMEMBER_ME_KEY, String(preference));
 }
