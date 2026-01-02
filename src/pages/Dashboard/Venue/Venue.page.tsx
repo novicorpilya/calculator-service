@@ -5,7 +5,6 @@ import {
     Users,
     Maximize2,
     MapPin,
-    MoreVertical,
     Trash2,
     Edit2,
     UtensilsCrossed,

@@ -147,13 +147,14 @@ export const authService = {
   },
 
   updateProfile: async (userId: string, data: UpdateProfileData): Promise<User> => {
+    const updateObj: any = {};
+    if (data.organizationName !== undefined) updateObj.organization_name = data.organizationName;
+    if (data.phone !== undefined) updateObj.phone = data.phone;
+    if (data.address !== undefined) updateObj.address = data.address;
+
     const { error } = await supabase
       .from('profiles')
-      .update({
-        organization_name: data.organizationName,
-        phone: data.phone,
-        address: data.address,
-      })
+      .update(updateObj)
       .eq('id', userId)
 
     if (error) throw new Error(error.message)

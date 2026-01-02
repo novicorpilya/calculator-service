@@ -42,7 +42,7 @@ export interface AuthResponse {
 }
 
 export interface UpdateProfileData {
-  organizationName: string
-  phone: string
-  address: string
+  organizationName?: string
+  phone?: string
+  address?: string
 }
