@@ -1,7 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Landing } from '@/pages/Landing/Landing.page'
-import { ClientDashboard, ManagerDashboard } from '@/pages/Dashboard'
+import { ClientDashboard, ManagerDashboard, AdminDashboard } from '@/pages/Dashboard'
 import { HoRecaAuth, useAuth } from '@/features/auth'
 import { ProtectedRoute } from './ProtectedRoute'
 import { PublicRoute } from './PublicRoute'
@@ -42,9 +42,11 @@ export const AppRoutes: React.FC = () => {
                 <Route
                     path={ROUTES.DASHBOARD.ROOT}
                     element={
-                        user?.role === 'manager'
-                            ? <Navigate to={ROUTES.DASHBOARD.MANAGER} replace />
-                            : <Navigate to={ROUTES.DASHBOARD.CLIENT} replace />
+                        user?.role === 'admin'
+                            ? <Navigate to={ROUTES.DASHBOARD.ADMIN} replace />
+                            : user?.role === 'manager'
+                                ? <Navigate to={ROUTES.DASHBOARD.MANAGER} replace />
+                                : <Navigate to={ROUTES.DASHBOARD.CLIENT} replace />
                     }
                 />
 
@@ -54,6 +56,10 @@ export const AppRoutes: React.FC = () => {
 
                 <Route element={<ProtectedRoute allowedRoles={['client']} />}>
                     <Route path={ROUTES.DASHBOARD.CLIENT} element={<ClientDashboard />} />
+                </Route>
+
+                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                    <Route path={ROUTES.DASHBOARD.ADMIN} element={<AdminDashboard />} />
                 </Route>
             </Route>
 

@@ -16,7 +16,7 @@ export const registerSchema = z.object({
         .regex(/[A-ZА-Я]/, 'Нужна хотя бы одна заглавная буква')
         .regex(/[a-zа-я]/, 'Нужна хотя бы одна строчная буква')
         .regex(/[0-9]/, 'Нужна хотя бы одна цифра')
-        .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Нужен спецсимвол'),
+        .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, 'Нужен спецсимвол'),
     confirmPassword: z.string(),
     agreeToTerms: z.boolean().refine(val => val === true, 'Необходимо согласие'),
 }).refine(data => data.password === data.confirmPassword, {
@@ -34,7 +34,7 @@ export const resetPasswordSchema = z.object({
         .regex(/[A-ZА-Я]/, 'Нужна хотя бы одна заглавная буква')
         .regex(/[a-zа-я]/, 'Нужна хотя бы одна строчная буква')
         .regex(/[0-9]/, 'Нужна хотя бы одна цифра')
-        .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Нужен спецсимвол'),
+        .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, 'Нужен спецсимвол'),
     confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
     message: 'Пароли не совпадают',

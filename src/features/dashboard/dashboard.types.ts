@@ -1,3 +1,6 @@
+/**
+ * Current lifecycle stage of a calculation project.
+ */
 export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'approved';
 
 export interface Comment {
@@ -8,8 +11,11 @@ export interface Comment {
 
 export type InteractionType = 'created' | 'submitted' | 'comment' | 'revision' | 'approved';
 
+/**
+ * Represents a single interaction/event in the project history trail.
+ */
 export interface Interaction {
-    id: number;
+    id: number | string;
     type: InteractionType;
     user: string;
     timestamp: string;
@@ -19,10 +25,26 @@ export interface Interaction {
 }
 
 export const OBJECT_TYPES = [
-    { value: 'restaurant', label: 'Ресторан' },
-    { value: 'cafe', label: 'Кофейня' },
-    { value: 'bar', label: 'Бар' },
-    { value: 'hostel', label: 'Хостел' }
+    { value: 'hotel', label: '🏨 Отель' },
+    { value: 'restaurant', label: '🍽️ Кафе/Ресторан' },
+    { value: 'production_food', label: '🏭 Производство (пищевое)' },
+    { value: 'production_nonfood', label: '⚙️ Производство (непищевое)' },
+    { value: 'beauty', label: '💅 Салон красоты' },
+    { value: 'mall', label: '🏬 ТЦ/Общественное пространство' },
+    { value: 'other', label: '📍 Другое' }
+];
+
+export const SANITARY_LEVELS = [
+    { value: 'low', label: 'Низкий (офис, магазин)', coeff: 1.0 },
+    { value: 'medium', label: 'Средний (кафе, ресторан)', coeff: 1.3 },
+    { value: 'high', label: 'Высокий (пищевое производство)', coeff: 1.8 },
+    { value: 'sterile', label: 'Стерильный (клиника, аптека)', coeff: 2.5 }
+];
+
+export const REPLACEMENT_CYCLES = [
+    { value: 'daily', label: 'Ежедневно', coeff: 1.0 },
+    { value: 'weekly', label: 'Еженедельно', coeff: 0.3 },
+    { value: 'monthly', label: 'Ежемесячно', coeff: 0.1 }
 ];
 
 export interface InventoryItem {
@@ -31,11 +53,17 @@ export interface InventoryItem {
     quantity: number;
     price: number;
     total: number;
+    norms?: {
+        area: number;
+        personnel: number;
+        intensity: number;
+    };
 }
 
 export interface ZoneResult {
     zoneName: string;
     area: string;
+    type: string;
     color: string;
     items: InventoryItem[];
 }
@@ -45,28 +73,39 @@ export interface CalculationResults {
     summary: InventoryItem[];
 }
 
+/**
+ * Main project entity containing all research parameters and results.
+ */
 export interface Calculation {
-    id: number;
+    id: number | string;
     organizationName: string;
     type?: string;
     status: CalculationStatus;
     zones: string[];
+    zoneDetails?: Zone[]; // Source of truth for editing
     totalArea: number;
     zonesCount: number;
+    staffCount: number;
+    dailyVisitors: number;
+    sanitaryLevel: string;
+    replacementCycle: string;
     createdDate: string;
     manager: string;
     comments: Comment[];
     unreadComments: number;
     totalCost?: number;
+    user_id?: string;
+    manager_id?: string;
     results: CalculationResults | null;
     history?: Interaction[];
 }
 
 export interface Zone {
-    id: number;
+    id: number | string;
     name: string;
     type: string;
     area: string;
+    staffCount: string;
     color: string;
 }
 
@@ -86,12 +125,4 @@ export const ZONE_TYPES = [
     { value: 'service', label: 'Служебная', color: '#6b7280' }
 ];
 
-export const INVENTORY_ITEMS = [
-    { id: 1, name: 'Швабры', color: '#ef4444', price: 500, norms: { kitchen: 15, hall: 25, bar: 20, bathroom: 10, storage: 30, service: 25 } },
-    { id: 2, name: 'Швабры', color: '#3b82f6', price: 500, norms: { kitchen: 15, hall: 25, bar: 20, bathroom: 10, storage: 30, service: 25 } },
-    { id: 3, name: 'Швабры', color: '#22c55e', price: 500, norms: { kitchen: 15, hall: 25, bar: 20, bathroom: 10, storage: 30, service: 25 } },
-    { id: 4, name: 'Тряпки', color: '#ef4444', price: 35, norms: { kitchen: 40, hall: 60, bar: 50, bathroom: 30, storage: 80, service: 60 } },
-    { id: 5, name: 'Тряпки', color: '#3b82f6', price: 35, norms: { kitchen: 40, hall: 60, bar: 50, bathroom: 30, storage: 80, service: 60 } },
-    { id: 6, name: 'Ведра', color: '#ef4444', price: 280, norms: { kitchen: 50, hall: 80, bar: 60, bathroom: 40, storage: 100, service: 80 } },
-    { id: 7, name: 'Ведра', color: '#3b82f6', price: 280, norms: { kitchen: 50, hall: 80, bar: 60, bathroom: 40, storage: 100, service: 80 } },
-];
+

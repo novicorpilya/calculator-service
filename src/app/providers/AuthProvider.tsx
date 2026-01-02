@@ -12,6 +12,7 @@ export interface AuthContextType {
     logout: () => Promise<void>
     resetPassword: (email: string) => Promise<void>
     updatePassword: (password: string) => Promise<void>
+    updateProfile: (updates: Partial<User>) => Promise<void>
     setIsAuthenticated: (value: boolean) => void
     setIsRecoveryFlow: (value: boolean) => void
     error: string | null
@@ -55,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                         if (!checkRecovery()) setIsAuthenticated(true)
                     }
                 }
-            } catch (err) {
+            } catch {
                 // Молчаливая обработка ошибок инициализации
             } finally {
                 if (isMounted) setIsInitializing(false)
@@ -102,8 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             setToken(response.token)
             setUser(response.user)
             setIsAuthenticated(true)
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            setError(message)
             throw err
         } finally {
             setLoading(false)
@@ -118,8 +120,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             setToken(response.token)
             setUser(response.user)
             setIsAuthenticated(true)
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            setError(message)
             throw err
         } finally {
             setLoading(false)
@@ -131,8 +134,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setError(null)
         try {
             await authService.resetPassword(email)
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            setError(message)
             throw err
         } finally {
             setLoading(false)
@@ -142,6 +146,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const updatePassword = async (password: string) => {
         setError(null)
         await authService.updatePassword(password)
+    }
+
+    const updateProfile = async (updates: Partial<User>) => {
+        if (!user) return
+        setLoading(true)
+        setError(null)
+        try {
+            const updatedUser = await authService.updateProfile(user.id, updates)
+            if (updatedUser) setUser(updatedUser)
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            setError(message)
+            throw err
+        } finally {
+            setLoading(false)
+        }
     }
 
     const logout = async () => {
@@ -167,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             logout,
             resetPassword,
             updatePassword,
+            updateProfile,
             setIsAuthenticated,
             setIsRecoveryFlow,
             error,

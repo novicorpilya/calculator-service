@@ -10,6 +10,7 @@ export const ROUTES = {
         ROOT: '/dashboard',
         MANAGER: '/dashboard/manager',
         CLIENT: '/dashboard/client',
+        ADMIN: '/dashboard/admin',
     },
 } as const;
 

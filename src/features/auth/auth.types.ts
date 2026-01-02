@@ -27,10 +27,22 @@ export interface RegisterCredentials extends LoginCredentials {
   address: string
   agreeToTerms?: boolean
   confirmPassword: string
+  inviteToken?: string
 }
 
 export interface AuthError {
   message: string
   code?: string
   field?: string
+}
+
+export interface AuthResponse {
+  user: User
+  token: string
+}
+
+export interface UpdateProfileData {
+  organizationName: string
+  phone: string
+  address: string
 }

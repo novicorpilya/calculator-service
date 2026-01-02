@@ -1,6 +1,5 @@
 import React from 'react'
 import { CheckCircle2, ArrowRight, MailCheck, PartyPopper } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 
 interface SuccessViewProps {
     type: 'registration' | 'login' | 'reset-request' | 'reset-complete'
@@ -10,53 +9,53 @@ interface SuccessViewProps {
 export const SuccessView: React.FC<SuccessViewProps> = ({ type, onContinue }) => {
     const content = {
         registration: {
-            icon: <PartyPopper className="w-16 h-16 text-blue-600" />,
-            title: "Добро пожаловать!",
-            description: "Ваша организация успешно зарегистрирована. Мы подготовили рабочее пространство."
+            icon: <PartyPopper className="w-16 h-16 text-blue-500" />,
+            title: "Успех!",
+            description: "Ваша организация зарегистрирована. Мы подготовили рабочее пространство."
         },
         login: {
-            icon: <CheckCircle2 className="w-16 h-16 text-green-500" />,
+            icon: <CheckCircle2 className="w-16 h-16 text-emerald-500" />,
             title: "С возвращением!",
-            description: "Вы успешно авторизованы. Переходим в личный кабинет для продолжения работы."
+            description: "Вы успешно авторизованы. Переходим в личный кабинет."
         },
         'reset-request': {
-            icon: <MailCheck className="w-16 h-16 text-blue-500" />,
+            icon: <MailCheck className="w-16 h-16 text-blue-400" />,
             title: "Письмо в пути",
-            description: "Проверьте ваш почтовый ящик. Мы отправили ссылку для безопасного сброса пароля."
+            description: "Мы отправили инструкции по сбросу пароля на вашу почту."
         },
         'reset-complete': {
-            icon: <CheckCircle2 className="w-16 h-16 text-green-500" />,
-            title: "Доступ восстановлен",
-            description: "Ваш новый пароль успешно сохранен. Теперь вы можете войти в систему."
+            icon: <CheckCircle2 className="w-16 h-16 text-emerald-500" />,
+            title: "Готово",
+            description: "Ваш новый пароль успешно сохранен. Можете войти в систему."
         }
     }[type]
 
     return (
-        <div className="text-center py-4 animate-in fade-in zoom-in duration-300">
-            <div className="flex justify-center mb-8 relative">
-                <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full scale-150" />
-                <div className="relative animate-bounce-slow">
-                    {content.icon}
+        <div className="text-center py-6 animate-in fade-in zoom-in-95 duration-500">
+            <div className="flex justify-center mb-10 relative">
+                <div className="absolute inset-0 bg-primary/20 blur-[60px] rounded-full scale-150 transform -translate-y-4 opacity-50 dark:opacity-100" />
+                <div className="relative group">
+                    <div className="w-24 h-24 bg-card backdrop-blur-xl border border-border-theme rounded-[2.5rem] flex items-center justify-center shadow-2xl">
+                        {content.icon}
+                    </div>
                 </div>
             </div>
 
-            <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">
+            <h2 className="text-3xl font-black text-foreground mb-4 tracking-tighter">
                 {content.title}
             </h2>
 
-            <p className="text-gray-500 mb-10 leading-relaxed font-medium">
+            <p className="text-foreground/50 mb-12 leading-relaxed font-black uppercase text-[10px] tracking-widest max-w-[280px] mx-auto">
                 {content.description}
             </p>
 
-            <Button
+            <button
                 onClick={onContinue}
-                className="w-full group"
+                className="btn-premium w-full !text-[12px] py-6"
             >
-                <div className="flex items-center justify-center gap-2">
-                    <span>Перейти далее</span>
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </div>
-            </Button>
+                <span className="relative z-10">Продолжить работу</span>
+                <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />
+            </button>
         </div>
     )
 }

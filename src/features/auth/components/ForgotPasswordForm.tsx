@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Mail, ArrowLeft, Send } from 'lucide-react'
 import { IconInput } from '@/components/ui/IconInput'
-import { Button } from '@/components/ui/Button'
 import { forgotPasswordSchema } from '@/features/auth/auth.validation'
 import type { ForgotPasswordFormValues } from '@/features/auth/auth.form.types'
 
@@ -34,41 +33,37 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
             <button
                 type="button"
                 onClick={onBackToLogin}
-                className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors group text-sm font-bold uppercase tracking-wider"
+                className="flex items-center gap-2 text-foreground/40 hover:text-primary transition-all group text-[10px] font-black uppercase tracking-[0.2em]"
             >
                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                Назад
+                Назад ко входу
             </button>
 
             {serverError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-red-700 text-sm font-medium">{serverError}</p>
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">{serverError}</p>
                 </div>
             )}
 
-            <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-gray-700 ml-1">Email</label>
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Email</label>
                 <IconInput
                     {...register('email')}
                     type="email"
                     placeholder="manager@restaurant.com"
-                    icon={<Mail className="w-5 h-5" />}
+                    icon={<Mail />}
                     error={errors.email?.message}
                 />
             </div>
 
-            <Button
+            <button
                 type="submit"
                 disabled={loading || !isValid}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-blue-200"
+                className="btn-premium w-full !text-[12px] py-6"
             >
-                {loading ? 'Отправка...' : (
-                    <div className="flex items-center justify-center gap-2">
-                        <span>Отправить инструкцию</span>
-                        <Send className="w-4 h-4" />
-                    </div>
-                )}
-            </Button>
+                <span className="relative z-10">{loading ? 'Отправка...' : 'Отправить инструкцию'}</span>
+                {!loading && <Send className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />}
+            </button>
         </form>
     )
 }

@@ -1,8 +1,10 @@
 /**
  * Переводит технические сообщения об ошибках от Supabase на русский язык
  */
-export const translateAuthError = (message: any): string => {
-    if (!message || typeof message !== 'string') {
+export const translateAuthError = (error: unknown): string => {
+    const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+
+    if (!message) {
         return 'Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.'
     }
 

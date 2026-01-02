@@ -1,9 +1,8 @@
 import React from 'react'
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { IconInput } from '@/components/ui/IconInput'
-import { Button } from '@/components/ui/Button'
 import { loginSchema } from '@/features/auth/auth.validation'
 import type { LoginFormValues } from '@/features/auth/auth.form.types'
 
@@ -43,48 +42,62 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     }
 
     return (
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
             {serverError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl animate-in fade-in slide-in-from-top-2">
-                    <p className="text-red-700 text-sm font-medium">{serverError}</p>
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">{serverError}</p>
                 </div>
             )}
 
-            <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-gray-700 ml-1">Email</label>
-                <IconInput
-                    {...register('email')}
-                    type="email"
-                    placeholder="manager@restaurant.com"
-                    icon={<Mail className="w-5 h-5" />}
-                    error={errors.email?.message}
-                />
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Email</label>
+                    <IconInput
+                        {...register('email')}
+                        type="email"
+                        placeholder="manager@restaurant.com"
+                        icon={<Mail />}
+                        error={errors.email?.message}
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Пароль</label>
+                        <button
+                            type="button"
+                            onClick={onForgotPassword}
+                            className="text-[10px] font-black text-primary hover:opacity-80 uppercase tracking-widest transition-opacity"
+                        >
+                            Забыли?
+                        </button>
+                    </div>
+                    <IconInput
+                        {...register('password')}
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        icon={<Lock />}
+                        rightIcon={showPassword ? <EyeOff /> : <Eye />}
+                        onRightIconClick={() => setShowPassword(!showPassword)}
+                        error={errors.password?.message}
+                    />
+                </div>
             </div>
 
-            <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-gray-700 ml-1">Пароль</label>
-                <IconInput
-                    {...register('password')}
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    icon={<Lock className="w-5 h-5" />}
-                    rightIcon={showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    onRightIconClick={() => setShowPassword(!showPassword)}
-                    error={errors.password?.message}
-                />
-            </div>
-
-            <div className="flex items-center justify-between py-1 ml-1">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between py-1 px-1">
+                <div className="flex items-center gap-3 group cursor-pointer" onClick={() => {
+                    const el = document.getElementById('rememberMe') as HTMLInputElement;
+                    if (el) el.click();
+                }}>
                     <div className="relative flex items-center">
                         <input
                             {...register('rememberMe')}
                             type="checkbox"
                             id="rememberMe"
-                            className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-gray-300 transition-all checked:bg-blue-600 checked:border-blue-600 hover:border-blue-400 focus:outline-none"
+                            className="peer h-5 w-5 cursor-pointer appearance-none rounded-lg border border-border-theme bg-card transition-all checked:bg-primary checked:border-primary hover:border-primary/50 focus:outline-none"
                         />
                         <svg
-                            className="absolute h-3.5 w-3.5 opacity-0 peer-checked:opacity-100 pointer-events-none left-0.5 text-white transition-opacity"
+                            className="absolute h-3 w-3 opacity-0 peer-checked:opacity-100 pointer-events-none left-1 text-white transition-opacity"
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 24 24"
                             fill="none"
@@ -97,39 +110,31 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                         </svg>
                     </div>
                     <label
-                        htmlFor="rememberMe"
-                        className="text-sm font-medium text-gray-600 cursor-pointer select-none"
+                        className="text-[10px] font-black text-foreground/40 uppercase tracking-widest cursor-pointer group-hover:text-foreground/60 transition-colors"
                     >
                         Запомнить меня
                     </label>
                 </div>
-
-                <button
-                    type="button"
-                    onClick={onForgotPassword}
-                    className="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline tracking-tight"
-                >
-                    Забыли пароль?
-                </button>
             </div>
 
-            <Button
+            <button
                 type="submit"
                 disabled={loading || !isValid}
-                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-blue-200 disabled:opacity-50"
+                className="btn-premium w-full !text-[12px] py-6"
             >
-                {loading ? 'Вход...' : 'Войти в систему'}
-            </Button>
+                <span className="relative z-10">{loading ? 'Вход...' : 'Войти в систему'}</span>
+                {!loading && <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />}
+            </button>
 
-            <div className="pt-4 text-center">
-                <p className="text-sm text-gray-500 font-medium">
+            <div className="pt-6 text-center border-t border-border-theme">
+                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
                     Нет аккаунта?{' '}
                     <button
                         type="button"
                         onClick={onSwitchToRegister}
-                        className="text-blue-600 hover:text-blue-700 font-black uppercase tracking-wider text-xs"
+                        className="text-primary hover:opacity-80 transition-opacity ml-1 font-black"
                     >
-                        Зарегистрироваться
+                        Создать аккаунт
                     </button>
                 </p>
             </div>

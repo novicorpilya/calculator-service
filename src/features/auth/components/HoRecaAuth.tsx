@@ -17,6 +17,8 @@ import type {
 import { translateAuthError } from '@/utils/errorTranslations'
 import { ROUTES } from '@/app/routes/routes.constants'
 import { setRememberMePreference } from '@/services/supabase/storage'
+import { authService } from '@/features/auth/auth.service'
+import { toast } from 'sonner'
 
 interface HoRecaAuthProps {
     initialMode?: AuthMode
@@ -29,6 +31,7 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
     const [mode, setMode] = React.useState<AuthMode>(initialMode)
     const [loading, setLoading] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
+    const [invitationData, setInvitationData] = React.useState<{ email: string, role: string } | null>(null)
 
     React.useEffect(() => {
         setMode(initialMode)
@@ -38,6 +41,28 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
     React.useEffect(() => {
         setLoading(false)
         setError(null)
+    }, [mode])
+
+    React.useEffect(() => {
+        const checkInvite = async () => {
+            const params = new URLSearchParams(window.location.search)
+            const token = params.get('invite')
+
+            if (token && mode === 'register') {
+                try {
+                    const data = await authService.getInvitationByToken(token)
+                    if (data) {
+                        setInvitationData(data)
+                        toast.success(`Приглашение подтверждено`, {
+                            description: `Вы регистрируетесь как ${data.role === 'admin' ? 'Администратор' : data.role === 'manager' ? 'Менеджер' : 'Клиент'}`
+                        })
+                    }
+                } catch (e) {
+                    console.error('Invite check failed', e)
+                }
+            }
+        }
+        checkInvite()
     }, [mode])
 
     const clearHash = () => {
@@ -54,8 +79,8 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
             await updatePassword(values.password)
             setMode('reset-success')
             clearHash()
-        } catch (err: any) {
-            setError(translateAuthError(err.message))
+        } catch (err: unknown) {
+            setError(translateAuthError(err))
             setLoading(false)
         }
     }
@@ -103,14 +128,19 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
             case 'register':
                 return (
                     <RegisterForm
+                        initialData={invitationData ? { email: invitationData.email } : undefined}
                         onSubmit={async (v: RegisterFormValues) => {
                             setLoading(true)
                             setError(null)
                             try {
-                                await register(v)
+                                // Извлекаем токен из URL перед отправкой
+                                const params = new URLSearchParams(window.location.search)
+                                const inviteToken = params.get('invite') || undefined
+
+                                await register({ ...v, inviteToken })
                                 setMode('success-register')
-                            } catch (e: any) {
-                                setError(translateAuthError(e.message))
+                            } catch (e: unknown) {
+                                setError(translateAuthError(e))
                                 setLoading(false)
                             }
                         }}
@@ -128,8 +158,8 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
                             try {
                                 await resetPassword(v.email)
                                 setMode('forgot-success')
-                            } catch (e: any) {
-                                setError(translateAuthError(e.message))
+                            } catch (e: unknown) {
+                                setError(translateAuthError(e))
                                 setLoading(false)
                             }
                         }}
@@ -156,8 +186,8 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
                                 setRememberMePreference(!!v.rememberMe)
                                 await login(v)
                                 setMode('success-login')
-                            } catch (e: any) {
-                                setError(translateAuthError(e.message))
+                            } catch (e: unknown) {
+                                setError(translateAuthError(e))
                                 setLoading(false)
                             }
                         }}

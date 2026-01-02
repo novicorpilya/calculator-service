@@ -1,9 +1,8 @@
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Building2, MapPin, Phone, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Building2, MapPin, Phone, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { IconInput } from '@/components/ui/IconInput'
-import { Button } from '@/components/ui/Button'
 import { registerSchema } from '@/features/auth/auth.validation'
 import type { RegisterFormValues } from '@/features/auth/auth.form.types'
 
@@ -12,13 +11,15 @@ interface RegisterFormProps {
     onSwitchToLogin: () => void
     loading: boolean
     serverError?: string | null
+    initialData?: Partial<RegisterFormValues>
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({
     onSubmit,
     onSwitchToLogin,
     loading,
-    serverError
+    serverError,
+    initialData
 }) => {
     const [showPassword, setShowPassword] = React.useState(false)
 
@@ -26,126 +27,134 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         register,
         handleSubmit,
         setValue,
+        reset,
         formState: { errors, isValid }
     } = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         mode: 'onBlur',
         defaultValues: {
-            agreeToTerms: true
+            agreeToTerms: true,
+            ...initialData
         }
     })
 
-    /**
-     * Обработчик для телефона: разрешает только цифры
-     */
+    // Middle+ UX: Сбрасываем форму, когда прилетают данные инвайта
+    React.useEffect(() => {
+        if (initialData) {
+            reset({
+                ...initialData,
+                agreeToTerms: true
+            })
+        }
+    }, [initialData, reset])
+
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value.replace(/\D/g, '') // Удаляем всё, кроме цифр
+        const value = e.target.value.replace(/\D/g, '')
         setValue('phone', value, { shouldValidate: true })
     }
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {serverError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl animate-in fade-in slide-in-from-top-2">
-                    <p className="text-red-700 text-sm font-medium">{serverError}</p>
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">{serverError}</p>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700 ml-1">Организация</label>
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Организация</label>
                     <IconInput
                         {...register('organizationName')}
                         placeholder="ООО Ромашка"
-                        icon={<Building2 className="w-5 h-5" />}
+                        icon={<Building2 />}
                         error={errors.organizationName?.message}
                     />
                 </div>
 
-                <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700 ml-1">Телефон</label>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Телефон</label>
                     <IconInput
                         {...register('phone')}
                         placeholder="79991234567"
-                        icon={<Phone className="w-5 h-5" />}
+                        icon={<Phone />}
                         error={errors.phone?.message}
-                        onChange={handlePhoneChange} // Фильтрация ввода
+                        onChange={handlePhoneChange}
                     />
                 </div>
-            </div>
 
-            <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-gray-700 ml-1">Адрес</label>
-                <IconInput
-                    {...register('address')}
-                    placeholder="г. Москва, ул. Примерная, д. 1"
-                    icon={<MapPin className="w-5 h-5" />}
-                    error={errors.address?.message}
-                />
-            </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Адрес</label>
+                    <IconInput
+                        {...register('address')}
+                        placeholder="г. Москва, ул. Примерная, д. 1"
+                        icon={<MapPin />}
+                        error={errors.address?.message}
+                    />
+                </div>
 
-            <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-gray-700 ml-1">Email</label>
-                <IconInput
-                    {...register('email')}
-                    type="email"
-                    placeholder="info@restaurant.com"
-                    icon={<Mail className="w-5 h-5" />}
-                    error={errors.email?.message}
-                />
-            </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Email</label>
+                    <IconInput
+                        {...register('email')}
+                        type="email"
+                        placeholder="info@restaurant.com"
+                        icon={<Mail />}
+                        error={errors.email?.message}
+                        disabled={!!initialData?.email}
+                    />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700 ml-1">Пароль</label>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Пароль</label>
                     <IconInput
                         {...register('password')}
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
-                        icon={<Lock className="w-5 h-5" />}
-                        rightIcon={showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        icon={<Lock />}
+                        rightIcon={showPassword ? <EyeOff /> : <Eye />}
                         onRightIconClick={() => setShowPassword(!showPassword)}
                         error={errors.password?.message}
                     />
                 </div>
 
-                <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700 ml-1">Повтор</label>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Повтор</label>
                     <IconInput
                         {...register('confirmPassword')}
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
-                        icon={<Lock className="w-5 h-5" />}
+                        icon={<Lock />}
                         error={errors.confirmPassword?.message}
                     />
                 </div>
             </div>
 
-            <div className="py-2 ml-1">
-                <p className="text-xs text-gray-500">
-                    При нажатии на «Зарегистрироваться», вы соглашаетесь с нашей{' '}
-                    <a href="#" className="font-medium text-blue-600 hover:text-blue-700 hover:underline">
+            <div className="py-2 px-1">
+                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest leading-loose">
+                    Нажимая кнопку, вы соглашаетесь с{' '}
+                    <a href="#" className="text-primary hover:opacity-80 transition-opacity font-black">
                         политикой конфиденциальности
                     </a>
-                    .
                 </p>
             </div>
 
-            <Button
+            <button
                 type="submit"
-                disabled={loading || !isValid} // Кнопка активна СРАЗУ при валидности
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-blue-200 disabled:opacity-50"
+                disabled={loading || !isValid}
+                className="btn-premium w-full py-5 text-[11px] sm:text-[12px]"
             >
-                {loading ? 'Создание...' : 'Зарегистрироваться'}
-            </Button>
+                <span className="relative z-10">{loading ? 'Создание...' : 'Зарегистрироваться'}</span>
+                {!loading && <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1 shrink-0" />}
+            </button>
 
-            <div className="pt-2 text-center">
-                <p className="text-sm text-gray-500 font-medium">
+            <div className="pt-2 text-center border-t border-border-theme pt-6">
+                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
                     Уже есть аккаунт?{' '}
                     <button
                         type="button"
                         onClick={onSwitchToLogin}
-                        className="text-blue-600 hover:text-blue-700 font-black uppercase tracking-wider text-xs"
+                        className="text-primary hover:opacity-80 transition-opacity ml-1 font-black"
                     >
                         Войти
                     </button>
