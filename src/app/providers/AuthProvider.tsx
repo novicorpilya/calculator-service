@@ -1,7 +1,7 @@
 import React from 'react'
 import { supabase } from '@/services/supabase'
 import { authService } from '@/features/auth/auth.service'
-import type { User, LoginCredentials, RegisterCredentials } from '@/features/auth/auth.types'
+import type { User, LoginCredentials, RegisterCredentials, UpdateProfileData } from '@/features/auth/auth.types'
 
 export interface AuthContextType {
     isAuthenticated: boolean
@@ -12,7 +12,7 @@ export interface AuthContextType {
     logout: () => Promise<void>
     resetPassword: (email: string) => Promise<void>
     updatePassword: (password: string) => Promise<void>
-    updateProfile: (updates: Partial<User>) => Promise<void>
+    updateProfile: (updates: UpdateProfileData) => Promise<void>
     setIsAuthenticated: (value: boolean) => void
     setIsRecoveryFlow: (value: boolean) => void
     error: string | null
@@ -148,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         await authService.updatePassword(password)
     }
 
-    const updateProfile = async (updates: Partial<User>) => {
+    const updateProfile = async (updates: UpdateProfileData) => {
         if (!user) return
         setLoading(true)
         setError(null)
