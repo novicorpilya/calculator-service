@@ -28,8 +28,9 @@ export const emailService = {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to send email');
 
-        } catch (error: any) {
-            if (error.message === 'API_NOT_FOUND_LOCAL' || error.name === 'TypeError') {
+        } catch (error: unknown) {
+            const errMessage = error instanceof Error ? error.message : String(error);
+            if (errMessage === 'API_NOT_FOUND_LOCAL' || (error instanceof TypeError)) {
                 this.logDevEmail(email, role, inviteLink);
                 return { success: true, mode: 'development-mock' };
             }

@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import {
     ChevronLeft, Download, Send, Calendar, MapPin, Boxes,
     MessageCircle, FileText, ArrowRight, Wallet, Layout,
-    RotateCcw, Trash2, AlertTriangle, Pencil, Briefcase
+    RotateCcw, Trash2, AlertTriangle, Pencil, Briefcase, Paperclip
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { type Calculation, type CalculationStatus } from '../../dashboard.types';
 import { chatService, type Message } from '@/services/chat.service';
 import { toast } from 'sonner';
+import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 
 import { useAuth } from '@/features/auth';
 
@@ -53,6 +54,8 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
     const { user } = useAuth();
 
     React.useEffect(() => {
@@ -110,6 +113,36 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 
     const handleReject = () => {
         onUpdateStatus(calculation.id, 'changes');
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        const receiverId = user?.role === 'manager' ? calculation.user_id : calculation.manager_id;
+
+        if (!file || !user || !receiverId) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Допускаются только изображения');
+            return;
+        }
+
+        const toastId = toast.loading('Загрузка изображения...');
+
+        try {
+            const imageUrl = await chatService.uploadAttachment(file);
+            await chatService.sendMessage({
+                sender_id: user.id,
+                receiver_id: receiverId,
+                calculation_id: String(calculation.id),
+                content: 'Изображение',
+                image_url: imageUrl
+            });
+            toast.success('Изображение отправлено', { id: toastId });
+        } catch (error) {
+            toast.error('Ошибка загрузки', { id: toastId });
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     return (
@@ -390,6 +423,16 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
+                                            {msg.image_url && (
+                                                <div className="mb-3 rounded-xl overflow-hidden border border-white/10">
+                                                    <img
+                                                        src={msg.image_url}
+                                                        alt="Attachment"
+                                                        className="max-w-full h-auto object-cover hover:opacity-80 transition-opacity cursor-pointer"
+                                                        onClick={() => setPreviewImage(msg.image_url!)}
+                                                    />
+                                                </div>
+                                            )}
                                             {msg.content}
                                         </div>
                                     </div>
@@ -423,24 +466,50 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             className="relative pt-8 border-t border-border-theme"
                         >
                             <input
-                                type="text"
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
-                                className={`input-premium !py-5 !pr-16 ${!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                placeholder={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id) ? 'Ожидание назначения...' : 'Введите сообщение...'}
-                                disabled={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id)}
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleFileSelect}
                             />
-                            <button
-                                type="submit"
-                                disabled={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id)}
-                                className="absolute right-2.5 top-[calc(2rem-2px)] mt-2.5 w-11 h-11 bg-primary text-white rounded-[1.125rem] shadow-xl shadow-primary/20 flex items-center justify-center hover:scale-105 active:scale-90 transition-all disabled:opacity-50 disabled:scale-100"
-                            >
-                                <ArrowRight className="w-6 h-6" />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    disabled={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id)}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-4 bg-card border border-border-theme text-foreground/40 hover:text-primary transition-all rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
+                                >
+                                    <Paperclip size={20} />
+                                </button>
+                                <div className="flex-1 relative">
+                                    <input
+                                        type="text"
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        className={`input-premium !py-5 !pr-16 ${!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        placeholder={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id) ? 'Ожидание назначения...' : 'Введите сообщение...'}
+                                        disabled={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id)}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!(user?.role === 'manager' ? calculation.user_id : calculation.manager_id)}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-11 h-11 bg-primary text-white rounded-[1.125rem] shadow-xl shadow-primary/20 flex items-center justify-center hover:scale-105 active:scale-90 transition-all disabled:opacity-50 disabled:scale-100"
+                                    >
+                                        <ArrowRight className="w-6 h-6" />
+                                    </button>
+                                </div>
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
+            {/* Image Preview Modal */}
+            {previewImage && (
+                <ImagePreviewModal
+                    imageUrl={previewImage}
+                    onClose={() => setPreviewImage(null)}
+                />
+            )}
         </div >
     );
 });

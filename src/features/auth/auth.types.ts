@@ -7,6 +7,7 @@ export interface User {
   organizationName?: string
   phone?: string
   address?: string
+  createdAt?: string
 }
 
 export interface AuthState {

@@ -7,11 +7,13 @@ import {
     Phone,
     Info,
     CheckCircle2,
-    ArrowLeft
+    ArrowLeft,
+    Paperclip
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { chatService, type Message } from '@/services/chat.service';
 import { toast } from 'sonner';
+import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 
 interface UserRecipient {
     id: string;
@@ -32,7 +34,9 @@ export const GlobalChatHub = React.memo(() => {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [recipients, setRecipients] = useState<UserRecipient[]>([]);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isFetchingRecipients = useRef(false);
     const isFetchingMessages = useRef(false);
@@ -117,14 +121,48 @@ export const GlobalChatHub = React.memo(() => {
         }
     };
 
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedUser || !user) return;
+
+        // Basic validation
+        if (!file.type.startsWith('image/')) {
+            toast.error('Пожалуйста, выберите изображение');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Размер файла не должен превышать 5MB');
+            return;
+        }
+
+        const toastId = toast.loading('Загрузка изображения...');
+
+        try {
+            const imageUrl = await chatService.uploadAttachment(file);
+            const msgPayload = {
+                sender_id: user.id,
+                receiver_id: selectedUser.id,
+                content: 'Изображение',
+                image_url: imageUrl,
+            };
+            await chatService.sendMessage(msgPayload);
+            toast.success('Изображение отправлено', { id: toastId });
+        } catch (error) {
+            toast.error('Ошибка при загрузке изображения', { id: toastId });
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     return (
-        <div className="h-[calc(100vh-12rem)] flex bg-card border border-border-theme rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-700">
+        <div className="h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex bg-background overflow-hidden animate-in fade-in duration-700">
             {/* Sidebar */}
             <div className={`
                 ${selectedUser ? 'hidden md:flex' : 'flex'} 
-                w-full md:w-80 lg:w-96 flex-col border-r border-border-theme bg-background/30 backdrop-blur-xl
+                w-full md:w-80 lg:w-96 flex-col border-r border-border-theme bg-background
             `}>
-                <div className="p-8 border-b border-border-theme">
+                <div className="p-6 lg:p-8 border-b border-border-theme">
                     <h2 className="text-2xl font-black uppercase tracking-tight mb-6">Диалоги</h2>
                     <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/20" />
@@ -181,12 +219,12 @@ export const GlobalChatHub = React.memo(() => {
             {/* Chat Area */}
             <div className={`
                 ${selectedUser ? 'flex' : 'hidden md:flex'} 
-                flex-1 flex-col bg-card/50
+                flex-1 flex-col bg-background
             `}>
                 {selectedUser ? (
                     <>
                         {/* Chat Header */}
-                        <div className="p-6 border-b border-border-theme bg-background/50 flex items-center justify-between">
+                        <div className="p-6 border-b border-border-theme bg-background flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={() => setSelectedUser(null)}
@@ -221,7 +259,7 @@ export const GlobalChatHub = React.memo(() => {
                         </div>
 
                         {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-6">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-8 space-y-6">
                             {isLoading ? (
                                 <div className="h-full flex items-center justify-center">
                                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -242,6 +280,16 @@ export const GlobalChatHub = React.memo(() => {
                                                     ? 'bg-primary text-white rounded-tr-none shadow-xl shadow-primary/20'
                                                     : 'bg-background border border-border-theme rounded-tl-none text-foreground'}
                                             `}>
+                                                {msg.image_url && (
+                                                    <div className="mb-3 rounded-xl overflow-hidden border border-white/10">
+                                                        <img
+                                                            src={msg.image_url}
+                                                            alt="Attachment"
+                                                            className="max-w-full h-auto object-cover hover:scale-105 transition-transform cursor-pointer"
+                                                            onClick={() => setPreviewImage(msg.image_url!)}
+                                                        />
+                                                    </div>
+                                                )}
                                                 <p className="text-[13px] font-medium leading-relaxed">{msg.content}</p>
                                                 <div className={`flex items-center gap-2 mt-3 justify-end opacity-40`}>
                                                     <span className="text-[8px] font-black uppercase tracking-widest">
@@ -258,8 +306,22 @@ export const GlobalChatHub = React.memo(() => {
                         </div>
 
                         {/* Input Area */}
-                        <div className="p-6 bg-background/50 border-t border-border-theme">
+                        <div className="p-4 lg:p-6 bg-background border-t border-border-theme">
                             <form onSubmit={handleSendMessage} className="relative flex items-center gap-4">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileSelect}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-4 hover:bg-primary/10 text-foreground/40 hover:text-primary transition-all rounded-full flex items-center justify-center shrink-0"
+                                >
+                                    <Paperclip size={24} />
+                                </button>
                                 <div className="flex-1 relative">
                                     <input
                                         type="text"
@@ -295,6 +357,13 @@ export const GlobalChatHub = React.memo(() => {
                     </div>
                 )}
             </div>
+            {/* Image Preview Modal */}
+            {previewImage && (
+                <ImagePreviewModal
+                    imageUrl={previewImage}
+                    onClose={() => setPreviewImage(null)}
+                />
+            )}
         </div>
     );
 });

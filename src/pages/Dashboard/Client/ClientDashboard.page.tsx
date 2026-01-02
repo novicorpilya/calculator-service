@@ -65,8 +65,8 @@ export const ClientDashboard: React.FC = () => {
                 const updatedSelected = calcData.find(c => c.id === selectedCalculation.id);
                 if (updatedSelected) setSelectedCalculation(updatedSelected);
             }
-        } catch (err: any) {
-            const message = err?.message || String(err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
             setError(message || 'Ошибка при загрузке данных');
         } finally {
             setLoading(false);
@@ -91,8 +91,8 @@ export const ClientDashboard: React.FC = () => {
                 toast.success('Новый расчет успешно создан');
             }
             setIsCreatingNew(false);
-        } catch (err: any) {
-            const message = err?.message || String(err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
             setError('Ошибка при сохранении: ' + message);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
@@ -197,7 +197,7 @@ export const ClientDashboard: React.FC = () => {
                 />
 
                 <main className="flex-1 overflow-auto bg-background">
-                    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+                    <div className={currentPage === 'chat' ? 'w-full' : 'p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full'}>
                         {error && (
                             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm font-black uppercase tracking-widest">
                                 {error}

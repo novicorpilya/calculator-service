@@ -7,7 +7,7 @@ export interface AuditLog {
     action: string;
     entity_type: string;
     entity_id?: string;
-    details: any;
+    details: Record<string, unknown>;
     // Helper property from join
     profiles?: {
         email: string;
@@ -19,7 +19,7 @@ export const auditService = {
         action: string,
         entityType: string,
         entityId?: string,
-        details: any = {}
+        details: Record<string, unknown> = {}
     ) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;

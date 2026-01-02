@@ -147,7 +147,7 @@ export const authService = {
   },
 
   updateProfile: async (userId: string, data: UpdateProfileData): Promise<User> => {
-    const updateObj: any = {};
+    const updateObj: Record<string, string | undefined> = {};
     if (data.organizationName !== undefined) updateObj.organization_name = data.organizationName;
     if (data.phone !== undefined) updateObj.phone = data.phone;
     if (data.address !== undefined) updateObj.address = data.address;

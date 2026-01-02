@@ -57,7 +57,7 @@ export const MasterInventoryManager = React.memo(() => {
         e.preventDefault();
         try {
             const promise = inventoryService.upsertItem(
-                editingItem ? { ...formData, id: editingItem.id } : formData as any
+                editingItem ? { ...formData, id: editingItem.id } : { ...formData, name: formData.name }
             );
 
             toast.promise(promise, {

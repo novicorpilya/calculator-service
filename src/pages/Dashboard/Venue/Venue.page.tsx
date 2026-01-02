@@ -253,7 +253,7 @@ export const VenuePage: React.FC = () => {
                                     <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest ml-1">Тип заведения</label>
                                     <select
                                         value={formData.type}
-                                        onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                                        onChange={e => setFormData({ ...formData, type: e.target.value as 'restaurant' | 'cafe' | 'bar' | 'hotel' | 'other' })}
                                         className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all appearance-none"
                                     >
                                         <option value="restaurant">Ресторан</option>

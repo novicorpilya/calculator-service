@@ -147,7 +147,7 @@ export const ManagerDashboard: React.FC = () => {
                 />
 
                 <main className="flex-1 overflow-auto bg-background">
-                    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+                    <div className={currentPage === 'chat' ? 'w-full' : 'p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full'}>
                         {error && (
                             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm font-black tracking-widest uppercase">
                                 {error}

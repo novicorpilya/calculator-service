@@ -23,7 +23,12 @@ export interface CalculationDB {
     },
     manager?: {
         organization_name: string;
-    }
+    },
+    manager_info?: {
+        organization_name: string;
+    } | {
+        organization_name: string;
+    }[];
 }
 
 /**
@@ -160,11 +165,11 @@ export const calculationsService = {
         if (error) throw error
     },
 
-    mapToEntity(db: any): Calculation {
-        const results = db.results as CalculationResults | null;
-        const totalCost = results?.summary?.reduce((sum: number, item: any) => sum + (item.total * item.price), 0) || 0;
+    mapToEntity(db: CalculationDB): Calculation {
+        const results = db.results;
+        const totalCost = results?.summary?.reduce((sum: number, item: { total: number; price: number }) => sum + (item.total * item.price), 0) || 0;
 
-        // Supabase might return joined data as an object or an array of one object
+        // Supabase returns joined data. We handle both object and array cases safely.
         const mInfo = db.manager_info;
         const managerData = Array.isArray(mInfo) ? mInfo[0] : mInfo;
         const managerName = managerData?.organization_name || 'Назначается';
@@ -176,7 +181,7 @@ export const calculationsService = {
             organizationName: db.organization_name,
             type: db.type,
             status: db.status,
-            zones: (db.zone_details as Zone[] || []).map(z => z.name),
+            zones: (db.zone_details || []).map(z => z.name),
             zoneDetails: db.zone_details,
             totalArea: db.total_area,
             zonesCount: db.zones_count,

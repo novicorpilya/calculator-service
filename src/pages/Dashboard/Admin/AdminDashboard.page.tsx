@@ -4,13 +4,14 @@ import { DashboardSidebar } from '@/features/dashboard/components/DashboardSideb
 import { adminService, type Invitation } from '@/services/admin.service';
 import { auditService, type AuditLog } from '@/services/audit.service';
 import { emailService } from '@/services/email.service';
+import type { User } from '@/features/auth/auth.types';
 import { toast } from 'sonner';
 import { UserPlus, Users, Mail, Copy, Check, Trash2, User as UserIcon, History, Clock, ArrowRightLeft, RefreshCw } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [currentPage, setCurrentPage] = useState('team');
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,8 +30,9 @@ export const AdminDashboard: React.FC = () => {
             setUsers(usersData);
             setInvitations(invitesData);
             setLogs(logsData);
-        } catch (err) {
-            console.error(err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error('Ошибка при загрузке данных:', message);
         } finally {
             setLoading(false);
         }
@@ -64,7 +66,8 @@ export const AdminDashboard: React.FC = () => {
 
     const handleUpdateRole = async (userId: string, currentRole: string) => {
         const roles: ('client' | 'manager' | 'admin')[] = ['client', 'manager', 'admin'];
-        const nextRole = roles[(roles.indexOf(currentRole as any) + 1) % roles.length];
+        const currentRoleTyped = currentRole as 'client' | 'manager' | 'admin';
+        const nextRole = roles[(roles.indexOf(currentRoleTyped) + 1) % roles.length];
 
         if (!confirm(`Изменить роль пользователя на ${nextRole}?`)) return;
 
@@ -154,7 +157,7 @@ export const AdminDashboard: React.FC = () => {
                     <select
                         className="input-premium w-full sm:w-48 appearance-none cursor-pointer"
                         value={inviteRole}
-                        onChange={e => setInviteRole(e.target.value as any)}
+                        onChange={e => setInviteRole(e.target.value as 'client' | 'manager' | 'admin')}
                     >
                         <option value="client">Клиент</option>
                         <option value="manager">Менеджер</option>
@@ -181,9 +184,9 @@ export const AdminDashboard: React.FC = () => {
                                         <UserIcon size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-black">{user.organization_name || 'Индивидуальный'}</p>
+                                        <p className="text-sm font-black">{user.organizationName || 'Индивидуальный'}</p>
                                         <p className="text-[10px] text-foreground/40 font-bold uppercase tracking-widest">{user.email}</p>
-                                        <p className="text-[8px] text-foreground/20 font-bold uppercase tracking-tighter mt-1 italic">Регистрация: {new Date(user.created_at).toLocaleDateString()}</p>
+                                        <p className="text-[8px] text-foreground/20 font-bold uppercase tracking-tighter mt-1 italic">Регистрация: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">

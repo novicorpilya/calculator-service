@@ -5,6 +5,7 @@ export interface Message {
     sender_id: string;
     receiver_id: string;
     content: string;
+    image_url?: string;
     created_at: string;
     is_read: boolean;
     calculation_id?: string;
@@ -15,6 +16,24 @@ export interface Message {
 }
 
 export const chatService = {
+    async uploadAttachment(file: File): Promise<string> {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `chat/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('attachments')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('attachments')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    },
+
     async getCalculationMessages(calculationId: string): Promise<Message[]> {
         const { data, error } = await supabase
             .from('messages')
@@ -134,10 +153,14 @@ export const chatService = {
 
             const managers = (projects || [])
                 .filter(p => p.manager)
-                .map(p => p.manager as any as { id: string; organization_name: string; role: string });
+                .map(p => {
+                    const m = p.manager as unknown as { id: string; organization_name: string; role: string } | { id: string; organization_name: string; role: string }[];
+                    return Array.isArray(m) ? m[0] : m;
+                })
+                .filter(Boolean);
 
             // Unify admins and managers
-            const recipientsMap = new Map();
+            const recipientsMap = new Map<string, { id: string; organization_name: string; role: string }>();
             [...(admins || []), ...managers].forEach(r => recipientsMap.set(r.id, r));
             return Array.from(recipientsMap.values());
         }
@@ -153,10 +176,14 @@ export const chatService = {
 
             const clients = (projects || [])
                 .filter(p => p.client)
-                .map(p => p.client as any as { id: string; organization_name: string; role: string });
+                .map(p => {
+                    const c = p.client as unknown as { id: string; organization_name: string; role: string } | { id: string; organization_name: string; role: string }[];
+                    return Array.isArray(c) ? c[0] : c;
+                })
+                .filter(Boolean);
 
             // Unify admins and clients
-            const recipientsMap = new Map();
+            const recipientsMap = new Map<string, { id: string; organization_name: string; role: string }>();
             [...(admins || []), ...clients].forEach(r => recipientsMap.set(r.id, r));
             return Array.from(recipientsMap.values());
         }

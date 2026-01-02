@@ -32,7 +32,15 @@ export const adminService = {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return (data || []) as User[];
+        return (data || []).map(p => ({
+            id: p.id,
+            email: p.email,
+            role: p.role as 'client' | 'manager' | 'admin',
+            organizationName: p.organization_name,
+            phone: p.phone,
+            address: p.address,
+            createdAt: p.created_at
+        }));
     },
 
     async createInvitation(email: string, role: 'client' | 'manager' | 'admin'): Promise<Invitation> {
