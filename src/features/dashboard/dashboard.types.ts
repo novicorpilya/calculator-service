@@ -1,7 +1,16 @@
 /**
  * Current lifecycle stage of a calculation project.
  */
-export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'approved';
+export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'revision' | 'approved';
+
+export type SyncEventType = 'UPDATE' | 'INSERT' | 'DELETE';
+
+export interface SyncPayload {
+    id: string;
+    type: SyncEventType;
+    ts: number;
+    isSignal?: boolean;
+}
 
 export interface Comment {
     author: string;
@@ -113,6 +122,7 @@ export const STATUS_CONFIG: Record<CalculationStatus, { label: string; color: st
     draft: { label: 'Черновик', color: 'bg-gray-100 text-gray-800' },
     sent: { label: 'Отправлен', color: 'bg-blue-100 text-blue-800' },
     changes: { label: 'Требует изменений', color: 'bg-orange-100 text-orange-800' },
+    revision: { label: 'Правки внесены', color: 'bg-purple-100 text-purple-800' },
     approved: { label: 'Утверждено', color: 'bg-green-100 text-green-800' }
 };
 

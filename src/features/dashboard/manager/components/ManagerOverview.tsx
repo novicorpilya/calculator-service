@@ -23,7 +23,7 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
 
     const stats = useMemo(() => {
         const approved = calculations.filter(c => c.status === 'approved');
-        const pending = calculations.filter(c => c.status === 'sent');
+        const pending = calculations.filter(c => c.status === 'sent' || c.status === 'revision');
         const inChanges = calculations.filter(c => c.status === 'changes');
 
         return {

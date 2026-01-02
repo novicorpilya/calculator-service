@@ -36,6 +36,17 @@ export interface CalculationDB {
  * Handles mapping between Database (snake_case) and Entity (camelCase) formats.
  */
 export const calculationsService = {
+    async getCalculationById(id: string | number): Promise<Calculation> {
+        const { data, error } = await supabase
+            .from('calculations')
+            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .eq('id', id)
+            .single()
+
+        if (error) throw error
+        return this.mapToEntity(data)
+    },
+
     async getMyCalculations(): Promise<Calculation[]> {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('User not authenticated')

@@ -33,7 +33,7 @@ export const ClientOverview = React.memo<ClientOverviewProps>(({
 
     const stats = useMemo(() => ({
         totalBudget: calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0),
-        activeProjects: calculations.filter(c => c.status === 'sent' || c.status === 'changes').length,
+        activeProjects: calculations.filter(c => c.status === 'sent' || c.status === 'changes' || c.status === 'revision').length,
         completedProjects: calculations.filter(c => c.status === 'approved').length,
     }), [calculations]);
 

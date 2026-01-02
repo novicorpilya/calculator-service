@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
     ChevronLeft, Download, Send, Calendar, MapPin, Boxes,
-    MessageCircle, FileText, ArrowRight, Wallet, Layout,
+    MessageCircle, FileText, ArrowRight, Layout,
     RotateCcw, Trash2, AlertTriangle, Pencil, Briefcase, Paperclip
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { type Calculation, type CalculationStatus } from '../../dashboard.types';
+import { type Calculation, type CalculationStatus, type InventoryItem } from '../../dashboard.types';
 import { chatService, type Message } from '@/services/chat.service';
 import { toast } from 'sonner';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
@@ -28,6 +28,7 @@ const ModernStatusBadge = React.memo<{ status: Calculation['status'] }>(({ statu
         draft: { label: 'Черновик', color: 'bg-slate-400', ghost: 'bg-card text-foreground/60' },
         sent: { label: 'Отправлен', color: 'bg-primary', ghost: 'bg-primary/10 text-primary' },
         changes: { label: 'Правки', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
+        revision: { label: 'Правки внесены', color: 'bg-purple-500', ghost: 'bg-purple-500/10 text-purple-600' },
         approved: { label: 'Утвержден', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
     }[status];
 
@@ -80,7 +81,8 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         }
     };
 
-    const totalCost = calculation.results?.summary.reduce((sum, item) => sum + (item.total * item.price), 0) || 0;
+    const currentResults = calculation.results;
+    const totalCost = currentResults?.summary.reduce((sum: number, item: InventoryItem) => sum + (item.total * item.price), 0) || 0;
 
     const exportToExcel = (calc: Calculation) => {
         if (!calc.results) return;
@@ -104,7 +106,8 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     };
 
     const handleSend = () => {
-        onUpdateStatus(calculation.id, 'sent');
+        const nextStatus = calculation.status === 'changes' ? 'revision' : 'sent';
+        onUpdateStatus(calculation.id, nextStatus);
     };
 
     const handleApprove = () => {
@@ -206,7 +209,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto">
                     {/* Secondary Actions */}
                     <div className="flex items-center gap-3 sm:mr-4">
-                        {(calculation.status === 'draft' || calculation.status === 'changes') && (
+                        {user?.role !== 'manager' && (calculation.status === 'draft' || calculation.status === 'changes') && (
                             <button
                                 onClick={() => onEdit(calculation)}
                                 className="group flex items-center gap-3 px-6 py-4 bg-card border border-border-theme rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all active:scale-95 text-primary"
@@ -216,7 +219,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 <span className="sm:hidden xl:inline">Редактировать</span>
                             </button>
                         )}
-                        {calculation.status === 'sent' && (
+                        {user?.role !== 'manager' && calculation.status === 'sent' && (
                             <button
                                 onClick={handleWithdraw}
                                 className="group flex items-center gap-3 px-6 py-4 bg-card border border-border-theme rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all active:scale-95"
@@ -226,7 +229,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 <span className="sm:hidden xl:inline">Отозвать</span>
                             </button>
                         )}
-                        {(calculation.status === 'draft' || calculation.status === 'sent' || calculation.status === 'changes') && (
+                        {user?.role !== 'manager' && (calculation.status === 'draft' || calculation.status === 'sent' || calculation.status === 'changes') && (
                             <button
                                 onClick={() => setShowDeleteConfirm(true)}
                                 className="group flex items-center justify-center w-14 h-14 bg-card border border-border-theme rounded-2xl text-foreground/20 hover:text-red-500 hover:border-red-500 transition-all active:scale-95"
@@ -237,15 +240,17 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         )}
                     </div>
 
-                    <button
-                        onClick={() => exportToExcel(calculation)}
-                        className="btn-premium-secondary"
-                    >
-                        <Download className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        <span>Спецификация</span>
-                    </button>
+                    {user?.role !== 'manager' && (
+                        <button
+                            onClick={() => exportToExcel(calculation)}
+                            className="btn-premium-secondary"
+                        >
+                            <Download className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            <span>Спецификация</span>
+                        </button>
+                    )}
 
-                    {(calculation.status === 'draft' || calculation.status === 'changes') && (
+                    {user?.role !== 'manager' && (calculation.status === 'draft' || calculation.status === 'changes') && (
                         <button
                             onClick={handleSend}
                             className="btn-premium"
@@ -255,7 +260,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         </button>
                     )}
 
-                    {user?.role === 'manager' && calculation.status === 'sent' && (
+                    {user?.role === 'manager' && (calculation.status === 'sent' || calculation.status === 'revision') && (
                         <>
                             <button
                                 onClick={handleReject}
@@ -321,10 +326,11 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                     {calculation.results && (
                         <div className="space-y-8">
                             <div className="flex flex-wrap items-center justify-between gap-6 ml-2">
-                                <h3 className="text-xs font-black text-foreground/50 uppercase tracking-[0.3em]">Техническая спецификация инвентаря</h3>
-                                <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary/10 border border-primary/20 rounded-full">
-                                    <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                                    <span className="text-[9px] sm:text-[10px] font-black text-primary uppercase tracking-widest whitespace-nowrap">
+                                <h3 className="text-xs font-black text-foreground/50 uppercase tracking-[0.3em]">
+                                    Техническая спецификация инвентаря
+                                </h3>
+                                <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full border bg-primary/10 border-primary/20 text-primary transition-all">
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
                                         Итого: {totalCost.toLocaleString()} ₽
                                     </span>
                                 </div>
@@ -332,10 +338,10 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 
                             <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,350px),1fr))] gap-6">
                                 {calculation.results.summary.map((item, i) => (
-                                    <div key={i} className="glass-card flex flex-col justify-between !bg-card border-transparent hover:border-primary/20 group transition-all duration-500">
+                                    <div key={i} className="glass-card flex flex-col justify-between !bg-card border-transparent hover:border-primary/20 transition-all duration-500 group">
                                         <div className="flex items-start justify-between mb-8">
-                                            <div className="p-4 rounded-2xl bg-card border border-border-theme group-hover:bg-primary/5 transition-colors">
-                                                <Boxes className="w-6 h-6 text-foreground/40 group-hover:text-primary transition-colors" />
+                                            <div className="p-4 rounded-2xl border border-border-theme group-hover:bg-primary/5 text-foreground/40 group-hover:text-primary transition-colors">
+                                                <Boxes className="w-6 h-6" />
                                             </div>
                                             <div className="text-right space-y-1">
                                                 <p className="text-[9px] font-black text-foreground/40 uppercase tracking-[0.3em]">Позиция</p>
@@ -368,7 +374,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         <div className="relative z-10 space-y-8 sm:space-y-10">
                             <div className="flex items-center gap-4 sm:gap-6">
                                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-[2rem] bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-2xl shadow-primary/40 group-hover:scale-105 transition-transform">
-                                    {calculation.manager[0]}
+                                    {calculation.manager?.[0] || 'A'}
                                 </div>
                                 <div className="space-y-1">
                                     <h4 className="text-xl sm:text-2xl font-black tracking-tight">{calculation.manager}</h4>
@@ -391,7 +397,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 <p className="text-[8px] sm:text-[9px] font-semibold text-foreground/40 uppercase tracking-widest">Активная сессия</p>
                             </div>
                             <span className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-card border border-border-theme text-foreground/60 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-black">
-                                {calculation.comments.length}
+                                {messages.length}
                             </span>
                         </div>
 
@@ -503,6 +509,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                     </div>
                 </div>
             </div>
+
             {/* Image Preview Modal */}
             {previewImage && (
                 <ImagePreviewModal
@@ -510,6 +517,6 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                     onClose={() => setPreviewImage(null)}
                 />
             )}
-        </div >
+        </div>
     );
 });
