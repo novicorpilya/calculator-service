@@ -177,18 +177,8 @@ export const ManagerDashboard: React.FC = () => {
                             onUpdateStatus={handleUpdateStatus}
                             onDelete={() => { }}
                             onEdit={() => { }}
+                            onAssign={handleAssign}
                         />
-
-                        {!selectedCalculation.manager_id && (
-                            <div className="mt-8 flex justify-center pb-20">
-                                <button
-                                    onClick={() => handleAssign(selectedCalculation.id)}
-                                    className="btn-premium lg:scale-110 shadow-3xl shadow-primary/20"
-                                >
-                                    Принять проект в работу
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </main>
             </div>

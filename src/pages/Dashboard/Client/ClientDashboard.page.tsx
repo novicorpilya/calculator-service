@@ -124,12 +124,16 @@ export const ClientDashboard: React.FC = () => {
             setLoading(true);
             setError(null);
             if (editingCalculation) {
-                const updated = await calculationsService.updateCalculation(calculation.id, calculation);
+                const newStatus = editingCalculation.status === 'changes' ? 'revision' : editingCalculation.status;
+                const updated = await calculationsService.updateCalculation(calculation.id, {
+                    ...calculation,
+                    status: newStatus
+                });
                 setCalculations(prev => prev.map(c => String(c.id) === String(updated.id) ? updated : c));
                 setEditingCalculation(null);
                 setSelectedId(updated.id);
                 await chatService.sendSyncSignal(updated.id, 'UPDATE');
-                toast.success('Расчет обновлен');
+                toast.success(newStatus === 'revision' ? 'Правки внесены и отправлены эксперту' : 'Расчет обновлен');
             } else {
                 const created = await calculationsService.createCalculation(calculation);
                 setCalculations([created, ...calculations]);

@@ -3,7 +3,7 @@ import {
     ChevronLeft, Download, Send, Calendar, MapPin, Boxes,
     MessageCircle, FileText, ArrowRight,
     Trash2, AlertTriangle, Briefcase, Paperclip,
-    X, Loader2
+    X, Loader2, AlertCircle, CheckCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { type Calculation, type CalculationStatus } from '../../dashboard.types';
@@ -20,6 +20,7 @@ interface ClientCalculationDetailsProps {
     onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: any) => void;
     onDelete: (id: number | string) => void;
     onEdit: (calc: Calculation) => void;
+    onAssign?: (id: number | string) => void;
 }
 
 const ModernStatusBadge = React.memo<{ status: Calculation['status'] }>(({ status }) => {
@@ -50,6 +51,8 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     onBack,
     onUpdateStatus,
     onDelete,
+    onEdit,
+    onAssign
 }) => {
     const [newComment, setNewComment] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -183,9 +186,42 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         </button>
                     )}
                     {user?.role !== 'manager' && (calculation.status === 'draft' || calculation.status === 'changes') && (
-                        <button onClick={() => onUpdateStatus(calculation.id, 'sent')} className="btn-premium">
-                            <Send className="w-5 h-5" /> Отправить
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => onEdit(calculation)} className="btn-premium-secondary">
+                                <FileText className="w-5 h-5" /> Редактировать
+                            </button>
+                            <button onClick={() => onUpdateStatus(calculation.id, 'sent')} className="btn-premium">
+                                <Send className="w-5 h-5" /> Отправить
+                            </button>
+                        </div>
+                    )}
+                    {user?.role === 'manager' && !calculation.manager_id && onAssign && (
+                        <button
+                            onClick={() => onAssign(calculation.id)}
+                            className="btn-premium shadow-xl shadow-primary/20"
+                        >
+                            <Briefcase className="w-5 h-5" /> Принять проект
                         </button>
+                    )}
+                    {user?.role === 'manager' && calculation.manager_id && String(calculation.manager_id) === String(user.id) && (
+                        <>
+                            {['sent', 'revision'].includes(calculation.status) && (
+                                <button
+                                    onClick={() => onUpdateStatus(calculation.id, 'changes')}
+                                    className="btn-premium-secondary !text-orange-500 !border-orange-500/20 hover:!bg-orange-500/5"
+                                >
+                                    <AlertCircle className="w-5 h-5" /> На правки
+                                </button>
+                            )}
+                            {['sent', 'revision', 'changes'].includes(calculation.status) && (
+                                <button
+                                    onClick={() => onUpdateStatus(calculation.id, 'approved')}
+                                    className="btn-premium !bg-emerald-500 !border-none"
+                                >
+                                    <CheckCircle className="w-5 h-5" /> Утвердить
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
