@@ -152,8 +152,8 @@ export const ClientDashboard: React.FC = () => {
             setCalculations(prev => prev.map(c => String(c.id) === String(id) ? updated : c));
             await chatService.sendSyncSignal(id, 'UPDATE');
             toast.success('Статус изменен');
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Ошибка изменения статуса');
         }
     };
 
@@ -163,8 +163,8 @@ export const ClientDashboard: React.FC = () => {
             setCalculations(prev => prev.filter(c => String(c.id) !== String(id)));
             setSelectedId(null);
             toast.success('Расчет удален');
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Ошибка удаления');
         }
     };
 
