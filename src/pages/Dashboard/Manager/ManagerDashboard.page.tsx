@@ -63,8 +63,8 @@ export const ManagerDashboard: React.FC = () => {
             ]);
 
             setCalculations([...myProjects, ...newLeads]);
-        } catch (err: any) {
-            setError(err.message || 'Ошибка синхронизации данных');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Ошибка синхронизации данных');
         } finally {
             setLoading(false);
             syncContext.current.isFetching = false;
@@ -145,21 +145,23 @@ export const ManagerDashboard: React.FC = () => {
             setSelectedId(null);
             setCurrentPage('pipeline');
             await loadData(true);
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Ошибка назначения');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleUpdateStatus = async (id: number | string, status: CalculationStatus) => {
+    const handleUpdateStatus = async (id: number | string, status: CalculationStatus, additionalUpdates: Partial<Calculation> = {}) => {
         try {
-            const updated = await calculationsService.updateCalculation(id, { status });
+            const updated = await calculationsService.updateCalculation(id, { status, ...additionalUpdates });
             setCalculations(prev => prev.map(c => String(c.id) === String(id) ? updated : c));
             await chatService.sendSyncSignal(id, 'UPDATE');
-            toast.success(`Статус: ${status}`);
-        } catch (err: any) {
-            toast.error(err.message);
+            if (!additionalUpdates.results) {
+                toast.success(`Статус: ${status}`);
+            }
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Ошибка назначения');
         }
     };
 

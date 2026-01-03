@@ -5,6 +5,8 @@ export interface User {
   email: string
   role: 'client' | 'manager' | 'admin'
   organizationName?: string
+  firstName?: string
+  lastName?: string
   phone?: string
   address?: string
   createdAt?: string
@@ -23,9 +25,11 @@ export interface LoginCredentials {
 }
 
 export interface RegisterCredentials extends LoginCredentials {
-  organizationName: string
+  organizationName?: string
+  firstName?: string
+  lastName?: string
   phone: string
-  address: string
+  address?: string
   agreeToTerms?: boolean
   confirmPassword: string
   inviteToken?: string
@@ -44,6 +48,8 @@ export interface AuthResponse {
 
 export interface UpdateProfileData {
   organizationName?: string
+  firstName?: string
+  lastName?: string
   phone?: string
   address?: string
 }

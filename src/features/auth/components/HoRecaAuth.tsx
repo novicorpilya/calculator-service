@@ -31,7 +31,7 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
     const [mode, setMode] = React.useState<AuthMode>(initialMode)
     const [loading, setLoading] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
-    const [invitationData, setInvitationData] = React.useState<{ email: string, role: string } | null>(null)
+    const [invitationData, setInvitationData] = React.useState<{ email: string, role: 'client' | 'manager' | 'admin' } | null>(null)
 
     React.useEffect(() => {
         setMode(initialMode)
@@ -129,6 +129,7 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
                 return (
                     <RegisterForm
                         initialData={invitationData ? { email: invitationData.email } : undefined}
+                        role={invitationData?.role}
                         onSubmit={async (v: RegisterFormValues) => {
                             setLoading(true)
                             setError(null)

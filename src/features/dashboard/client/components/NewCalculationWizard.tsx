@@ -7,12 +7,14 @@ import {
     ZONE_TYPES,
     OBJECT_TYPES,
     SANITARY_LEVELS,
-    REPLACEMENT_CYCLES
+    INTENSITY_LEVELS
 } from '../../dashboard.types';
 import { venueService, type Venue } from '@/services/venue.service';
 import { inventoryService, type InventoryItemMaster } from '@/services/inventory.service';
 import { CalculationEngine } from '@/utils/calculation-engine';
 import { toast } from 'sonner';
+import { CalculationBreakdown } from './CalculationBreakdown';
+import { useAuth } from '@/features/auth';
 
 interface NewCalculationWizardProps {
     onCancel: () => void;
@@ -25,14 +27,17 @@ interface NewCalculationWizardProps {
  * Supports venue data auto-filling and real-time inventory forecasting.
  */
 export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onCancel, onComplete, initialData }) => {
+    const { user } = useAuth();
+
     const [step, setStep] = useState(1);
     const [objectData, setObjectData] = useState({
-        name: initialData?.organizationName || '',
+        name: initialData?.organizationName || user?.organizationName || '',
         type: initialData?.type || '',
         totalArea: initialData?.totalArea.toString() || '',
         staffCount: initialData?.staffCount.toString() || '',
         dailyVisitors: initialData?.dailyVisitors.toString() || '',
         sanitaryLevel: initialData?.sanitaryLevel || 'medium',
+        intensityLevel: initialData?.intensityLevel || 'medium',
         replacementCycle: initialData?.replacementCycle || 'weekly'
     });
     const [zones, setZones] = useState<Zone[]>(initialData?.zoneDetails || []);
@@ -57,6 +62,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                 staffCount: initialData.staffCount.toString(),
                 dailyVisitors: initialData.dailyVisitors.toString(),
                 sanitaryLevel: initialData.sanitaryLevel,
+                intensityLevel: initialData.intensityLevel || 'medium',
                 replacementCycle: initialData.replacementCycle
             });
             setZones(initialData.zoneDetails || []);
@@ -138,6 +144,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
             staffCount: zones.length > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0'),
             dailyVisitors: parseInt(objectData.dailyVisitors || '0'),
             sanitaryLevel: objectData.sanitaryLevel,
+            intensityLevel: objectData.intensityLevel,
             replacementCycle: objectData.replacementCycle,
             createdDate: initialData?.createdDate || new Date().toLocaleDateString('ru-RU'),
             manager: initialData?.manager || 'Назначается',
@@ -148,7 +155,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
         onComplete(newCalc);
     };
 
-    const totalCost = useMemo(() => results?.summary.reduce((sum, item) => sum + (item.total * item.price), 0) || 0, [results]);
+    const totalItemsCount = useMemo(() => results?.summary.reduce((sum, item) => sum + item.total, 0) || 0, [results]);
 
     return (
         <div className="w-full max-w-[min(100%,1000px)] mx-auto space-y-[clamp(2rem,6vh,4rem)] animate-in fade-in duration-700">
@@ -317,25 +324,30 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                             </div>
 
                             <div className="space-y-6">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 ml-1">Период замены инвентаря</h3>
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 ml-1">Интенсивность нагрузки (BICSc)</h3>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {REPLACEMENT_CYCLES.map(cycle => (
+                                    {INTENSITY_LEVELS.map(level => (
                                         <button
-                                            key={cycle.value}
-                                            onClick={() => setObjectData({ ...objectData, replacementCycle: cycle.value })}
-                                            className={`p-4 rounded-2xl border-2 transition-all text-left flex items-center justify-between group ${objectData.replacementCycle === cycle.value
+                                            key={level.value}
+                                            onClick={() => setObjectData({ ...objectData, intensityLevel: level.value })}
+                                            className={`p-4 rounded-2xl border-2 transition-all text-left flex items-center justify-between group ${objectData.intensityLevel === level.value
                                                 ? 'bg-foreground border-foreground text-background shadow-xl'
                                                 : 'bg-card border-transparent hover:border-border-theme'
                                                 }`}
                                         >
-                                            <p className={`text-[10px] font-black uppercase tracking-widest ${objectData.replacementCycle === cycle.value ? 'text-primary' : 'text-foreground'}`}>
-                                                {cycle.label}
-                                            </p>
-                                            {objectData.replacementCycle === cycle.value && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                                            <div className="space-y-1">
+                                                <p className={`text-[10px] font-black uppercase tracking-widest ${objectData.intensityLevel === level.value ? 'text-primary' : 'text-foreground'}`}>
+                                                    {level.label}
+                                                </p>
+                                                <p className={`text-[9px] font-bold opacity-40 ${objectData.intensityLevel === level.value ? 'text-background' : 'text-foreground'}`}>
+                                                    Коэффициент: {level.coeff.toFixed(1)}x
+                                                </p>
+                                            </div>
+                                            {objectData.intensityLevel === level.value && <CheckCircle2 className="w-5 h-5 text-primary" />}
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-[8px] font-bold text-foreground/20 uppercase tracking-widest text-center mt-auto">Влияет на необходимый объем складского запаса</p>
+                                <p className="text-[8px] font-bold text-foreground/20 uppercase tracking-widest text-center mt-auto">Влияет на лимитирующий фактор и страховой запас</p>
                             </div>
                         </div>
 
@@ -540,65 +552,128 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
             )}
 
             {step === 3 && results && (
-                <div className="animate-in fade-in slide-in-from-right-8 duration-700">
-                    <div className="glass-card mb-12">
-                        <div className="text-center mb-16">
-                            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-emerald-500/20 shadow-xl shadow-emerald-500/10">
+                <div className="animate-in fade-in slide-in-from-right-8 duration-700 space-y-12 pb-20">
+                    {/* Specification Status Header */}
+                    <div className="glass-card !p-12 text-center relative overflow-hidden">
+                        <div className="relative z-10 space-y-6">
+                            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-emerald-500/20 shadow-2xl shadow-emerald-500/10">
                                 <CheckCircle2 size={36} />
                             </div>
-                            <h2 className="text-[clamp(1.5rem,4vw,3.5rem)] font-black tracking-tighter">Спецификация готова</h2>
-                            <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.4em] mt-4">Оптимизированный расчет для {zones.length} зон</p>
+                            <h2 className="text-[clamp(1.5rem,5vw,4rem)] font-black tracking-tighter leading-none italic uppercase">Спецификация сформирована</h2>
+                            <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.5em] mt-4">Методология ISO 18406 + BICSc Standards</p>
                         </div>
+                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+                    </div>
 
-                        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,400px),1fr))] gap-6 mb-16">
-                            {results.summary.map((item, i) => (
-                                <div key={i} className="glass-card !bg-card p-8 border-transparent hover:border-primary/20 transition-all flex items-center justify-between gap-8 group">
-                                    <div className="space-y-4">
-                                        <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{item.color.toUpperCase()}</p>
-                                        <h4 className="text-xl font-black leading-tight group-hover:text-primary transition-colors">{item.inventory}</h4>
-                                        <div className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">
-                                            Единица: {item.price.toLocaleString()} ₽
-                                        </div>
-                                    </div>
-                                    <div className="text-right space-y-2">
-                                        <p className="text-4xl font-black">{item.total}<span className="text-sm text-foreground/20 ml-1">ШТ</span></p>
-                                        <p className="text-sm font-black text-primary">{(item.total * item.price).toLocaleString()} ₽</p>
-                                    </div>
-                                </div>
-                            ))}
+                    {/* Financial Summary Benchmarks */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="glass-card p-10 space-y-4">
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Текущий запас (Stock)</p>
+                            <h4 className="text-4xl font-black tracking-tighter">{totalItemsCount.toLocaleString()} <span className="text-xs text-foreground/20">ЕД</span></h4>
                         </div>
-
-                        <div className="glass-card !bg-foreground !text-background relative overflow-hidden group p-8 sm:p-12 lg:p-20">
-                            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10 md:gap-12">
-                                <div className="text-center md:text-left space-y-4">
-                                    <p className="text-[10px] sm:text-[11px] font-black text-primary uppercase tracking-[0.3em] sm:tracking-[0.4em]">Итоговый бюджет спецификации</p>
-                                    <p className="text-[clamp(2rem,6vw,5rem)] font-black leading-none tracking-tighter">
-                                        {totalCost.toLocaleString()} ₽
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={sendToManager}
-                                    className="btn-premium lg:scale-125 lg:mr-10"
-                                    style={{
-                                        background: 'white',
-                                        color: 'black',
-                                        boxShadow: '0 20px 40px -15px rgba(255,255,255,0.2)'
-                                    }}
-                                >
-                                    <span>Отправить в работу</span> <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                                </button>
-                            </div>
-                            <div className="absolute top-0 right-0 w-[50%] h-full bg-primary/10 blur-[120px] rounded-full translate-x-1/2" />
-                            <div className="absolute bottom-0 left-0 w-[30%] h-full bg-emerald-500/5 blur-[100px] rounded-full -translate-x-1/2" />
+                        <div className="glass-card p-10 space-y-4">
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Месячный заказ (Plan)</p>
+                            <h4 className="text-4xl font-black tracking-tighter">
+                                {results.summary.reduce((sum, item) => sum + (item.calculation?.monthlyOrder || 0), 0).toFixed(1)}
+                                <span className="text-xs text-foreground/20 ml-1">ЕД/МЕС</span>
+                            </h4>
+                        </div>
+                        <div className="glass-card p-10 space-y-4 !bg-primary text-white">
+                            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Годовой бюджет (Est.)</p>
+                            <h4 className="text-4xl font-black tracking-tighter">
+                                {results.summary.reduce((sum, item) => sum + (item.calculation?.annualBudget || 0), 0).toLocaleString()}
+                                <span className="text-xs text-white/50 ml-1">₽</span>
+                            </h4>
                         </div>
                     </div>
 
-                    <div className="flex justify-center">
+                    {/* Detailed Product Breakdown Cards */}
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-6 px-1">
+                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-primary">Технический аудит позиций</h3>
+                            <div className="h-px grow bg-primary/10" />
+                        </div>
+                        <div className="grid grid-cols-1 gap-12">
+                            {results.summary.map((item, i) => (
+                                <CalculationBreakdown key={i} item={item} />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Global Summary Table for Export Preparation */}
+                    <div className="glass-card !bg-card !p-0 overflow-hidden shadow-3xl">
+                        <div className="p-8 border-b border-border-theme bg-primary/5 flex items-center justify-between">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">Сводная ведомость по объекту</h3>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-background border border-border-theme rounded-xl">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-foreground/50">Валюта: RUB (₽)</span>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-border-theme">
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30">Наименование инвентаря</th>
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Зона</th>
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Запас</th>
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Сумма</th>
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Годовой бюджет</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {results.summary.map((item, i) => (
+                                        <tr key={i} className="border-b border-border-theme hover:bg-primary/5 transition-colors group">
+                                            <td className="px-8 py-6">
+                                                <p className="text-sm font-black group-hover:text-primary transition-colors">{item.inventory}</p>
+                                                <p className="text-[8px] font-bold text-foreground/30 uppercase tracking-widest">{item.sku}</p>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className="inline-block w-3 h-3 rounded-full border border-white/10" style={{ backgroundColor: item.color }} />
+                                            </td>
+                                            <td className="px-8 py-6 text-center font-black text-sm">{item.quantity} шт</td>
+                                            <td className="px-8 py-6 text-center text-sm font-black">{(item.quantity * item.price).toLocaleString()} ₽</td>
+                                            <td className="px-8 py-6 text-center text-sm font-black text-primary">{(item.calculation?.annualBudget || 0).toLocaleString()} ₽</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Final Action - Send to Expert */}
+                    <div className="glass-card !bg-foreground !text-background relative overflow-hidden group p-10 sm:p-14 lg:p-20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+                            <div className="text-center md:text-left space-y-6">
+                                <div className="inline-flex items-center gap-3 px-4 py-2 bg-primary text-white rounded-full">
+                                    <Sparkles size={14} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">Рекомендуемое действие</span>
+                                </div>
+                                <h3 className="text-[clamp(1.5rem,4vw,3.5rem)] font-black leading-tight tracking-tighter max-w-xl italic">
+                                    Передать спецификацию эксперту на аудит
+                                </h3>
+                                <p className="text-white/40 text-sm font-medium italic">Менеджер проверит наличие на складе и сформирует коммерческое предложение за 15 минут.</p>
+                            </div>
+                            <button
+                                onClick={sendToManager}
+                                className="btn-premium lg:scale-150 lg:mr-20 h-20 px-12"
+                                style={{
+                                    background: 'white',
+                                    color: 'black',
+                                    boxShadow: '0 30px 60px -15px rgba(255,255,255,0.4)'
+                                }}
+                            >
+                                <span className="grow">ОТПРАВИТЬ ЭКСПЕРТУ</span> <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                            </button>
+                        </div>
+                        {/* Interactive Design Element */}
+                        <div className="absolute top-0 right-0 w-[60%] h-full bg-primary/20 blur-[130px] rounded-full translate-x-1/2 -translate-y-1/2 group-hover:bg-primary/30 transition-colors duration-1000" />
+                    </div>
+
+                    <div className="flex justify-center pt-10">
                         <button
                             onClick={() => setStep(2)}
-                            className="group flex items-center gap-3 text-[10px] font-black text-foreground/30 uppercase tracking-[0.4em] hover:text-primary transition-all pb-12"
+                            className="group flex items-center gap-4 text-[11px] font-black text-foreground/20 uppercase tracking-[0.5em] hover:text-primary transition-all"
                         >
-                            <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" /> Вернуться к редактированию зон
+                            <ChevronLeft className="w-6 h-6 transition-transform group-hover:-translate-x-2" /> РЕДАКТИРОВАТЬ ПАРАМЕТРЫ ОБЪЕКТА
                         </button>
                     </div>
                 </div>

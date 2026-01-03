@@ -7,8 +7,10 @@ export const loginSchema = z.object({
 })
 
 export const registerSchema = z.object({
-    organizationName: z.string().min(2, 'Название организации слишком короткое'),
-    address: z.string().min(5, 'Введите полный адрес'),
+    organizationName: z.string().optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    address: z.string().optional(),
     phone: z.string().min(10, 'Введите корректный номер телефона'),
     email: z.string().min(1, 'Email обязателен').email('Введите корректный email'),
     password: z.string()

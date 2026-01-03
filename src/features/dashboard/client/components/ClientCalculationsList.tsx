@@ -36,6 +36,12 @@ export const ModernStatusBadge: React.FC<{ status: Calculation['status'] }> = ({
         changes: { label: 'Правки', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
         revision: { label: 'Правки внесены', color: 'bg-purple-500', ghost: 'bg-purple-500/10 text-purple-600' },
         approved: { label: 'Утвержден', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
+        suppliers: { label: 'Передано поставщикам', color: 'bg-indigo-500', ghost: 'bg-indigo-500/10 text-indigo-600' },
+        invoice: { label: 'Выставлен счет', color: 'bg-cyan-500', ghost: 'bg-cyan-500/10 text-cyan-600' },
+        paid: { label: 'Оплачено', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
+        shipping: { label: 'Поставка в работе', color: 'bg-amber-500', ghost: 'bg-amber-500/10 text-amber-600' },
+        completed: { label: 'Поставка завершена', color: 'bg-teal-500', ghost: 'bg-teal-500/10 text-teal-600' },
+        closed: { label: 'Проект закрыт', color: 'bg-slate-400', ghost: 'bg-slate-400/10 text-slate-500' },
     }[status];
 
     return (
@@ -115,6 +121,10 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
                         <option value="sent">На проверке</option>
                         <option value="changes">Требуют правок</option>
                         <option value="approved">Утверждены</option>
+                        <option value="suppliers">У поставщиков</option>
+                        <option value="invoice">Ожидают оплаты</option>
+                        <option value="paid">Оплачены</option>
+                        <option value="shipping">В доставке</option>
                     </select>
 
                     <div className="flex bg-card p-2 rounded-2xl border border-border-theme">

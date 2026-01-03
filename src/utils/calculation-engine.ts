@@ -3,86 +3,132 @@ import {
     type InventoryItem,
     type CalculationResults,
     type ZoneResult,
-    SANITARY_LEVELS,
-    REPLACEMENT_CYCLES
+    INTENSITY_LEVELS,
+    ZONE_COEFFS,
+    RESERVE_COEFFS
 } from '../features/dashboard/dashboard.types';
 import { type InventoryItemMaster } from '../services/inventory.service';
 
 /**
- * CalculationEngine v2.0
- * Specialized engine for HoReCa inventory forecasting.
- * Provides normalized calculations based on area, personnel, and visitor intensity.
+ * CalculationEngine v3.0 (Senior Implementation)
+ * Implements professional ISO 18406 + BICSc forecasting methodology.
+ * Formula: Qty = MAX(Q_area, Q_staff, Q_visitors) × K_zone × K_intensity × (1 + K_reserve)
  */
 export const CalculationEngine = {
-    /**
-     * Performs a comprehensive inventory calculation for multiple zones.
-     * @param zones List of individual zones with their parameters.
-     * @param objectData Global object parameters (sanitary level, replacement cycle).
-     * @param globalInventory Master catalog of inventory items with norms.
-     */
     calculateInventory(
         zones: Zone[],
-        objectData: { staffCount: string; dailyVisitors: string; sanitaryLevel: string; replacementCycle: string },
+        objectData: {
+            staffCount: string;
+            dailyVisitors: string;
+            sanitaryLevel: string;
+            replacementCycle: string;
+            intensityLevel?: string;
+        },
         globalInventory: InventoryItemMaster[]
     ): CalculationResults {
         const zoneResults: ZoneResult[] = [];
         const aggregated: Record<string, InventoryItem> = {};
 
-        const sanitaryCoeff = SANITARY_LEVELS.find(l => l.value === objectData.sanitaryLevel)?.coeff || 1.3;
-        const replacementCoeff = REPLACEMENT_CYCLES.find(c => c.value === objectData.replacementCycle)?.coeff || 0.3;
+        // 1. Resolve Global Coefficients
+        const intensityKey = (objectData.intensityLevel || 'medium').toLowerCase();
+        const kIntensity = INTENSITY_LEVELS.find(l => l.value === intensityKey)?.coeff ?? 1.0;
+
+        const reserveKey = intensityKey as keyof typeof RESERVE_COEFFS;
+        const kReserve = RESERVE_COEFFS[reserveKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
 
         const totalZonesStaff = zones.reduce((sum, zone) => sum + parseInt(zone.staffCount || '0'), 0);
-        const totalPersonnel = zones.length > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0');
-        const totalVisitors = parseInt(objectData.dailyVisitors || '0');
+        const globalPersonnel = totalZonesStaff > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0');
+        const globalVisitors = parseInt(objectData.dailyVisitors || '0');
 
         zones.forEach(zone => {
             const zoneItems: InventoryItem[] = [];
             const zonePersonnel = parseInt(zone.staffCount || '0');
             const zoneArea = parseFloat(zone.area || '0');
 
-            // Распределение посетителей пропорционально персоналу в зоне
-            const zoneVisitorShare = totalPersonnel > 0
-                ? totalVisitors * (zonePersonnel / totalPersonnel)
+            // Share of global visitors for this specific zone based on personnel ratio
+            const zoneVisitorShare = globalPersonnel > 0
+                ? globalVisitors * (zonePersonnel / globalPersonnel)
                 : 0;
 
             globalInventory.forEach(item => {
                 if (item.color === zone.color) {
-                    // Расчет по 3 параметрам из БД норм
-                    const quantityByArea = (zoneArea / 100) * item.norm_area;
-                    const quantityByPersonnel = zonePersonnel * item.norm_personnel;
-                    const quantityByIntensity = (zoneVisitorShare / 100) * item.norm_intensity;
+                    // 2. Component Demand Calculation
+                    const qArea = (zoneArea / 100) * (item.norm_area || 0);
+                    const qStaff = zonePersonnel * (item.norm_personnel || 0);
+                    const qVisitors = (zoneVisitorShare / 100) * (item.norm_intensity || 0);
 
-                    const baseQuantity = quantityByArea + quantityByPersonnel + quantityByIntensity;
+                    // 3. Limiting Factor Selection (The "MAX" rule)
+                    const qBase = Math.max(qArea, qStaff, qVisitors);
 
-                    // Применение коэффициентов санитарии и цикла замены
-                    const totalQuantity = baseQuantity * sanitaryCoeff * replacementCoeff;
+                    // 4. Coefficient Application
+                    const kZone = ZONE_COEFFS[item.color] ?? 1.0;
 
-                    // Округление и минимальные значения (1 шт если есть площадь или персонал)
+                    // Final Quantity (Commercial Stock)
+                    const totalQuantityFloat = qBase * kZone * kIntensity * (1 + kReserve);
+
+                    // BICSc Rule: If zone is active and norm is set, minimum is 1
                     const minQuantity = (item.norm_personnel > 0 || item.norm_area > 0) ? 1 : 0;
-                    const finalQuantity = Math.max(Math.ceil(totalQuantity), minQuantity);
+                    const finalQuantity = Math.max(Math.ceil(totalQuantityFloat), minQuantity);
 
                     if (finalQuantity > 0) {
+                        // 5. Extended Metrics for Reporting
+                        const replacementCycle = item.replacement_cycle_days || 365;
+                        const annualMultiplier = 365 / replacementCycle;
+                        const annualConsumption = finalQuantity * annualMultiplier;
+                        const monthlyOrder = annualConsumption / 12;
+
+                        // Logistic Parameters
+                        const reorderPoint = finalQuantity * 0.3;
+                        const safetyStock = finalQuantity * 0.2;
+
+                        // 6. Build Detailed Breakdown
                         const newItem: InventoryItem = {
                             inventory: item.name,
+                            sku: item.sku,
                             color: item.color,
                             quantity: finalQuantity,
                             price: item.price,
-                            total: finalQuantity * item.price,
+                            total: finalQuantity,
                             norms: {
                                 area: item.norm_area,
                                 personnel: item.norm_personnel,
-                                intensity: item.norm_intensity
+                                intensity: item.norm_intensity,
+                                replacementCycle: replacementCycle
+                            },
+                            calculation: {
+                                qArea: Number(qArea.toFixed(2)),
+                                qStaff: Number(qStaff.toFixed(2)),
+                                qVisitors: Number(qVisitors.toFixed(2)),
+                                qBase: Number(qBase.toFixed(2)),
+                                kZone,
+                                kIntensity,
+                                kReserve,
+                                monthlyOrder: Number(monthlyOrder.toFixed(1)),
+                                annualConsumption: Math.ceil(annualConsumption),
+                                annualBudget: Math.ceil(annualConsumption * item.price),
+                                reorderPoint: Math.ceil(reorderPoint),
+                                safetyStock: Math.ceil(safetyStock),
+                                formula: `MAX(${qArea.toFixed(1)}, ${qStaff.toFixed(1)}, ${qVisitors.toFixed(1)}) × ${kZone} × ${kIntensity} × ${1 + kReserve}`,
+                                breakdown: `Лимитирующий фактор: ${qBase.toFixed(1)} ед. База запаса с учетом зоны (${kZone.toFixed(2)}) и нагрузки (${kIntensity.toFixed(2)}).`
                             }
                         };
 
                         zoneItems.push(newItem);
 
-                        const key = `${item.name}-${item.color}`;
+                        const key = `${item.name}-${item.sku || 'N/A'}-${item.color}`;
                         if (!aggregated[key]) {
                             aggregated[key] = { ...newItem, quantity: 0, total: 0 };
                         }
                         aggregated[key].quantity += finalQuantity;
-                        aggregated[key].total += (finalQuantity * item.price);
+                        aggregated[key].total += finalQuantity;
+
+                        // Aggregated results should also have calculation summary for the group
+                        if (aggregated[key].calculation) {
+                            const calc = aggregated[key].calculation!;
+                            calc.annualConsumption = (calc.annualConsumption || 0) + Math.ceil(annualConsumption);
+                            calc.annualBudget = (calc.annualBudget || 0) + Math.ceil(annualConsumption * item.price);
+                            calc.monthlyOrder = (calc.monthlyOrder || 0) + Number(monthlyOrder.toFixed(1));
+                        }
                     }
                 }
             });
@@ -98,7 +144,10 @@ export const CalculationEngine = {
 
         return {
             byZone: zoneResults,
-            summary: Object.values(aggregated)
+            summary: Object.values(aggregated).map(item => ({
+                ...item,
+                total: item.quantity // Ensure total reflects quantity in summary
+            }))
         };
     }
 };

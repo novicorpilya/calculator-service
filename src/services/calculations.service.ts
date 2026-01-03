@@ -25,9 +25,13 @@ export interface CalculationDB {
         organization_name: string;
     },
     manager_info?: {
-        organization_name: string;
+        organization_name?: string;
+        first_name?: string;
+        last_name?: string;
     } | {
-        organization_name: string;
+        organization_name?: string;
+        first_name?: string;
+        last_name?: string;
     }[];
 }
 
@@ -39,7 +43,7 @@ export const calculationsService = {
     async getCalculationById(id: string | number): Promise<Calculation> {
         const { data, error } = await supabase
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(first_name, last_name)')
             .eq('id', id)
             .single()
 
@@ -53,7 +57,7 @@ export const calculationsService = {
 
         const { data, error } = await supabase
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
 
@@ -65,7 +69,7 @@ export const calculationsService = {
     async getUnassignedCalculations(): Promise<Calculation[]> {
         const { data, error } = await supabase
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
             .is('manager_id', null)
             .neq('status', 'draft')
             .order('created_at', { ascending: false })
@@ -80,7 +84,7 @@ export const calculationsService = {
 
         const { data, error } = await supabase
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
             .eq('manager_id', user.id)
             .order('updated_at', { ascending: false })
 
@@ -99,7 +103,7 @@ export const calculationsService = {
                 updated_at: new Date().toISOString()
             })
             .eq('id', calculationId)
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
             .single()
 
         if (error) throw error
@@ -130,7 +134,7 @@ export const calculationsService = {
         const { data, error } = await supabase
             .from('calculations')
             .insert(dbObject)
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
             .single()
 
         if (error) throw error
@@ -160,7 +164,7 @@ export const calculationsService = {
             .from('calculations')
             .update(dbUpdates)
             .eq('id', id)
-            .select('*, manager_info:profiles!manager_id(organization_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
             .single()
 
         if (error) throw error
@@ -183,7 +187,12 @@ export const calculationsService = {
         // Supabase returns joined data. We handle both object and array cases safely.
         const mInfo = db.manager_info;
         const managerData = Array.isArray(mInfo) ? mInfo[0] : mInfo;
-        const managerName = managerData?.organization_name || 'Назначается';
+
+        let managerName = 'Назначается';
+        if (managerData) {
+            const fullName = `${managerData.first_name || ''} ${managerData.last_name || ''}`.trim();
+            managerName = fullName || 'Специалист';
+        }
 
         return {
             id: db.id,

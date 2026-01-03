@@ -88,5 +88,67 @@ export const adminService = {
 
         // Логируем смену роли
         await auditService.logAction('role_updated', 'profile', userId, { new_role: newRole });
+    },
+
+    async getAllCalculations(): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('calculations')
+            .select('id, organization_name, status, total_area, results, created_at')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    },
+
+    async getSystemStats(): Promise<any> {
+        const { data: calculations, error: calcError } = await supabase
+            .from('calculations')
+            .select('status, results');
+
+        if (calcError) throw calcError;
+
+        const stats = {
+            totalProjects: calculations?.length || 0,
+            activeProjects: calculations?.filter(c => c.status !== 'draft').length || 0,
+            totalGlobalBudget: 0,
+            revenuePipeline: 0,
+            stages: {
+                draft: 0,
+                pending: 0,
+                expert: 0,
+                suppliers: 0,
+                invoice: 0,
+                completed: 0
+            }
+        };
+
+        calculations?.forEach(calc => {
+            // Count stages
+            if (stats.stages[calc.status as keyof typeof stats.stages] !== undefined) {
+                stats.stages[calc.status as keyof typeof stats.stages]++;
+            }
+
+            // Calculate budgets
+            const annualBudget = calc.results?.totalAnnualBudget || 0;
+            stats.totalGlobalBudget += annualBudget;
+
+            if (calc.status === 'invoice' || calc.status === 'completed') {
+                stats.revenuePipeline += annualBudget;
+            }
+        });
+
+        return stats;
+    },
+
+    async deleteUser(userId: string): Promise<void> {
+        // Вызываем RPC функцию, которую мы создали в БД
+        const { error } = await supabase.rpc('delete_user_v1', {
+            user_id_param: userId
+        });
+
+        if (error) throw error;
+
+        // Логируем удаление пользователя
+        await auditService.logAction('user_deleted_permanently', 'profile', userId);
     }
 }

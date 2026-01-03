@@ -73,6 +73,8 @@ export const authService = {
     // Обновление профиля данными из формы и ролью
     await supabase.from('profiles').update({
       organization_name: credentials.organizationName,
+      first_name: credentials.firstName,
+      last_name: credentials.lastName,
       phone: credentials.phone,
       address: credentials.address,
       role: role
@@ -121,8 +123,20 @@ export const authService = {
       .eq('id', id)
       .maybeSingle()
 
-    if (error) return null
-    return data as User
+    if (error || !data) return null
+
+    // Map snake_case from DB to camelCase for the Application
+    return {
+      id: data.id,
+      email: data.email,
+      role: data.role,
+      organizationName: data.organization_name,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      phone: data.phone,
+      address: data.address,
+      createdAt: data.created_at
+    } as User
   },
 
   getUserProfileWithRetry: async (id: string, retries = 5): Promise<User | null> => {
@@ -149,6 +163,8 @@ export const authService = {
   updateProfile: async (userId: string, data: UpdateProfileData): Promise<User> => {
     const updateObj: Record<string, string | undefined> = {};
     if (data.organizationName !== undefined) updateObj.organization_name = data.organizationName;
+    if (data.firstName !== undefined) updateObj.first_name = data.firstName;
+    if (data.lastName !== undefined) updateObj.last_name = data.lastName;
     if (data.phone !== undefined) updateObj.phone = data.phone;
     if (data.address !== undefined) updateObj.address = data.address;
 

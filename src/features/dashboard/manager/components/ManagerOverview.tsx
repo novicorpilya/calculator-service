@@ -25,6 +25,7 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
         const approved = calculations.filter(c => c.status === 'approved');
         const pending = calculations.filter(c => c.status === 'sent' || c.status === 'revision');
         const inChanges = calculations.filter(c => c.status === 'changes');
+        const implementation = calculations.filter(c => ['suppliers', 'invoice', 'paid', 'shipping'].includes(c.status));
 
         return {
             totalBudget: calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0),
@@ -32,7 +33,8 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
             approvedCount: approved.length,
             pendingCount: pending.length,
             changesCount: inChanges.length,
-            conversion: calculations.length > 0 ? Math.round((approved.length / calculations.length) * 100) : 0,
+            implementationCount: implementation.length,
+            conversion: calculations.length > 0 ? Math.round(((approved.length + implementation.length) / calculations.length) * 100) : 0,
             avgDealSize: calculations.length > 0 ? Math.round(calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0) / calculations.length) : 0
         };
     }, [calculations]);
@@ -101,9 +103,9 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                                 {[
                                     { label: 'Входящие', count: stats.pendingCount, color: 'bg-orange-500', percent: Math.round((stats.pendingCount / stats.activeProjects) * 100) || 0 },
-                                    { label: 'В работе', count: stats.activeProjects - stats.pendingCount - stats.approvedCount, color: 'bg-blue-500', percent: Math.round(((stats.activeProjects - stats.pendingCount - stats.approvedCount) / stats.activeProjects) * 100) || 0 },
-                                    { label: 'Правки', count: stats.changesCount, color: 'bg-primary', percent: Math.round((stats.changesCount / stats.activeProjects) * 100) || 0 },
+                                    { label: 'Анализ', count: stats.changesCount, color: 'bg-primary', percent: Math.round((stats.changesCount / stats.activeProjects) * 100) || 0 },
                                     { label: 'Одобрено', count: stats.approvedCount, color: 'bg-emerald-500', percent: Math.round((stats.approvedCount / stats.activeProjects) * 100) || 0 },
+                                    { label: 'Реализация', count: stats.implementationCount, color: 'bg-indigo-500', percent: Math.round((stats.implementationCount / stats.activeProjects) * 100) || 0 },
                                 ].map((item, i) => (
                                     <div key={i} className="space-y-4">
                                         <div className="flex items-end justify-between">

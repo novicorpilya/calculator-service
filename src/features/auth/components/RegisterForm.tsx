@@ -1,7 +1,7 @@
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Building2, MapPin, Phone, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Building2, MapPin, Phone, Mail, Lock, Eye, EyeOff, ArrowRight, User as UserIcon } from 'lucide-react'
 import { IconInput } from '@/components/ui/IconInput'
 import { registerSchema } from '@/features/auth/auth.validation'
 import type { RegisterFormValues } from '@/features/auth/auth.form.types'
@@ -12,6 +12,7 @@ interface RegisterFormProps {
     loading: boolean
     serverError?: string | null
     initialData?: Partial<RegisterFormValues>
+    role?: 'client' | 'manager' | 'admin'
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({
@@ -19,7 +20,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     onSwitchToLogin,
     loading,
     serverError,
-    initialData
+    initialData,
+    role = 'client'
 }) => {
     const [showPassword, setShowPassword] = React.useState(false)
 
@@ -62,15 +64,51 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             )}
 
             <div className="space-y-4">
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Организация</label>
-                    <IconInput
-                        {...register('organizationName')}
-                        placeholder="ООО Ромашка"
-                        icon={<Building2 />}
-                        error={errors.organizationName?.message}
-                    />
-                </div>
+                {role === 'client' ? (
+                    <>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Организация</label>
+                            <IconInput
+                                {...register('organizationName')}
+                                placeholder="ООО Ромашка"
+                                icon={<Building2 />}
+                                error={errors.organizationName?.message}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Адрес</label>
+                            <IconInput
+                                {...register('address')}
+                                placeholder="г. Москва, ул. Примерная, д. 1"
+                                icon={<MapPin />}
+                                error={errors.address?.message}
+                            />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Имя</label>
+                            <IconInput
+                                {...register('firstName')}
+                                placeholder="Иван"
+                                icon={<UserIcon />}
+                                error={errors.firstName?.message}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Фамилия</label>
+                            <IconInput
+                                {...register('lastName')}
+                                placeholder="Иванов"
+                                icon={<UserIcon />}
+                                error={errors.lastName?.message}
+                            />
+                        </div>
+                    </>
+                )}
 
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Телефон</label>
@@ -80,16 +118,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                         icon={<Phone />}
                         error={errors.phone?.message}
                         onChange={handlePhoneChange}
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Адрес</label>
-                    <IconInput
-                        {...register('address')}
-                        placeholder="г. Москва, ул. Примерная, д. 1"
-                        icon={<MapPin />}
-                        error={errors.address?.message}
                     />
                 </div>
 

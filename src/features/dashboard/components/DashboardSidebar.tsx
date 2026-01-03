@@ -108,11 +108,15 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
                             w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 transition-colors
                             ${isProfileActive ? 'bg-white text-primary' : 'bg-primary/10 text-primary'}
                         `}>
-                            {user?.organizationName?.[0] || 'U'}
+                            {user?.role !== 'client' && user?.firstName
+                                ? user.firstName[0]
+                                : user?.organizationName?.[0] || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className={`text-[10px] font-black uppercase tracking-widest truncate ${isProfileActive ? 'text-white' : 'text-foreground'}`}>
-                                {user?.organizationName || 'Пользователь'}
+                                {user?.role !== 'client' && (user?.firstName || user?.lastName)
+                                    ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                                    : user?.organizationName || 'Пользователь'}
                             </p>
                             <p className={`text-[9px] font-bold uppercase tracking-widest truncate ${isProfileActive ? 'text-white/60' : 'text-foreground/30'}`}>
                                 {user?.email}

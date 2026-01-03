@@ -1,7 +1,7 @@
 /**
  * Current lifecycle stage of a calculation project.
  */
-export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'revision' | 'approved';
+export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'revision' | 'approved' | 'suppliers' | 'invoice' | 'paid' | 'shipping' | 'completed' | 'closed';
 
 export type SyncEventType = 'UPDATE' | 'INSERT' | 'DELETE';
 
@@ -56,16 +56,62 @@ export const REPLACEMENT_CYCLES = [
     { value: 'monthly', label: 'Ежемесячно', coeff: 0.1 }
 ];
 
+export const INTENSITY_LEVELS = [
+    { value: 'low', label: 'Низкая', coeff: 0.8 },
+    { value: 'medium', label: 'Средняя', coeff: 1.0 },
+    { value: 'high', label: 'Высокая', coeff: 1.2 },
+    { value: 'very_high', label: 'Очень высокая', coeff: 1.3 },
+    { value: 'critical', label: 'Критическая', coeff: 1.5 }
+];
+
+export const RESERVE_COEFFS = {
+    medium: 0.15,
+    high: 0.20,
+    very_high: 0.20,
+    critical: 0.25,
+    default: 0.10
+};
+
+export const ZONE_COEFFS: Record<string, number> = {
+    '#ef4444': 1.25, // RED
+    '#facc15': 1.15, // YELLOW
+    '#22c55e': 1.00, // GREEN
+    '#3b82f6': 0.85, // BLUE
+    '#ec4899': 1.30, // PINK
+    '#f97316': 1.40, // ORANGE
+    '#78350f': 1.05, // BROWN
+    '#f8fafc': 0.95  // WHITE
+};
+
 export interface InventoryItem {
     inventory: string;
+    sku?: string;
     color: string;
     quantity: number;
     price: number;
     total: number;
+    // Calculation Breakdown
+    calculation?: {
+        qArea: number;
+        qStaff: number;
+        qVisitors: number;
+        qBase: number;
+        kZone: number;
+        kIntensity: number;
+        kReserve: number;
+        monthlyOrder: number;
+        annualConsumption: number;
+        annualBudget: number;
+        reorderPoint: number;
+        safetyStock: number;
+        formula: string;
+        breakdown: string;
+    };
     norms?: {
         area: number;
         personnel: number;
         intensity: number;
+        replacementCycle: number;
     };
 }
 
@@ -97,6 +143,7 @@ export interface Calculation {
     staffCount: number;
     dailyVisitors: number;
     sanitaryLevel: string;
+    intensityLevel?: string;
     replacementCycle: string;
     createdDate: string;
     manager: string;
@@ -123,16 +170,24 @@ export const STATUS_CONFIG: Record<CalculationStatus, { label: string; color: st
     sent: { label: 'Отправлен', color: 'bg-blue-100 text-blue-800' },
     changes: { label: 'Требует изменений', color: 'bg-orange-100 text-orange-800' },
     revision: { label: 'Правки внесены', color: 'bg-purple-100 text-purple-800' },
-    approved: { label: 'Утверждено', color: 'bg-green-100 text-green-800' }
+    approved: { label: 'Утверждено', color: 'bg-green-100 text-green-800' },
+    suppliers: { label: 'Передано поставщикам', color: 'bg-indigo-100 text-indigo-800' },
+    invoice: { label: 'Выставлен счет', color: 'bg-cyan-100 text-cyan-800' },
+    paid: { label: 'Оплачено', color: 'bg-emerald-100 text-emerald-800' },
+    shipping: { label: 'Поставка в работе', color: 'bg-amber-100 text-amber-800' },
+    completed: { label: 'Поставка завершена', color: 'bg-teal-100 text-teal-800' },
+    closed: { label: 'Проект закрыт', color: 'bg-slate-100 text-slate-800' }
 };
 
 export const ZONE_TYPES = [
-    { value: 'kitchen', label: 'Кухня', color: '#ef4444' },
-    { value: 'hall', label: 'Зал', color: '#3b82f6' },
-    { value: 'bar', label: 'Бар', color: '#8b5cf6' },
-    { value: 'bathroom', label: 'Санузел', color: '#22c55e' },
-    { value: 'storage', label: 'Склад', color: '#f59e0b' },
-    { value: 'service', label: 'Служебная', color: '#6b7280' }
+    { value: 'red_zone', label: '🔴 RED — Санузлы (Риск)', color: '#ef4444' },
+    { value: 'yellow_zone', label: '🟡 YELLOW — Ванные (Поверхности)', color: '#facc15' },
+    { value: 'green_zone', label: '🟢 GREEN — Кухня / Бар', color: '#22c55e' },
+    { value: 'blue_zone', label: '🔵 BLUE — Общие зоны / Офис', color: '#3b82f6' },
+    { value: 'pink_zone', label: '💗 PINK — Спец. санузлы', color: '#ec4899' },
+    { value: 'orange_zone', label: '🟠 ORANGE — Аллергены', color: '#f97316' },
+    { value: 'brown_zone', label: '🟤 BROWN — Готовое мясо', color: '#78350f' },
+    { value: 'white_zone', label: '⚪ WHITE — Молочные продукты', color: '#f8fafc' }
 ];
 
 

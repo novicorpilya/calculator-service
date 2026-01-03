@@ -3,11 +3,14 @@ import { supabase } from './supabase'
 export interface InventoryItemMaster {
     id: string;
     name: string;
+    sku: string;
     color: string;
     price: number;
+    stock: number;
     norm_area: number;
     norm_personnel: number;
     norm_intensity: number;
+    replacement_cycle_days: number;
     category?: string;
     created_at?: string;
     updated_at?: string;

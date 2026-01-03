@@ -60,8 +60,8 @@ export const ClientDashboard: React.FC = () => {
 
             setCalculations(calcData);
             setVenues(venueData);
-        } catch (err: any) {
-            setError(err.message || 'Ошибка загрузки данных');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
         } finally {
             setLoading(false);
             state.current.isFetching = false;
@@ -138,8 +138,8 @@ export const ClientDashboard: React.FC = () => {
                 toast.success('Расчет создан');
             }
             setIsCreatingNew(false);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Ошибка сохранения');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setLoading(false);

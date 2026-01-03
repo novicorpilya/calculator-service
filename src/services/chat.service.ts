@@ -166,7 +166,11 @@ export const chatService = {
                 }
             )
             .subscribe((status) => {
-                if (status !== 'SUBSCRIBED' && status !== 'CLOSED') {
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('[Sync:Error] Realtime subscription failed. ACTION REQUIRED:');
+                    console.error('1. Ensure "calculations" table is added to "supabase_realtime" publication.');
+                    console.error('2. Run "scripts/fix-realtime-sync.sql" in Supabase SQL Editor.');
+                } else if (status !== 'SUBSCRIBED' && status !== 'CLOSED') {
                     console.warn(`[Sync:Warn] Channel status: ${status}`);
                 }
             });
@@ -197,12 +201,41 @@ export const chatService = {
         return data.publicUrl;
     },
 
-    async getRecipients(_userId: string, role: string) {
-        const targetRole = role === 'manager' || role === 'admin' ? 'client' : 'manager';
-        const { data } = await supabase
-            .from('profiles')
-            .select('id, organization_name, role')
-            .eq('role', targetRole);
-        return data || [];
+    async getRecipients(userId: string) {
+        try {
+            // 1. Get IDs from projects (calculations)
+            const { data: calcs } = await supabase
+                .from('calculations')
+                .select('user_id, manager_id')
+                .or(`user_id.eq.${userId},manager_id.eq.${userId}`);
+
+            // 2. Get IDs from message history (any interaction)
+            const { data: msgs } = await supabase
+                .from('messages')
+                .select('sender_id, receiver_id')
+                .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+            const linkedIds = new Set<string>();
+            calcs?.forEach(c => {
+                if (c.user_id && c.user_id !== userId) linkedIds.add(c.user_id);
+                if (c.manager_id && c.manager_id !== userId) linkedIds.add(c.manager_id);
+            });
+            msgs?.forEach(m => {
+                if (m.sender_id !== userId) linkedIds.add(m.sender_id);
+                if (m.receiver_id !== userId) linkedIds.add(m.receiver_id);
+            });
+
+            if (linkedIds.size === 0) return [];
+
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, organization_name, role, first_name, last_name')
+                .in('id', Array.from(linkedIds));
+
+            return profiles || [];
+        } catch (error) {
+            console.error('Error fetching recipients:', error);
+            return [];
+        }
     }
 };
