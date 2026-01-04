@@ -3,7 +3,7 @@ import {
     ChevronLeft, Download, Send, Calendar, MapPin, Boxes,
     MessageCircle, FileText, ArrowRight,
     Trash2, AlertTriangle, Briefcase, Paperclip,
-    X, Loader2, AlertCircle, CheckCircle
+    X, Loader2, AlertCircle, CheckCircle, Smile
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { type Calculation, type CalculationStatus, type CalculationResults } from '../../dashboard.types';
@@ -16,6 +16,7 @@ import { inventoryService, type InventoryItemMaster } from '@/services/inventory
 import { COMPANY_REQUISITES } from '../../dashboard.types';
 import { useAuth } from '@/features/auth';
 import { CreditCard, Copy, MoreVertical } from 'lucide-react';
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 
 interface ClientCalculationDetailsProps {
     calculation: Calculation;
@@ -65,6 +66,8 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     const [isAuditMode, setIsAuditMode] = useState(false);
     const [auditItemIndex, setAuditItemIndex] = useState<number | null>(null);
     const [catalog, setCatalog] = useState<InventoryItemMaster[]>([]);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const moreMenuRef = React.useRef<HTMLDivElement>(null);
     const { user } = useAuth();
@@ -75,7 +78,38 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
             if (user?.role === 'manager' || user?.role === 'admin') {
                 inventoryService.getGlobalItems().then(setCatalog);
             }
-            const unsubscribe = chatService.subscribeToMessages((msg) => {
+            const markAsRead = async () => {
+                if (calculation.manager_id && user) {
+                    try {
+                        await chatService.markAsRead(calculation.manager_id, user.id, String(calculation.id));
+                        // If current user is manager, mark client's messages
+                    } catch (e) { console.error(e); }
+                }
+                if (calculation.user_id && user && user.id !== calculation.user_id) {
+                    try {
+                        await chatService.markAsRead(calculation.user_id, user.id, String(calculation.id));
+                    } catch (e) { console.error(e); }
+                }
+            };
+            markAsRead();
+
+            const unsubscribe = chatService.subscribeToMessages(async (msg) => {
+                // If we are looking at this calculation, mark incoming as read
+                if (msg.calculation_id === String(calculation.id) && msg.receiver_id === user?.id) {
+                    chatService.markAsRead(msg.sender_id, user!.id, String(calculation.id)).catch(console.error);
+                }
+                // Preload image if message has one
+                if (msg.image_url) {
+                    await new Promise<void>((resolve) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            resolve();
+                        };
+                        img.onerror = () => resolve();
+                        img.src = msg.image_url!;
+                    });
+                }
+
                 setMessages(prev => {
                     // Deduplication logic: replace temporary message with server-confirmed one
                     if (msg.sender_id === user?.id) {
@@ -240,6 +274,11 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     const totalUnits = calculation.results?.summary.reduce((sum, item) => sum + item.total, 0) || 0;
     const isFinancialStage = ['invoice', 'paid', 'shipping', 'completed', 'closed'].includes(calculation.status);
     const canSeePrices = user?.role === 'manager' || user?.role === 'admin' || isFinancialStage;
+
+    const handleEmojiClick = (emojiData: EmojiClickData) => {
+        setNewComment(prev => prev + emojiData.emoji);
+        setShowEmojiPicker(false);
+    };
 
     return (
         <div className="w-full max-w-[min(100%,1300px)] mx-auto space-y-[clamp(1.5rem,5vh,3.5rem)] animate-in fade-in duration-700 pb-20">
@@ -503,17 +542,21 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                                 : (msg.image_url && !msg.content ? 'shadow-lg' : 'bg-card border border-border-theme rounded-tl-none')}
                                         `}>
                                             {msg.image_url && (
-                                                <div className="rounded-xl overflow-hidden border border-white/10 relative min-h-[100px] bg-[#1a1a1a] flex items-center justify-center">
+                                                <div className="rounded-xl overflow-hidden border border-white/10 relative bg-[#1a1a1a]">
                                                     <img
                                                         src={msg.image_url}
                                                         alt="Attachment"
-                                                        className={`max-w-full h-auto object-cover transition-all duration-300 ${msg.id.startsWith('temp-') ? 'blur-[2px] opacity-70' : 'opacity-100'}`}
+                                                        className={`max-w-full h-auto object-cover transition-all duration-300 ${msg.id.startsWith('temp-') ? 'blur-[2px] opacity-70' : 'opacity-100'
+                                                            }`}
                                                         onClick={() => setPreviewImage(msg.image_url!)}
+                                                        loading="lazy"
                                                     />
                                                     {msg.id.startsWith('temp-') && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                                                            <Loader2 className="w-6 h-6 text-white animate-spin mb-1" />
-                                                            <span className="text-[8px] text-white font-black uppercase tracking-widest">Загрузка</span>
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <div className="relative">
+                                                                <Loader2 className="w-9 h-9 text-white animate-spin drop-shadow-lg" />
+                                                                <div className="absolute inset-0 w-9 h-9 border-[3px] border-white/50 rounded-full animate-pulse"></div>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -631,9 +674,26 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                         type="text"
                                         value={newComment}
                                         onChange={(e) => setNewComment(e.target.value)}
-                                        className="input-premium !py-4 !pr-14"
+                                        className="input-premium !py-4 !pr-24"
                                         placeholder="Напишите эксперту..."
                                     />
+
+                                    {/* Emoji Picker Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                        className="absolute right-14 top-1/2 -translate-y-1/2 w-8 h-8 text-foreground/40 hover:text-primary transition-all rounded-full flex items-center justify-center"
+                                    >
+                                        <Smile size={18} />
+                                    </button>
+
+                                    {/* Emoji Picker Popup */}
+                                    {showEmojiPicker && (
+                                        <div className="absolute bottom-full right-0 mb-2 z-50">
+                                            <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                        </div>
+                                    )}
+
                                     <button type="submit" disabled={!newComment.trim() && pendingAttachments.length === 0} className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-xl shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 disabled:opacity-50 transition-all border-none cursor-pointer">
                                         <ArrowRight size={20} />
                                     </button>

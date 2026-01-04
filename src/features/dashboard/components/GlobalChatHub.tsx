@@ -11,7 +11,8 @@ import {
     Paperclip,
     X,
     Loader2,
-    Trash2
+    Trash2,
+    Smile
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { chatService, type Message } from '@/services/chat.service';
@@ -19,6 +20,7 @@ import { toast } from 'sonner';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
 import { VoicePlayer } from '@/components/ui/VoicePlayer';
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 
 interface UserRecipient {
     id: string;
@@ -26,6 +28,11 @@ interface UserRecipient {
     role: string;
     first_name?: string;
     last_name?: string;
+    lastMessage?: {
+        content: string;
+        created_at: string;
+        sender_id: string;
+    };
 }
 
 /**
@@ -45,6 +52,9 @@ export const GlobalChatHub = React.memo(() => {
     const [pendingAttachments, setPendingAttachments] = useState<{ file: File, preview: string, isUploading?: boolean }[]>([]);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const moreMenuRef = React.useRef<HTMLDivElement>(null);
@@ -65,6 +75,8 @@ export const GlobalChatHub = React.memo(() => {
             if (recipients.length === 0) setIsLoadingUsers(true);
             const data = await chatService.getRecipients(user.id);
             setRecipients(data);
+            const counts = await chatService.getUnreadCount(user.id);
+            setUnreadCounts(counts);
         } catch (_error) {
             toast.error('Ошибка загрузки контактов');
         } finally {
@@ -76,8 +88,45 @@ export const GlobalChatHub = React.memo(() => {
     useEffect(() => {
         if (selectedUser && user) {
             loadMessages();
-            const unsubscribe = chatService.subscribeToMessages((msg) => {
+            // Mark as read when selecting user
+            const markAsRead = async () => {
+                try {
+                    await chatService.markAsRead(selectedUser.id, user.id);
+                    setUnreadCounts(prev => {
+                        const next = { ...prev };
+                        delete next[selectedUser.id];
+                        return next;
+                    });
+                } catch (error) {
+                    console.error('Error marking as read:', error);
+                }
+            };
+            markAsRead();
+
+            const unsubscribe = chatService.subscribeToMessages(async (msg) => {
                 if (msg.sender_id === selectedUser.id || msg.sender_id === user.id) {
+                    // If we are currently chatting with this user, mark incoming as read
+                    if (msg.sender_id === selectedUser.id) {
+                        chatService.markAsRead(msg.sender_id, user.id).catch(console.error);
+                        setUnreadCounts(prev => {
+                            const next = { ...prev };
+                            delete next[msg.sender_id];
+                            return next;
+                        });
+                    }
+
+                    // Preload image if message has one
+                    if (msg.image_url) {
+                        await new Promise<void>((resolve) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                resolve();
+                            };
+                            img.onerror = () => resolve();
+                            img.src = msg.image_url!;
+                        });
+                    }
+
                     setMessages(prev => {
                         if (msg.sender_id === user.id) {
                             const tempIdx = prev.findIndex(m =>
@@ -92,6 +141,35 @@ export const GlobalChatHub = React.memo(() => {
                         }
                         if (prev.some(m => m.id === msg.id)) return prev;
                         return [...prev, msg];
+                    });
+                } else if (msg.receiver_id === user.id || msg.sender_id === user.id) {
+                    // Update unread count if it's for current user
+                    if (msg.receiver_id === user.id) {
+                        setUnreadCounts(prev => ({
+                            ...prev,
+                            [msg.sender_id]: (prev[msg.sender_id] || 0) + 1
+                        }));
+                    }
+
+                    // Update last message preview for the contact
+                    setRecipients(prev => {
+                        const targetId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+                        let contentSnippet = msg.content || '';
+                        if (msg.image_url) contentSnippet = '📷 Фотография';
+                        if (msg.voice_url) contentSnippet = '🎤 Голосовое сообщение';
+
+                        return prev.map(r => r.id === targetId ? {
+                            ...r,
+                            lastMessage: {
+                                content: contentSnippet,
+                                created_at: msg.created_at,
+                                sender_id: msg.sender_id
+                            }
+                        } : r).sort((a, b) => {
+                            const dateA = a.lastMessage?.created_at || '0';
+                            const dateB = b.lastMessage?.created_at || '0';
+                            return dateB.localeCompare(dateA);
+                        });
                     });
                 }
             });
@@ -128,7 +206,7 @@ export const GlobalChatHub = React.memo(() => {
         try {
             isFetchingMessages.current = true;
             if (messages.length === 0) setIsLoading(true);
-            const data = await chatService.getDirectMessages(user.id, selectedUser.id);
+            const data = await chatService.getAllMessagesWithUser(user.id, selectedUser.id);
             setMessages(data);
         } catch (_error) {
             toast.error('Ошибка загрузки сообщений');
@@ -136,6 +214,11 @@ export const GlobalChatHub = React.memo(() => {
             setIsLoading(false);
             isFetchingMessages.current = false;
         }
+    };
+
+    const handleEmojiClick = (emojiData: EmojiClickData) => {
+        setNewMessage(prev => prev + emojiData.emoji);
+        setShowEmojiPicker(false);
     };
 
     const filteredRecipients = recipients.filter(r => {
@@ -159,16 +242,23 @@ export const GlobalChatHub = React.memo(() => {
         const optimisticMsgs: Message[] = [];
 
         if (attachments.length > 0) {
-            attachments.forEach((att, i) => {
-                optimisticMsgs.push({
-                    id: `temp-${Date.now()}-${i}`,
+            // Create optimistic messages immediately without preloading
+            for (let i = 0; i < attachments.length; i++) {
+                const att = attachments[i];
+                const tempId = `temp-${Date.now()}-${i}`;
+
+                // Create optimistic message
+                const optimisticMsg: Message = {
+                    id: tempId,
                     sender_id: user.id,
                     receiver_id: selectedUser.id,
                     content: i === 0 ? text : '',
                     image_url: att.preview,
                     created_at: timestamp,
-                } as Message);
-            });
+                } as Message;
+
+                optimisticMsgs.push(optimisticMsg);
+            }
         } else {
             optimisticMsgs.push({
                 id: `temp-${Date.now()}`,
@@ -179,6 +269,7 @@ export const GlobalChatHub = React.memo(() => {
             } as Message);
         }
 
+        // Add messages only after images are loaded
         setMessages(prev => [...prev, ...optimisticMsgs]);
 
         try {
@@ -297,15 +388,43 @@ export const GlobalChatHub = React.memo(() => {
                             onClick={() => setSelectedUser(recipient)}
                             className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${selectedUser?.id === recipient.id ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' : 'hover:bg-primary/5 text-foreground group'}`}
                         >
-                            <div className="relative">
-                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xs ${selectedUser?.id === recipient.id ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
+                            <div className="relative shrink-0">
+                                <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-black text-sm ${selectedUser?.id === recipient.id ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
                                     {(recipient.first_name?.[0] || recipient.organization_name?.[0] || '?')}
                                 </div>
-                                <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-background rounded-full" />
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-background rounded-full" />
                             </div>
-                            <div className="flex-1 text-left min-w-0">
-                                <p className="text-[12px] font-black truncate">{recipient.role === 'client' ? recipient.organization_name : `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() || recipient.organization_name}</p>
-                                <p className={`text-[10px] font-bold uppercase tracking-widest truncate ${selectedUser?.id === recipient.id ? 'text-white/60' : 'text-foreground/30'}`}>{recipient.role === 'manager' ? 'Эксперт HoReCa' : recipient.role === 'admin' ? 'Администратор' : 'Клиент'}</p>
+
+                            <div className="flex-1 text-left min-w-0 flex flex-col justify-center">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                    <p className="text-[13px] font-bold truncate">
+                                        {recipient.role === 'client' ? recipient.organization_name : `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() || recipient.organization_name}
+                                    </p>
+                                    {recipient.lastMessage && (
+                                        <span className={`text-[9px] font-bold uppercase tracking-tight ${selectedUser?.id === recipient.id ? 'text-white/40' : 'text-foreground/20'}`}>
+                                            {new Date(recipient.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className={`text-[11px] truncate flex-1 ${selectedUser?.id === recipient.id ? 'text-white/70' : 'text-foreground/40'}`}>
+                                        {recipient.lastMessage ? (
+                                            <>
+                                                {recipient.lastMessage.sender_id === user?.id && <span className="mr-1 opacity-50">Вы:</span>}
+                                                {recipient.lastMessage.content}
+                                            </>
+                                        ) : (
+                                            <span className="opacity-40 italic">Нет сообщений</span>
+                                        )}
+                                    </p>
+
+                                    {unreadCounts[recipient.id] > 0 && (
+                                        <span className={`flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[10px] font-black transition-all animate-in zoom-in ${selectedUser?.id === recipient.id ? 'bg-white text-primary' : 'bg-primary text-white shadow-lg shadow-primary/20'}`}>
+                                            {unreadCounts[recipient.id]}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </button>
                     ))}
@@ -375,17 +494,21 @@ export const GlobalChatHub = React.memo(() => {
                                                 : (msg.image_url && !msg.content ? 'shadow-lg' : 'bg-card border border-border-theme rounded-tl-none text-foreground')}
                                         `}>
                                             {msg.image_url && (
-                                                <div className="rounded-xl overflow-hidden border border-white/10 relative min-h-[100px] bg-[#1a1a1a] flex items-center justify-center">
+                                                <div className="rounded-xl overflow-hidden border border-white/10 relative bg-[#1a1a1a]">
                                                     <img
                                                         src={msg.image_url}
                                                         alt="Attachment"
-                                                        className={`max-w-full h-auto object-cover transition-all duration-300 ${msg.id.startsWith('temp-') ? 'blur-[2px] opacity-70' : 'opacity-100'}`}
+                                                        className={`max-w-full h-auto object-cover transition-all duration-300 ${msg.id.startsWith('temp-') ? 'blur-[2px] opacity-70' : 'opacity-100'
+                                                            }`}
                                                         onClick={() => setPreviewImage(msg.image_url!)}
+                                                        loading="lazy"
                                                     />
                                                     {msg.id.startsWith('temp-') && (
-                                                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center backdrop-blur-[2px]">
-                                                            <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
-                                                            <span className="text-[10px] text-white font-bold uppercase tracking-wider">Отправка...</span>
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <div className="relative">
+                                                                <Loader2 className="w-10 h-10 text-white animate-spin drop-shadow-lg" />
+                                                                <div className="absolute inset-0 w-10 h-10 border-[3px] border-white/50 rounded-full animate-pulse"></div>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -428,7 +551,24 @@ export const GlobalChatHub = React.memo(() => {
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
                                 <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 hover:bg-primary/10 text-foreground/40 hover:text-primary transition-all rounded-full flex items-center justify-center shrink-0"><Paperclip size={24} /></button>
                                 <div className="flex-1 relative">
-                                    <input type="text" placeholder="Напишите сообщение..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="w-full bg-card border border-border-theme rounded-[2.5rem] pl-8 pr-16 py-5 text-[13px] font-medium outline-none focus:border-primary transition-all" />
+                                    <input type="text" placeholder="Напишите сообщение..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="w-full bg-card border border-border-theme rounded-[2.5rem] pl-8 pr-24 py-5 text-[13px] font-medium outline-none focus:border-primary transition-all" />
+
+                                    {/* Emoji Picker Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                        className="absolute right-16 top-1/2 -translate-y-1/2 w-10 h-10 text-foreground/40 hover:text-primary transition-all rounded-full flex items-center justify-center"
+                                    >
+                                        <Smile size={20} />
+                                    </button>
+
+                                    {/* Emoji Picker Popup */}
+                                    {showEmojiPicker && (
+                                        <div className="absolute bottom-full right-0 mb-2 z-50">
+                                            <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                        </div>
+                                    )}
+
                                     {newMessage.trim() || pendingAttachments.length > 0 ? (
                                         <button type="submit" disabled={!newMessage.trim() && pendingAttachments.length === 0} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-12 h-12 bg-primary text-white rounded-[1.25rem] shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 disabled:opacity-50 transition-all cursor-pointer border-none"><Send size={20} /></button>
                                     ) : isRecordingVoice ? (
@@ -461,6 +601,6 @@ export const GlobalChatHub = React.memo(() => {
                 )}
             </div>
             {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
-        </div>
+        </div >
     );
 });

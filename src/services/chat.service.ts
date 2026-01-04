@@ -11,6 +11,7 @@ export interface Message {
     voice_url?: string;
     voice_duration?: number;
     created_at: string;
+    is_read?: boolean;
 }
 
 /**
@@ -25,14 +26,13 @@ export const chatService = {
     },
 
     /**
-     * Fetch direct messages not tied to a specific project
+     * Fetch ALL messages between two users (including those from projects)
      */
-    async getDirectMessages(userA: string, userB: string): Promise<Message[]> {
+    async getAllMessagesWithUser(userA: string, userB: string): Promise<Message[]> {
         const { data, error } = await supabase
             .from('messages')
             .select('*')
             .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
-            .is('calculation_id', null)
             .order('created_at', { ascending: true });
 
         if (error) throw error;
@@ -228,36 +228,75 @@ export const chatService = {
 
     async getRecipients(userId: string) {
         try {
-            // 1. Get IDs from projects (calculations)
-            const { data: calcs } = await supabase
+            // 1. Get all users linked via calculations or messages
+            const { data: linkedCalculations } = await supabase
                 .from('calculations')
-                .select('user_id, manager_id')
-                .or(`user_id.eq.${userId},manager_id.eq.${userId}`);
+                .select('user_id, manager_id');
 
-            // 2. Get IDs from message history (any interaction)
-            const { data: msgs } = await supabase
+            const { data: allMsgs } = await supabase
                 .from('messages')
                 .select('sender_id, receiver_id')
                 .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
 
             const linkedIds = new Set<string>();
-            calcs?.forEach(c => {
+            linkedCalculations?.forEach(c => {
                 if (c.user_id && c.user_id !== userId) linkedIds.add(c.user_id);
                 if (c.manager_id && c.manager_id !== userId) linkedIds.add(c.manager_id);
             });
-            msgs?.forEach(m => {
+            allMsgs?.forEach(m => {
                 if (m.sender_id !== userId) linkedIds.add(m.sender_id);
                 if (m.receiver_id !== userId) linkedIds.add(m.receiver_id);
             });
 
             if (linkedIds.size === 0) return [];
 
+            // 3. EFFECTIVE BATCHING: Fetch all profiles AND all last messages in just 2 queries total
             const { data: profiles } = await supabase
                 .from('profiles')
                 .select('id, organization_name, role, first_name, last_name')
                 .in('id', Array.from(linkedIds));
 
-            return profiles || [];
+            if (!profiles) return [];
+
+            // Fetch the last message for EACH linked user in ONE query
+            // Using a specialized filter to get only messages involving current user
+            const { data: lastMessages } = await supabase
+                .from('messages')
+                .select('content, created_at, sender_id, receiver_id, image_url, voice_url')
+                .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+                .order('created_at', { ascending: false });
+
+            // Group by contact ID to find the newest for each
+            const lastMsgMap = new Map<string, any>();
+            lastMessages?.forEach(m => {
+                const contactId = m.sender_id === userId ? m.receiver_id : m.sender_id;
+                if (!lastMsgMap.has(contactId)) {
+                    lastMsgMap.set(contactId, m);
+                }
+            });
+
+            const result = profiles.map(p => {
+                const lastMsg = lastMsgMap.get(p.id);
+                let contentSnippet = lastMsg?.content || '';
+                if (lastMsg?.image_url) contentSnippet = '📷 Фотография';
+                if (lastMsg?.voice_url) contentSnippet = '🎤 Голосовое сообщение';
+
+                return {
+                    ...p,
+                    lastMessage: lastMsg ? {
+                        content: contentSnippet,
+                        created_at: lastMsg.created_at,
+                        sender_id: lastMsg.sender_id
+                    } : undefined
+                };
+            });
+
+            // Final Sort: Most recent interaction first
+            return result.sort((a, b) => {
+                const dateA = a.lastMessage?.created_at || '0';
+                const dateB = b.lastMessage?.created_at || '0';
+                return dateB.localeCompare(dateA);
+            });
         } catch (error) {
             console.error('Error fetching recipients:', error);
             return [];
@@ -347,5 +386,66 @@ export const chatService = {
 
             if (storageError) console.error('[Storage:Cleanup:Error]', storageError);
         }
+    },
+
+    /**
+     * Mark all messages from a specific sender to the current user as read.
+     */
+    async markAsRead(senderId: string, receiverId: string, calculationId?: string): Promise<void> {
+        let query = supabase
+            .from('messages')
+            .update({ is_read: true })
+            .eq('sender_id', senderId)
+            .eq('receiver_id', receiverId)
+            .eq('is_read', false);
+
+        // PRODUCTION LOGIC: If calculationId is provided, mark only that project's messages.
+        // If NOT provided (e.g. general chat), mark ALL messages from this person as read.
+        if (calculationId) {
+            query = query.eq('calculation_id', calculationId);
+        }
+
+        const { error } = await query;
+        if (error) {
+            console.error('Error marking messages as read:', error);
+            throw error;
+        }
+
+        // Broadcast that messages were read to update UI everywhere
+        const channel = supabase.channel('chat_notifications');
+        await channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'messages_read',
+                    payload: { senderId, receiverId, calculationId }
+                });
+                supabase.removeChannel(channel);
+            }
+        });
+    },
+
+    /**
+     * Get unread messages count for a specific user
+     */
+    async getUnreadCount(userId: string): Promise<{ [key: string]: number }> {
+        const { data, error } = await supabase
+            .from('messages')
+            .select('sender_id, calculation_id')
+            .eq('receiver_id', userId)
+            .eq('is_read', false);
+
+        if (error) {
+            console.error('Error fetching unread count:', error);
+            return {};
+        }
+
+        const counts: { [key: string]: number } = {};
+        data?.forEach(msg => {
+            const key = msg.calculation_id || msg.sender_id;
+            counts[key] = (counts[key] || 0) + 1;
+        });
+
+        return counts;
     }
 };

@@ -1,4 +1,5 @@
 import React from 'react';
+import { supabase } from '@/services/supabase';
 import {
     LayoutDashboard,
     ShieldCheck,
@@ -14,6 +15,7 @@ import {
     MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { chatService } from '@/services/chat.service';
 
 interface DashboardSidebarProps {
     isOpen: boolean;
@@ -27,6 +29,59 @@ interface DashboardSidebarProps {
  */
 export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, currentPage, onNavigate }) => {
     const { user } = useAuth();
+    const [unreadCount, setUnreadCount] = React.useState(0);
+
+    // Fetch and subscribe to unread messages
+    React.useEffect(() => {
+        if (!user) return;
+
+        const updateCount = async () => {
+            try {
+                const counts = await chatService.getUnreadCount(user.id);
+                const total = Object.values(counts).reduce((a, b) => a + b, 0);
+                setUnreadCount(total);
+            } catch (error) {
+                console.error('Error fetching unread count:', error);
+            }
+        };
+
+        updateCount();
+
+        // Subscribe to NEW messages
+        const unsubscribe = chatService.subscribeToMessages((msg) => {
+            if (msg.receiver_id === user.id) {
+                updateCount();
+            }
+        });
+
+        // Listen for internal "read" broadcasts for instant UI updates
+        const systemChannel = supabase.channel('chat_notifications')
+            .on('broadcast', { event: 'messages_read' }, (payload) => {
+                if (payload.payload.receiverId === user.id) {
+                    updateCount();
+                }
+            })
+            // Also listen to database updates directly
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'messages',
+                filter: `receiver_id=eq.${user.id}`
+            }, () => {
+                updateCount();
+            })
+            .subscribe();
+
+        // Re-fetch on window focus (production best practice)
+        const handleFocus = () => updateCount();
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            unsubscribe();
+            supabase.removeChannel(systemChannel);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [user?.id]);
 
     const menuItems = React.useMemo(() => {
         const role = user?.role;
@@ -141,7 +196,14 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
                                         }
                                     `}
                                 >
-                                    <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : ''}`} />
+                                    <div className="relative">
+                                        <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : ''}`} />
+                                        {item.id === 'chat' && unreadCount > 0 && (
+                                            <span className={`absolute -top-2.5 -right-2.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[9px] font-black rounded-full border-2 border-card animate-in zoom-in group-hover:scale-110 transition-transform ${isActive ? 'border-primary' : ''}`}>
+                                                {unreadCount > 99 ? '99+' : unreadCount}
+                                            </span>
+                                        )}
+                                    </div>
                                     {isActive && <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-white animate-pulse lg:hidden" />}
                                     {item.label}
                                 </button>
