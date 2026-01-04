@@ -10,12 +10,15 @@ import {
     ArrowLeft,
     Paperclip,
     X,
-    Loader2
+    Loader2,
+    Trash2
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { chatService, type Message } from '@/services/chat.service';
 import { toast } from 'sonner';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
+import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
+import { VoicePlayer } from '@/components/ui/VoicePlayer';
 
 interface UserRecipient {
     id: string;
@@ -40,8 +43,11 @@ export const GlobalChatHub = React.memo(() => {
     const [recipients, setRecipients] = useState<UserRecipient[]>([]);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [pendingAttachments, setPendingAttachments] = useState<{ file: File, preview: string, isUploading?: boolean }[]>([]);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [isRecordingVoice, setIsRecordingVoice] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const moreMenuRef = React.useRef<HTMLDivElement>(null);
 
     const isFetchingRecipients = useRef(false);
     const isFetchingMessages = useRef(false);
@@ -59,7 +65,7 @@ export const GlobalChatHub = React.memo(() => {
             if (recipients.length === 0) setIsLoadingUsers(true);
             const data = await chatService.getRecipients(user.id);
             setRecipients(data);
-        } catch (error) {
+        } catch (_error) {
             toast.error('Ошибка загрузки контактов');
         } finally {
             setIsLoadingUsers(false);
@@ -97,6 +103,22 @@ export const GlobalChatHub = React.memo(() => {
         scrollToBottom();
     }, [messages]);
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+                setShowMoreMenu(false);
+            }
+        };
+
+        if (showMoreMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showMoreMenu]);
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -108,7 +130,7 @@ export const GlobalChatHub = React.memo(() => {
             if (messages.length === 0) setIsLoading(true);
             const data = await chatService.getDirectMessages(user.id, selectedUser.id);
             setMessages(data);
-        } catch (error) {
+        } catch (_error) {
             toast.error('Ошибка загрузки сообщений');
         } finally {
             setIsLoading(false);
@@ -178,7 +200,7 @@ export const GlobalChatHub = React.memo(() => {
                     content: text,
                 });
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error('Не удалось отправить сообщение');
             setMessages(prev => prev.filter(m => !optimisticMsgs.find(om => om.id === m.id)));
         }
@@ -194,6 +216,58 @@ export const GlobalChatHub = React.memo(() => {
         }
         setPendingAttachments(prev => [...prev, ...newAttachments]);
         if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleVoiceRecording = async (audioBlob: Blob, duration: number) => {
+        if (!selectedUser || !user) return;
+
+        const timestamp = new Date().toISOString();
+        const tempVoiceUrl = URL.createObjectURL(audioBlob);
+
+        const optimisticMsg: Message = {
+            id: `temp-${Date.now()}`,
+            sender_id: user.id,
+            receiver_id: selectedUser.id,
+            content: '',
+            voice_url: tempVoiceUrl,
+            voice_duration: duration,
+            created_at: timestamp
+        };
+
+        setMessages(prev => [...prev, optimisticMsg]);
+        setIsRecordingVoice(false);
+
+        try {
+            const voiceUrl = await chatService.uploadVoiceMessage(audioBlob);
+            await chatService.sendMessage({
+                sender_id: user.id,
+                receiver_id: selectedUser.id,
+                content: '',
+                voice_url: voiceUrl,
+                voice_duration: duration
+            });
+        } catch (_error) {
+            toast.error('Не удалось отправить голосовое сообщение');
+            setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        }
+    };
+
+    const handleClearHistory = async () => {
+        if (!selectedUser || !user) return;
+
+        const confirmed = window.confirm('Вы уверены, что хотите полностью очистить историю чата? Это действие нельзя отменить.');
+        if (!confirmed) return;
+
+        try {
+            setIsLoading(true);
+            await chatService.clearChatHistory(user.id, selectedUser.id);
+            setMessages([]);
+            toast.success('История чата очищена');
+        } catch (_error) {
+            toast.error('Не удалось очистить историю');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -256,7 +330,29 @@ export const GlobalChatHub = React.memo(() => {
                             <div className="flex items-center gap-2">
                                 <button className="p-3 hover:bg-primary/5 rounded-xl transition-all text-foreground/40 hover:text-primary"><Phone size={20} /></button>
                                 <button className="p-3 hover:bg-primary/5 rounded-xl transition-all text-foreground/40 hover:text-primary"><Info size={20} /></button>
-                                <button className="p-3 hover:bg-primary/5 rounded-xl transition-all text-foreground/40 hover:text-primary"><MoreVertical size={20} /></button>
+                                <div className="relative" ref={moreMenuRef}>
+                                    <button
+                                        onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                        className={`p-3 rounded-xl transition-all ${showMoreMenu ? 'bg-primary/10 text-primary' : 'hover:bg-primary/5 text-foreground/40 hover:text-primary'}`}
+                                    >
+                                        <MoreVertical size={20} />
+                                    </button>
+
+                                    {showMoreMenu && (
+                                        <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border-theme rounded-2xl shadow-2xl z-[110] overflow-hidden animate-in zoom-in-95 duration-200">
+                                            <button
+                                                onClick={() => {
+                                                    setShowMoreMenu(false);
+                                                    handleClearHistory();
+                                                }}
+                                                className="w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/5 transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                                Очистить историю
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -294,6 +390,13 @@ export const GlobalChatHub = React.memo(() => {
                                                     )}
                                                 </div>
                                             )}
+                                            {msg.voice_url && (
+                                                <VoicePlayer
+                                                    voiceUrl={msg.voice_url}
+                                                    duration={msg.voice_duration}
+                                                    className="min-w-[200px]"
+                                                />
+                                            )}
                                             {msg.content && <p className="text-[13px] font-medium leading-relaxed">{msg.content}</p>}
                                             <div className="flex items-center gap-2 mt-3 justify-end opacity-40">
                                                 <span className="text-[8px] font-black uppercase tracking-widest">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -326,7 +429,25 @@ export const GlobalChatHub = React.memo(() => {
                                 <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 hover:bg-primary/10 text-foreground/40 hover:text-primary transition-all rounded-full flex items-center justify-center shrink-0"><Paperclip size={24} /></button>
                                 <div className="flex-1 relative">
                                     <input type="text" placeholder="Напишите сообщение..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="w-full bg-card border border-border-theme rounded-[2.5rem] pl-8 pr-16 py-5 text-[13px] font-medium outline-none focus:border-primary transition-all" />
-                                    <button type="submit" disabled={!newMessage.trim() && pendingAttachments.length === 0} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-12 h-12 bg-primary text-white rounded-[1.25rem] shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 disabled:opacity-50 transition-all cursor-pointer border-none"><Send size={20} /></button>
+                                    {newMessage.trim() || pendingAttachments.length > 0 ? (
+                                        <button type="submit" disabled={!newMessage.trim() && pendingAttachments.length === 0} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-12 h-12 bg-primary text-white rounded-[1.25rem] shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 disabled:opacity-50 transition-all cursor-pointer border-none"><Send size={20} /></button>
+                                    ) : isRecordingVoice ? (
+                                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                                            <VoiceRecorder onRecordingComplete={handleVoiceRecording} />
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsRecordingVoice(true)}
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-12 h-12 bg-primary text-white rounded-[1.25rem] shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all cursor-pointer border-none"
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" x2="12" y1="19" y2="22" />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
                             </form>
                         </div>

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, Plus, Trash2, AlertCircle, Sparkles, Layout, Ruler, CheckCircle2, Building2, ArrowRight, Pencil } from 'lucide-react';
+import {
+    ChevronLeft, Plus, Trash2, AlertCircle, Sparkles, Layout, Ruler, CheckCircle2, Building2, ArrowRight, FileText, Pencil, Loader2, Save
+} from 'lucide-react';
 import {
     type Calculation,
     type CalculationResults,
@@ -18,7 +20,7 @@ import { useAuth } from '@/features/auth';
 
 interface NewCalculationWizardProps {
     onCancel: () => void;
-    onComplete: (calculation: Calculation) => void;
+    onComplete: (calculation: Calculation) => void | Promise<void>;
     initialData?: Calculation;
 }
 
@@ -28,6 +30,7 @@ interface NewCalculationWizardProps {
  */
 export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onCancel, onComplete, initialData }) => {
     const { user } = useAuth();
+    const [isSubmitting, setIsSubmitting] = useState<'draft' | 'sent' | null>(null);
 
     const [step, setStep] = useState(1);
     const [objectData, setObjectData] = useState({
@@ -99,7 +102,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                 staffCount: selectedVenue.staff_count.toString(),
                 dailyVisitors: selectedVenue.visitors_per_day.toString()
             });
-            toast.success(`Данные подтянуты из объекта "${selectedVenue.name}"`);
+            toast.success("Данные подтянуты из объекта \"" + selectedVenue.name + "\"");
         }
     };
 
@@ -130,29 +133,66 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
         setStep(3);
     };
 
-    const sendToManager = () => {
-        const selectedTypeLabel = OBJECT_TYPES.find(t => t.value === objectData.type)?.label || objectData.type;
-        const newCalc: Calculation = {
-            id: initialData?.id || Date.now(),
-            organizationName: selectedTypeLabel,
-            type: objectData.type,
-            status: initialData?.status === 'draft' ? 'draft' : 'sent',
-            zones: zones.map(z => z.name),
-            zoneDetails: zones,
-            totalArea: parseFloat(objectData.totalArea),
-            zonesCount: zones.length,
-            staffCount: zones.length > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0'),
-            dailyVisitors: parseInt(objectData.dailyVisitors || '0'),
-            sanitaryLevel: objectData.sanitaryLevel,
-            intensityLevel: objectData.intensityLevel,
-            replacementCycle: objectData.replacementCycle,
-            createdDate: initialData?.createdDate || new Date().toLocaleDateString('ru-RU'),
-            manager: initialData?.manager || 'Назначается',
-            comments: initialData?.comments || [],
-            unreadComments: initialData?.unreadComments || 0,
-            results: results
-        };
-        onComplete(newCalc);
+    const saveAsDraft = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting('draft');
+        try {
+            const selectedTypeLabel = OBJECT_TYPES.find(t => t.value === objectData.type)?.label || objectData.type;
+            const newCalc: Calculation = {
+                id: initialData?.id || Date.now(),
+                organizationName: selectedTypeLabel,
+                type: objectData.type,
+                status: 'draft',
+                zones: zones.map(z => z.name),
+                zoneDetails: zones,
+                totalArea: parseFloat(objectData.totalArea),
+                zonesCount: zones.length,
+                staffCount: zones.length > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0'),
+                dailyVisitors: parseInt(objectData.dailyVisitors || '0'),
+                sanitaryLevel: objectData.sanitaryLevel,
+                intensityLevel: objectData.intensityLevel,
+                replacementCycle: objectData.replacementCycle,
+                createdDate: initialData?.createdDate || new Date().toLocaleDateString('ru-RU'),
+                manager: initialData?.manager || 'Назначается',
+                comments: initialData?.comments || [],
+                unreadComments: initialData?.unreadComments || 0,
+                results: results
+            };
+            await onComplete(newCalc);
+        } finally {
+            setIsSubmitting(null);
+        }
+    };
+
+    const sendToManager = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting('sent');
+        try {
+            const selectedTypeLabel = OBJECT_TYPES.find(t => t.value === objectData.type)?.label || objectData.type;
+            const newCalc: Calculation = {
+                id: initialData?.id || Date.now(),
+                organizationName: selectedTypeLabel,
+                type: objectData.type,
+                status: 'sent',
+                zones: zones.map(z => z.name),
+                zoneDetails: zones,
+                totalArea: parseFloat(objectData.totalArea),
+                zonesCount: zones.length,
+                staffCount: zones.length > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0'),
+                dailyVisitors: parseInt(objectData.dailyVisitors || '0'),
+                sanitaryLevel: objectData.sanitaryLevel,
+                intensityLevel: objectData.intensityLevel,
+                replacementCycle: objectData.replacementCycle,
+                createdDate: initialData?.createdDate || new Date().toLocaleDateString('ru-RU'),
+                manager: initialData?.manager || 'Назначается',
+                comments: initialData?.comments || [],
+                unreadComments: initialData?.unreadComments || 0,
+                results: results
+            };
+            await onComplete(newCalc);
+        } finally {
+            setIsSubmitting(null);
+        }
     };
 
     const totalItemsCount = useMemo(() => results?.summary.reduce((sum, item) => sum + item.total, 0) || 0, [results]);
@@ -565,24 +605,17 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
                     </div>
 
-                    {/* Financial Summary Benchmarks */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Operational Summary Benchmarks (Prices Hidden for Clients) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="glass-card p-10 space-y-4">
                             <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Текущий запас (Stock)</p>
                             <h4 className="text-4xl font-black tracking-tighter">{totalItemsCount.toLocaleString()} <span className="text-xs text-foreground/20">ЕД</span></h4>
                         </div>
                         <div className="glass-card p-10 space-y-4">
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Месячный заказ (Plan)</p>
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Месячная потребность (Plan)</p>
                             <h4 className="text-4xl font-black tracking-tighter">
                                 {results.summary.reduce((sum, item) => sum + (item.calculation?.monthlyOrder || 0), 0).toFixed(1)}
                                 <span className="text-xs text-foreground/20 ml-1">ЕД/МЕС</span>
-                            </h4>
-                        </div>
-                        <div className="glass-card p-10 space-y-4 !bg-primary text-white">
-                            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Годовой бюджет (Est.)</p>
-                            <h4 className="text-4xl font-black tracking-tighter">
-                                {results.summary.reduce((sum, item) => sum + (item.calculation?.annualBudget || 0), 0).toLocaleString()}
-                                <span className="text-xs text-white/50 ml-1">₽</span>
                             </h4>
                         </div>
                     </div>
@@ -595,7 +628,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                         </div>
                         <div className="grid grid-cols-1 gap-12">
                             {results.summary.map((item, i) => (
-                                <CalculationBreakdown key={i} item={item} />
+                                <CalculationBreakdown key={i} item={item} hidePrices={user?.role !== 'admin' && user?.role !== 'manager'} />
                             ))}
                         </div>
                     </div>
@@ -614,9 +647,8 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                                     <tr className="border-b border-border-theme">
                                         <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30">Наименование инвентаря</th>
                                         <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Зона</th>
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Запас</th>
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Сумма</th>
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Годовой бюджет</th>
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Количество</th>
+                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Цикл замены</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -630,8 +662,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                                                 <div className="inline-block w-3 h-3 rounded-full border border-white/10" style={{ backgroundColor: item.color }} />
                                             </td>
                                             <td className="px-8 py-6 text-center font-black text-sm">{item.quantity} шт</td>
-                                            <td className="px-8 py-6 text-center text-sm font-black">{(item.quantity * item.price).toLocaleString()} ₽</td>
-                                            <td className="px-8 py-6 text-center text-sm font-black text-primary">{(item.calculation?.annualBudget || 0).toLocaleString()} ₽</td>
+                                            <td className="px-8 py-6 text-center text-[10px] font-black uppercase tracking-widest opacity-40">Раз в {item.norms?.replacementCycle} дн</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -639,30 +670,100 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                         </div>
                     </div>
 
-                    {/* Final Action - Send to Expert */}
-                    <div className="glass-card !bg-foreground !text-background relative overflow-hidden group p-10 sm:p-14 lg:p-20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
-                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
-                            <div className="text-center md:text-left space-y-6">
-                                <div className="inline-flex items-center gap-3 px-4 py-2 bg-primary text-white rounded-full">
-                                    <Sparkles size={14} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">Рекомендуемое действие</span>
+                    {/* Final Action - Asymmetric Layout (RECOMMENDED) */}
+                    <div className="glass-card !bg-foreground !text-background relative overflow-hidden group/card p-8 sm:p-12 lg:p-16 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
+                        <div className="relative z-10">
+                            {/* Desktop View */}
+                            <div className="hidden lg:block">
+                                <div className="flex items-end justify-between gap-12">
+                                    {/* Left Column - Information */}
+                                    <div className="space-y-6 flex-1">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-full border border-primary/10">
+                                            <Sparkles className="w-4 h-4 text-primary" />
+                                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Рекомендуемое действие</span>
+                                        </div>
+
+                                        <h3 className="text-[clamp(2rem,3.5vw,3rem)] font-black leading-[1.1] tracking-tighter max-w-xl italic uppercase">
+                                            Передать спецификацию эксперту на аудит
+                                        </h3>
+
+                                        <p className="text-white/40 text-sm font-medium italic max-w-lg">
+                                            Менеджер проверит наличие на складе и сформирует коммерческое предложение за 15 минут
+                                        </p>
+                                    </div>
+
+                                    {/* Right Column - Actions */}
+                                    <div className="flex flex-col items-stretch gap-4 min-w-[320px]">
+                                        <button
+                                            onClick={saveAsDraft}
+                                            disabled={!!isSubmitting}
+                                            className="h-14 px-8 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group"
+                                        >
+                                            {isSubmitting === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform opacity-70 group-hover:opacity-100" />}
+                                            {isSubmitting === 'draft' ? 'Сохранение...' : 'Сохранить черновик'}
+                                        </button>
+
+                                        <button
+                                            onClick={sendToManager}
+                                            disabled={!!isSubmitting}
+                                            className="h-20 px-12 bg-white text-black font-black rounded-2xl hover:shadow-2xl transition-all flex items-center justify-center gap-4 disabled:opacity-50 group relative overflow-hidden"
+                                            style={{
+                                                boxShadow: isSubmitting === 'sent' ? 'none' : '0 30px 60px -15px rgba(255,255,255,0.4)'
+                                            }}
+                                        >
+                                            <span className="text-[11px] uppercase tracking-widest">
+                                                {isSubmitting === 'sent' ? 'Отправка...' : 'ОТПРАВИТЬ ЭКСПЕРТУ'}
+                                            </span>
+                                            {isSubmitting === 'sent' ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />}
+                                        </button>
+                                    </div>
                                 </div>
-                                <h3 className="text-[clamp(1.5rem,4vw,3.5rem)] font-black leading-tight tracking-tighter max-w-xl italic">
-                                    Передать спецификацию эксперту на аудит
-                                </h3>
-                                <p className="text-white/40 text-sm font-medium italic">Менеджер проверит наличие на складе и сформирует коммерческое предложение за 15 минут.</p>
                             </div>
-                            <button
-                                onClick={sendToManager}
-                                className="btn-premium lg:scale-150 lg:mr-20 h-20 px-12"
-                                style={{
-                                    background: 'white',
-                                    color: 'black',
-                                    boxShadow: '0 30px 60px -15px rgba(255,255,255,0.4)'
-                                }}
-                            >
-                                <span className="grow">ОТПРАВИТЬ ЭКСПЕРТУ</span> <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-                            </button>
+
+                            {/* Mobile View */}
+                            <div className="lg:hidden space-y-10">
+                                <div className="space-y-4">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-full border border-primary/10">
+                                        <Sparkles className="w-4 h-4 text-primary" />
+                                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">Рекомендуемое действие</span>
+                                    </div>
+
+                                    <h3 className="text-3xl font-black text-white leading-tight italic uppercase tracking-tighter">
+                                        Передать спецификацию эксперту на аудит
+                                    </h3>
+
+                                    <p className="text-white/40 text-sm font-medium italic">
+                                        Менеджер проверит наличие и сформирует КП за 15 минут
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col gap-4">
+                                    <button
+                                        onClick={sendToManager}
+                                        disabled={!!isSubmitting}
+                                        className="h-16 px-8 bg-white text-black font-black rounded-2xl hover:shadow-lg transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                                    >
+                                        <span className="text-[10px] uppercase tracking-widest">
+                                            {isSubmitting === 'sent' ? 'Отправка...' : 'ОТПРАВИТЬ ЭКСПЕРТУ'}
+                                        </span>
+                                        {isSubmitting === 'sent' ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-6 h-6" />}
+                                    </button>
+
+                                    <button
+                                        onClick={saveAsDraft}
+                                        disabled={!!isSubmitting}
+                                        className="h-14 px-8 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-white bg-white/5 border border-white/15 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                    >
+                                        {isSubmitting === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 opacity-70" />}
+                                        {isSubmitting === 'draft' ? 'Сохранение...' : 'Сохранить черновик'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] flex items-center gap-2 mt-12 border-t border-white/10 pt-8 transition-colors hover:text-white/60">
+                                <FileText className="w-3.5 h-3.5 text-primary/60" />
+                                Спецификация будет доступна в личном кабинете
+                            </p>
                         </div>
                         {/* Interactive Design Element */}
                         <div className="absolute top-0 right-0 w-[60%] h-full bg-primary/20 blur-[130px] rounded-full translate-x-1/2 -translate-y-1/2 group-hover:bg-primary/30 transition-colors duration-1000" />

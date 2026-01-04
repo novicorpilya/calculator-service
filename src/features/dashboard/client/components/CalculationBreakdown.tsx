@@ -4,13 +4,14 @@ import { Zap, ShieldCheck, TrendingUp, Info } from 'lucide-react';
 
 interface CalculationBreakdownProps {
     item: InventoryItem;
+    hidePrices?: boolean;
 }
 
 /**
  * Professional Detail Card for a single inventory item.
  * Shows the full calculation logic based on BICSc + ISO 18406.
  */
-export const CalculationBreakdown = React.memo(({ item }: CalculationBreakdownProps) => {
+export const CalculationBreakdown = React.memo(({ item, hidePrices }: CalculationBreakdownProps) => {
     if (!item.calculation) return null;
 
     const {
@@ -31,7 +32,9 @@ export const CalculationBreakdown = React.memo(({ item }: CalculationBreakdownPr
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{zoneLabel}</span>
                     </div>
                     <h4 className="text-2xl font-black leading-tight tracking-tight">{item.inventory}</h4>
-                    <p className="text-[9px] font-bold text-foreground/40 uppercase tracking-widest">АРТ: {item.sku || 'N/A'}</p>
+                    <p className="text-[9px] font-bold text-foreground/40 uppercase tracking-widest">
+                        АРТ: {item.sku || 'N/A'} {!hidePrices && `— ${item.price.toLocaleString()} ₽/ед`}
+                    </p>
                 </div>
                 <div className="text-right">
                     <p className="text-[9px] font-black text-foreground/40 uppercase tracking-widest mb-1">Запас в наличии</p>
@@ -90,10 +93,17 @@ export const CalculationBreakdown = React.memo(({ item }: CalculationBreakdownPr
                                 <span className="text-[10px] font-bold text-foreground/40 uppercase">Годовое потребление:</span>
                                 <span className="text-sm font-black">{annualConsumption} шт</span>
                             </div>
-                            <div className="flex justify-between items-center py-2 border-b border-border-theme">
-                                <span className="text-[10px] font-bold text-foreground/40 uppercase">Годовой бюджет:</span>
-                                <span className="text-sm font-black text-primary">{annualBudget.toLocaleString()} ₽</span>
-                            </div>
+                            {!hidePrices ? (
+                                <div className="flex justify-between items-center py-2 border-b border-border-theme">
+                                    <span className="text-[10px] font-bold text-foreground/40 uppercase">Годовой бюджет:</span>
+                                    <span className="text-sm font-black text-primary">{annualBudget.toLocaleString()} ₽</span>
+                                </div>
+                            ) : (
+                                <div className="flex justify-between items-center py-2 border-b border-border-theme">
+                                    <span className="text-[10px] font-bold text-foreground/40 uppercase">Финансовый расчет:</span>
+                                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">На этапе договора</span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-center py-2">
                                 <span className="text-[10px] font-bold text-foreground/40 uppercase">Месячный заказ:</span>
                                 <span className="text-sm font-black">{monthlyOrder} шт</span>

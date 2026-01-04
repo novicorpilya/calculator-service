@@ -161,7 +161,7 @@ export const ManagerDashboard: React.FC = () => {
                 toast.success(`Статус: ${status}`);
             }
         } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : 'Ошибка назначения');
+            toast.error(err instanceof Error ? err.message : 'Ошибка обновления статуса');
         }
     };
 

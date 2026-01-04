@@ -6,18 +6,21 @@ import {
     X, Loader2, AlertCircle, CheckCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { type Calculation, type CalculationStatus } from '../../dashboard.types';
+import { type Calculation, type CalculationStatus, type CalculationResults } from '../../dashboard.types';
 import { chatService, type Message } from '@/services/chat.service';
 import { toast } from 'sonner';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 import { CalculationBreakdown } from './CalculationBreakdown';
-
+import { ProductPickerModal } from './ProductPickerModal';
+import { inventoryService, type InventoryItemMaster } from '@/services/inventory.service';
+import { COMPANY_REQUISITES } from '../../dashboard.types';
 import { useAuth } from '@/features/auth';
+import { CreditCard, Copy, MoreVertical } from 'lucide-react';
 
 interface ClientCalculationDetailsProps {
     calculation: Calculation;
     onBack: () => void;
-    onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: any) => void;
+    onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: { results?: CalculationResults }) => void;
     onDelete: (id: number | string) => void;
     onEdit: (calc: Calculation) => void;
     onAssign?: (id: number | string) => void;
@@ -26,11 +29,9 @@ interface ClientCalculationDetailsProps {
 const ModernStatusBadge = React.memo<{ status: Calculation['status'] }>(({ status }) => {
     const config = {
         draft: { label: 'Черновик', color: 'bg-slate-400', ghost: 'bg-card text-foreground/60' },
-        sent: { label: 'Отправлен', color: 'bg-primary', ghost: 'bg-primary/10 text-primary' },
-        changes: { label: 'Правки', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
+        sent: { label: 'На проверке', color: 'bg-primary', ghost: 'bg-primary/10 text-primary' },
+        changes: { label: 'Требуют правок', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
         revision: { label: 'Правки внесены', color: 'bg-purple-500', ghost: 'bg-purple-500/10 text-purple-600' },
-        approved: { label: 'Утвержден', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
-        suppliers: { label: 'Передано поставщикам', color: 'bg-indigo-500', ghost: 'bg-indigo-500/10 text-indigo-600' },
         invoice: { label: 'Выставлен счет', color: 'bg-cyan-500', ghost: 'bg-cyan-500/10 text-cyan-600' },
         paid: { label: 'Оплачено', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
         shipping: { label: 'Поставка в работе', color: 'bg-amber-500', ghost: 'bg-amber-500/10 text-amber-600' },
@@ -56,16 +57,24 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 }) => {
     const [newComment, setNewComment] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [pendingAttachments, setPendingAttachments] = useState<{ file: File, preview: string }[]>([]);
+    const [isAuditMode, setIsAuditMode] = useState(false);
+    const [auditItemIndex, setAuditItemIndex] = useState<number | null>(null);
+    const [catalog, setCatalog] = useState<InventoryItemMaster[]>([]);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const moreMenuRef = React.useRef<HTMLDivElement>(null);
     const { user } = useAuth();
 
     React.useEffect(() => {
         if (calculation.id) {
             loadMessages();
+            if (user?.role === 'manager' || user?.role === 'admin') {
+                inventoryService.getGlobalItems().then(setCatalog);
+            }
             const unsubscribe = chatService.subscribeToMessages((msg) => {
                 setMessages(prev => {
                     // Deduplication logic: replace temporary message with server-confirmed one
@@ -88,13 +97,47 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         }
     }, [calculation.id, user?.id]);
 
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+                setShowMoreMenu(false);
+            }
+        };
+
+        if (showMoreMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showMoreMenu]);
+
     const loadMessages = async () => {
         try {
             setLoadingMessages(true);
             const data = await chatService.getCalculationMessages(calculation.id as string);
             setMessages(data);
-        } catch (error) {
+        } catch (_error) {
             toast.error('Ошибка загрузки истории правок');
+        } finally {
+            setLoadingMessages(false);
+        }
+    };
+
+    const handleClearChat = async () => {
+        if (!calculation.id) return;
+
+        const confirmed = window.confirm('Вы уверены, что хотите полностью очистить историю обсуждения этого проекта? Все сообщения и вложения будут удалены безвозвратно.');
+        if (!confirmed) return;
+
+        try {
+            setLoadingMessages(true);
+            await chatService.clearProjectHistory(String(calculation.id));
+            setMessages([]);
+            toast.success('История обсуждения очищена');
+        } catch (_error) {
+            toast.error('Не удалось очистить историю');
         } finally {
             setLoadingMessages(false);
         }
@@ -104,17 +147,48 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         if (!calc.results) return;
         const wb = XLSX.utils.book_new();
         const zoneData: (string | number)[][] = [];
+
+        // Add Header/Requisites if it's an invoice stage
+        if (calc.status === 'invoice') {
+            zoneData.push(['СЧЕТ НА ОПЛАТУ', '', '', '']);
+            zoneData.push(['Поставщик:', COMPANY_REQUISITES.name, '', '']);
+            zoneData.push(['ИНН/КПП:', `${COMPANY_REQUISITES.inn}/${COMPANY_REQUISITES.kpp}`, '', '']);
+            zoneData.push(['Банк:', COMPANY_REQUISITES.bank, '', '']);
+            zoneData.push(['БИК:', COMPANY_REQUISITES.bik, '', '']);
+            zoneData.push(['Р/С:', COMPANY_REQUISITES.account, '', '']);
+            zoneData.push(['К/С:', COMPANY_REQUISITES.corrAccount, '', '']);
+            zoneData.push(['', '', '', '']);
+            zoneData.push(['Заказчик:', calc.organizationName, '', '']);
+            zoneData.push(['', '', '', '']);
+        }
+
         calc.results.byZone.forEach(zone => {
-            zoneData.push([zone.zoneName, '', '', '']);
-            zoneData.push(['Инвентарь', 'Количество', 'Цена', 'Сумма']);
-            zone.items.forEach(item => {
-                zoneData.push([item.inventory, `${item.quantity} шт`, `${item.price}₽`, `${item.total}₽`]);
-            });
+            zoneData.push([zone.zoneName.toUpperCase(), '', '', '']);
+            if (isFinancialStage || user?.role !== 'client') {
+                zoneData.push(['Инвентарь', 'Количество', 'Цена', 'Сумма']);
+                zone.items.forEach(item => {
+                    zoneData.push([item.inventory, `${item.quantity} шт`, `${item.price}₽`, `${item.total * item.price}₽`]);
+                });
+            } else {
+                zoneData.push(['Инвентарь', 'Количество', 'Маркировка']);
+                zone.items.forEach(item => {
+                    zoneData.push([item.inventory, `${item.quantity} шт`, item.color]);
+                });
+            }
             zoneData.push(['', '', '', '']);
         });
+
+        if (isFinancialStage) {
+            zoneData.push(['', '', 'ИТОГО К ОПЛАТЕ:', `${totalCost.toLocaleString()} ₽`]);
+        }
+
         const ws1 = XLSX.utils.aoa_to_sheet(zoneData);
-        XLSX.utils.book_append_sheet(wb, ws1, 'Расчет по зонам');
-        XLSX.writeFile(wb, `Расчет_${calc.organizationName}.xlsx`);
+
+        // Basic styling/width
+        ws1['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+
+        XLSX.utils.book_append_sheet(wb, ws1, calc.status === 'invoice' ? 'Счёт' : 'Спецификация');
+        XLSX.writeFile(wb, `${calc.status === 'invoice' ? 'Счет' : 'Расчет'}_${calc.organizationName}.xlsx`);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,9 +202,44 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const handleProductSelect = async (master: InventoryItemMaster) => {
+        if (auditItemIndex === null || !calculation.results) return;
+
+        const newResults = JSON.parse(JSON.stringify(calculation.results));
+        const oldItem = newResults.summary[auditItemIndex];
+
+        // Update summary item
+        newResults.summary[auditItemIndex] = {
+            ...oldItem,
+            inventory: master.name,
+            sku: master.sku,
+            price: master.price,
+            supplier_id: master.supplier_id,
+            stock: master.stock
+        };
+
+        // Propagate to byZone as well to keep data consistent
+        newResults.byZone.forEach((zone: any) => {
+            zone.items.forEach((item: any) => {
+                if (item.inventory === oldItem.inventory && item.sku === oldItem.sku) {
+                    item.inventory = master.name;
+                    item.sku = master.sku;
+                    item.price = master.price;
+                    item.supplier_id = master.supplier_id;
+                    item.stock = master.stock;
+                }
+            });
+        });
+
+        onUpdateStatus(calculation.id, calculation.status, { results: newResults });
+        setAuditItemIndex(null);
+        toast.success(`Товар заменен на ${master.name}`);
+    };
+
     const totalCost = calculation.results?.summary.reduce((sum, item) => sum + (item.total * item.price), 0) || 0;
     const totalUnits = calculation.results?.summary.reduce((sum, item) => sum + item.total, 0) || 0;
     const isFinancialStage = ['invoice', 'paid', 'shipping', 'completed', 'closed'].includes(calculation.status);
+    const canSeePrices = user?.role === 'manager' || user?.role === 'admin' || isFinancialStage;
 
     return (
         <div className="w-full max-w-[min(100%,1300px)] mx-auto space-y-[clamp(1.5rem,5vh,3.5rem)] animate-in fade-in duration-700 pb-20">
@@ -215,16 +324,87 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             )}
                             {['sent', 'revision', 'changes'].includes(calculation.status) && (
                                 <button
-                                    onClick={() => onUpdateStatus(calculation.id, 'approved')}
+                                    onClick={() => onUpdateStatus(calculation.id, 'invoice')}
                                     className="btn-premium !bg-emerald-500 !border-none"
                                 >
-                                    <CheckCircle className="w-5 h-5" /> Утвердить
+                                    <CheckCircle className="w-5 h-5" /> Выставить счет
                                 </button>
                             )}
+                            <button
+                                onClick={() => setIsAuditMode(!isAuditMode)}
+                                className={`btn-premium-secondary ${isAuditMode ? '!border-primary !text-primary' : ''}`}
+                            >
+                                <Briefcase className="w-5 h-5" /> {isAuditMode ? 'Выйти из аудита' : 'Аудит сметы'}
+                            </button>
                         </>
                     )}
                 </div>
             </div>
+
+            {calculation.status === 'invoice' && (
+                <div className="glass-card !bg-primary/5 border-primary/30 p-10 space-y-8 animate-in zoom-in duration-500">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-primary text-white rounded-3xl flex items-center justify-center shadow-xl shadow-primary/20">
+                            <CreditCard size={32} />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-2xl font-black tracking-tight">Реквизиты для оплаты</h3>
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
+                                Проект прошел аудит. Ожидаем оплату для запуска логистики.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-card/50 p-8 rounded-[2rem] border border-border-theme">
+                        <div className="space-y-6">
+                            {[
+                                { label: 'Получатель', value: COMPANY_REQUISITES.name },
+                                { label: 'ИНН', value: COMPANY_REQUISITES.inn },
+                                { label: 'КПП', value: COMPANY_REQUISITES.kpp },
+                                { label: 'Банк', value: COMPANY_REQUISITES.bank },
+                            ].map((req, i) => (
+                                <div key={i} className="flex justify-between items-center group/req">
+                                    <div>
+                                        <p className="text-[8px] font-black text-foreground/30 uppercase tracking-[0.2em] mb-1">{req.label}</p>
+                                        <p className="text-[13px] font-black">{req.value}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => { navigator.clipboard.writeText(req.value); toast.success('Скопировано'); }}
+                                        className="p-2 opacity-0 group-hover/req:opacity-100 hover:text-primary transition-all bg-transparent border-none cursor-pointer"
+                                    >
+                                        <Copy size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="space-y-6">
+                            {[
+                                { label: 'Бик', value: COMPANY_REQUISITES.bik },
+                                { label: 'Р/С', value: COMPANY_REQUISITES.account },
+                                { label: 'К/С', value: COMPANY_REQUISITES.corrAccount },
+                                { label: 'Сумма счета', value: `${totalCost.toLocaleString()} ₽` },
+                            ].map((req, i) => (
+                                <div key={i} className="flex justify-between items-center group/req">
+                                    <div>
+                                        <p className="text-[8px] font-black text-foreground/30 uppercase tracking-[0.2em] mb-1">{req.label}</p>
+                                        <p className={`text-[13px] font-black ${req.label === 'Сумма счета' ? 'text-primary' : ''}`}>{req.value}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => { navigator.clipboard.writeText(req.value); toast.success('Скопировано'); }}
+                                        className="p-2 opacity-0 group-hover/req:opacity-100 hover:text-primary transition-all bg-transparent border-none cursor-pointer"
+                                    >
+                                        <Copy size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button onClick={() => window.print()} className="w-full btn-premium">
+                        <Download className="w-5 h-5" /> Скачать счет (PDF)
+                    </button>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-12">
                 <div className="xl:col-span-8 space-y-12">
@@ -249,12 +429,22 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             <div className="flex items-center justify-between ml-2">
                                 <h3 className="text-xs font-black text-foreground/50 uppercase tracking-[0.3em]">Спецификация инвентаря</h3>
                                 <div className="px-6 py-2.5 bg-primary/10 border border-primary/20 rounded-full text-primary text-[10px] font-black uppercase tracking-widest">
-                                    {isFinancialStage ? `${totalCost.toLocaleString()} ₽` : `${totalUnits.toLocaleString()} ед.`}
+                                    {canSeePrices ? `${totalCost.toLocaleString()} ₽` : `${totalUnits.toLocaleString()} ед.`}
                                 </div>
                             </div>
                             <div className="space-y-6">
                                 {calculation.results.summary.map((item, i) => (
-                                    <CalculationBreakdown key={i} item={item} />
+                                    <div key={i} className="relative group/audit">
+                                        <CalculationBreakdown item={item} hidePrices={!canSeePrices} />
+                                        {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
+                                            <button
+                                                onClick={() => setAuditItemIndex(i)}
+                                                className="absolute top-8 right-8 z-20 px-4 py-2 bg-primary text-white text-[9px] font-black uppercase rounded-lg shadow-xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                            >
+                                                Назначить товар
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -264,7 +454,32 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 <div className="xl:col-span-4 space-y-8">
                     <div className="glass-card flex flex-col h-[650px] !p-6">
                         <div className="flex items-center justify-between mb-8 pb-4 border-b border-border-theme">
-                            <h3 className="text-xs font-black uppercase tracking-[0.3em]">История изменений</h3>
+                            <div className="flex items-center gap-3">
+                                <h3 className="text-xs font-black uppercase tracking-[0.3em]">История изменений</h3>
+                                <div className="relative" ref={moreMenuRef}>
+                                    <button
+                                        onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                        className={`p-2 rounded-lg transition-all ${showMoreMenu ? 'bg-primary/10 text-primary' : 'text-foreground/20 hover:text-primary hover:bg-primary/5'}`}
+                                    >
+                                        <MoreVertical size={14} />
+                                    </button>
+
+                                    {showMoreMenu && (
+                                        <div className="absolute left-0 top-full mt-2 w-48 bg-card border border-border-theme rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 duration-200">
+                                            <button
+                                                onClick={() => {
+                                                    setShowMoreMenu(false);
+                                                    handleClearChat();
+                                                }}
+                                                className="w-full flex items-center gap-3 px-5 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/5 transition-colors"
+                                            >
+                                                <Trash2 size={14} />
+                                                Очистить обсуждение
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <span className="w-10 h-10 flex items-center justify-center bg-card border border-border-theme rounded-xl text-[11px] font-black">
                                 {messages.length}
                             </span>
@@ -378,7 +593,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                             content: text
                                         });
                                     }
-                                } catch (error) {
+                                } catch (_error) {
                                     toast.error('Ошибка отправки');
                                     setMessages(prev => prev.filter(m => !optimisticMsgs.find(o => o.id === m.id)));
                                 }
@@ -430,6 +645,16 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
             </div>
 
             {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
+
+            {auditItemIndex !== null && calculation.results && (
+                <ProductPickerModal
+                    isOpen={true}
+                    onClose={() => setAuditItemIndex(null)}
+                    onSelect={handleProductSelect}
+                    catalog={catalog}
+                    currentItem={calculation.results.summary[auditItemIndex]}
+                />
+            )}
         </div>
     );
 });

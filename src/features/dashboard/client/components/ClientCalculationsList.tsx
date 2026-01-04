@@ -32,17 +32,15 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
 export const ModernStatusBadge: React.FC<{ status: Calculation['status'] }> = ({ status }) => {
     const config = {
         draft: { label: 'Черновик', color: 'bg-slate-400', ghost: 'bg-card text-foreground/60' },
-        sent: { label: 'Отправлен', color: 'bg-primary', ghost: 'bg-primary/10 text-primary' },
-        changes: { label: 'Правки', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
+        sent: { label: 'На проверке', color: 'bg-primary', ghost: 'bg-primary/10 text-primary' },
+        changes: { label: 'Требуют правок', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
         revision: { label: 'Правки внесены', color: 'bg-purple-500', ghost: 'bg-purple-500/10 text-purple-600' },
-        approved: { label: 'Утвержден', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
-        suppliers: { label: 'Передано поставщикам', color: 'bg-indigo-500', ghost: 'bg-indigo-500/10 text-indigo-600' },
         invoice: { label: 'Выставлен счет', color: 'bg-cyan-500', ghost: 'bg-cyan-500/10 text-cyan-600' },
         paid: { label: 'Оплачено', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
         shipping: { label: 'Поставка в работе', color: 'bg-amber-500', ghost: 'bg-amber-500/10 text-amber-600' },
         completed: { label: 'Поставка завершена', color: 'bg-teal-500', ghost: 'bg-teal-500/10 text-teal-600' },
         closed: { label: 'Проект закрыт', color: 'bg-slate-400', ghost: 'bg-slate-400/10 text-slate-500' },
-    }[status];
+    }[status] || { label: status, color: 'bg-slate-400', ghost: 'bg-slate-100 text-slate-600' };
 
     return (
         <div className={`px-4 py-1.5 rounded-full ${config.ghost} text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-current border-opacity-10`}>
@@ -63,7 +61,7 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
 
     const stats = useMemo(() => ({
         total: calculations.length,
-        approved: calculations.filter(c => c.status === 'approved').length,
+        invoiced: calculations.filter(c => c.status === 'invoice' || c.status === 'paid').length,
         totalArea: calculations.reduce((acc, c) => acc + (c.totalArea || 0), 0),
         pending: calculations.filter(c => c.status === 'sent' || c.status === 'changes').length
     }), [calculations]);
@@ -93,7 +91,7 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
             <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 sm:gap-6">
                 <StatCard title="Всего объектов" value={stats.total} icon={<Layers className="w-6 h-6" />} color="text-primary" />
                 <StatCard title="Общая площадь" value={`${stats.totalArea} м²`} icon={<Map className="w-6 h-6" />} color="text-primary" />
-                <StatCard title="Утверждено" value={stats.approved} icon={<FileCheck className="w-6 h-6" />} color="text-emerald-600" />
+                <StatCard title="Выставлено Счетов" value={stats.invoiced} icon={<FileCheck className="w-6 h-6" />} color="text-emerald-600" />
                 <StatCard title="В работе" value={stats.pending} icon={<TrendingUp className="w-6 h-6" />} color="text-orange-600" />
             </div>
 
@@ -120,11 +118,12 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
                         <option value="draft">Черновики</option>
                         <option value="sent">На проверке</option>
                         <option value="changes">Требуют правок</option>
-                        <option value="approved">Утверждены</option>
-                        <option value="suppliers">У поставщиков</option>
-                        <option value="invoice">Ожидают оплаты</option>
-                        <option value="paid">Оплачены</option>
+                        <option value="revision">Правки внесены</option>
+                        <option value="invoice">Выставлен счет</option>
+                        <option value="paid">Оплачено</option>
                         <option value="shipping">В доставке</option>
+                        <option value="completed">Завершено</option>
+                        <option value="closed">Архив</option>
                     </select>
 
                     <div className="flex bg-card p-2 rounded-2xl border border-border-theme">

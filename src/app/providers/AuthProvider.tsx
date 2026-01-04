@@ -36,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     React.useEffect(() => {
         let isMounted = true;
+        let profileSubscription: any = null;
 
         const checkRecovery = () => {
             return window.location.hash.includes('type=recovery') ||
@@ -51,9 +52,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 if (session && isMounted) {
                     setToken(session.access_token)
                     const userProfile = await authService.getCurrentUser()
+
                     if (userProfile && isMounted) {
+                        if (userProfile.status === 'blocked') {
+                            await logout();
+                            return;
+                        }
                         setUser(userProfile)
                         if (!checkRecovery()) setIsAuthenticated(true)
+                        setupProfileListener(userProfile.id);
+                    } else if (isMounted) {
+                        // Profile not found - likely deleted
+                        await logout();
                     }
                 }
             } catch {
@@ -61,6 +71,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             } finally {
                 if (isMounted) setIsInitializing(false)
             }
+        };
+
+        const setupProfileListener = (userId: string) => {
+            if (profileSubscription) profileSubscription.unsubscribe();
+
+            profileSubscription = supabase
+                .channel(`public:profiles:id=eq.${userId}`)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${userId}`
+                }, (payload) => {
+                    if (!isMounted) return;
+
+                    // IF DELETED
+                    if (payload.eventType === 'DELETE') {
+                        logout();
+                        return;
+                    }
+
+                    // IF BLOCKED
+                    const newProfile = payload.new as User;
+                    if (newProfile && newProfile.status === 'blocked') {
+                        logout();
+                    } else if (newProfile) {
+                        setUser(prev => prev ? { ...prev, ...newProfile } : newProfile);
+                    }
+                })
+                .subscribe();
         };
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -72,7 +112,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
                 if (session.user) {
                     authService.getUserProfile(session.user.id).then(profile => {
-                        if (profile && isMounted) setUser(profile);
+                        if (profile && isMounted) {
+                            if (profile.status === 'blocked') {
+                                logout();
+                                return;
+                            }
+                            setUser(profile);
+                            setupProfileListener(profile.id);
+                        } else if (isMounted) {
+                            logout();
+                        }
                     }).catch(() => {
                         // Молчаливая обработка фонового обновления
                     });
@@ -83,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     setUser(null)
                     setIsAuthenticated(false)
                     setIsRecoveryFlow(false)
+                    if (profileSubscription) profileSubscription.unsubscribe();
                 }
             }
         })
@@ -92,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return () => {
             isMounted = false;
             subscription.unsubscribe()
+            if (profileSubscription) profileSubscription.unsubscribe();
         }
     }, [])
 

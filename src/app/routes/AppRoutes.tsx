@@ -8,7 +8,7 @@ import { PublicRoute } from './PublicRoute'
 import { ROUTES } from './routes.constants'
 
 export const AppRoutes: React.FC = () => {
-    const { user, isInitializing } = useAuth()
+    const { user, isInitializing, isRecoveryFlow } = useAuth()
     const navigate = useNavigate()
 
     // Если приложение инициализируется, показываем экран загрузки глобально
@@ -34,8 +34,15 @@ export const AppRoutes: React.FC = () => {
                 <Route path={ROUTES.AUTH.FORGOT_PASSWORD} element={<HoRecaAuth initialMode="forgot-password" />} />
             </Route>
 
-            {/* Сброс пароля - автономный маршрут (упрощена логика для стабильности) */}
-            <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<HoRecaAuth initialMode="reset-password" />} />
+            {/* Сброс пароля - защищен только для тех, кто в потоке восстановления */}
+            <Route
+                path={ROUTES.AUTH.RESET_PASSWORD}
+                element={
+                    (isRecoveryFlow || window.location.hash.includes('access_token'))
+                        ? <HoRecaAuth initialMode="reset-password" />
+                        : <Navigate to={ROUTES.LANDING} replace />
+                }
+            />
 
             {/* Защищенные маршруты */}
             <Route element={<ProtectedRoute />}>

@@ -9,6 +9,7 @@ export interface User {
   lastName?: string
   phone?: string
   address?: string
+  status?: 'active' | 'blocked'
   createdAt?: string
 }
 

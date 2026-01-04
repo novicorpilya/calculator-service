@@ -22,19 +22,23 @@ interface ManagerOverviewProps {
 export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations, onNavigate }) => {
 
     const stats = useMemo(() => {
-        const approved = calculations.filter(c => c.status === 'approved');
+        const invoiced = calculations.filter(c => c.status === 'invoice');
         const pending = calculations.filter(c => c.status === 'sent' || c.status === 'revision');
         const inChanges = calculations.filter(c => c.status === 'changes');
-        const implementation = calculations.filter(c => ['suppliers', 'invoice', 'paid', 'shipping'].includes(c.status));
+        const implementation = calculations.filter(c => ['invoice', 'paid', 'shipping'].includes(c.status));
 
         return {
             totalBudget: calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0),
             activeProjects: calculations.length,
-            approvedCount: approved.length,
+            invoiced: invoiced.length,
+            pending: pending.length,
+            inChanges: inChanges.length,
+            implementation: implementation.length,
             pendingCount: pending.length,
             changesCount: inChanges.length,
+            approvedCount: invoiced.length, // Using invoiced instead of approved
             implementationCount: implementation.length,
-            conversion: calculations.length > 0 ? Math.round(((approved.length + implementation.length) / calculations.length) * 100) : 0,
+            conversion: calculations.length > 0 ? Math.round(((invoiced.length + implementation.length) / calculations.length) * 100) : 0,
             avgDealSize: calculations.length > 0 ? Math.round(calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0) / calculations.length) : 0
         };
     }, [calculations]);

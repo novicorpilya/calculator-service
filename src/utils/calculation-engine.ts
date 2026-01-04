@@ -89,6 +89,9 @@ export const CalculationEngine = {
                             quantity: finalQuantity,
                             price: item.price,
                             total: finalQuantity,
+                            stock: item.stock,
+                            norm_area: item.norm_area,
+                            supplier_id: item.supplier_id,
                             norms: {
                                 area: item.norm_area,
                                 personnel: item.norm_personnel,

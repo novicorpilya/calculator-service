@@ -34,6 +34,7 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
         if (role === 'admin') {
             return [
                 { id: 'admin-overview', label: 'Админ-панель', icon: Shield },
+                { id: 'projects', label: 'Все проекты', icon: FolderSearch },
                 { id: 'team', label: 'Команда', icon: Users },
                 { id: 'history', label: 'Логи аудита', icon: HistoryIcon },
             ];

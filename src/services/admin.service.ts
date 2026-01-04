@@ -150,5 +150,42 @@ export const adminService = {
 
         // Логируем удаление пользователя
         await auditService.logAction('user_deleted_permanently', 'profile', userId);
+    },
+
+    async setUserStatus(userId: string, status: 'active' | 'blocked'): Promise<void> {
+        const { error } = await supabase.rpc('set_user_status', {
+            user_id_param: userId,
+            new_status: status
+        });
+
+        if (error) throw error;
+
+        // Логируем блокировку/разблокировку
+        await auditService.logAction(status === 'blocked' ? 'user_blocked' : 'user_unblocked', 'profile', userId);
+    },
+
+    async adminDeleteCalculation(id: string | number): Promise<void> {
+        // Административное удаление (через adminService для логов)
+        const { error } = await supabase
+            .from('calculations')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Логируем удаление сделки админом
+        await auditService.logAction('calculation_deleted_by_admin', 'calculation', id.toString());
+    },
+
+    async adminUpdateCalculationStatus(id: string | number, status: string): Promise<void> {
+        const { error } = await supabase
+            .from('calculations')
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Логируем смену статуса админом
+        await auditService.logAction('calculation_status_force_updated', 'calculation', id.toString(), { new_status: status });
     }
 }

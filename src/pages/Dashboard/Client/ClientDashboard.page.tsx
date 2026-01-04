@@ -124,22 +124,35 @@ export const ClientDashboard: React.FC = () => {
             setLoading(true);
             setError(null);
             if (editingCalculation) {
-                const newStatus = editingCalculation.status === 'changes' ? 'revision' : editingCalculation.status;
+                // If it was 'changes' requested by manager, promotion to 'revision' is automatic if user is sending it
+                const statusFromWizard = calculation.status;
+                const nextStatus = (statusFromWizard === 'sent' && editingCalculation.status === 'changes')
+                    ? 'revision'
+                    : statusFromWizard;
+
                 const updated = await calculationsService.updateCalculation(calculation.id, {
                     ...calculation,
-                    status: newStatus
+                    status: nextStatus
                 });
                 setCalculations(prev => prev.map(c => String(c.id) === String(updated.id) ? updated : c));
                 setEditingCalculation(null);
                 setSelectedId(updated.id);
                 await chatService.sendSyncSignal(updated.id, 'UPDATE');
-                toast.success(newStatus === 'revision' ? 'Правки внесены и отправлены эксперту' : 'Расчет обновлен');
+
+                // Specific success message based on the actual resulting status
+                if (nextStatus === 'revision') {
+                    toast.success('Правки внесены и отправлены эксперту');
+                } else if (nextStatus === 'sent') {
+                    toast.success('Расчет отправлен эксперту на проверку');
+                } else {
+                    toast.success('Черновик успешно обновлен');
+                }
             } else {
                 const created = await calculationsService.createCalculation(calculation);
                 setCalculations([created, ...calculations]);
                 setSelectedId(created.id);
                 await chatService.sendSyncSignal(created.id, 'INSERT');
-                toast.success('Расчет создан');
+                toast.success(calculation.status === 'draft' ? 'Черновик сохранен' : 'Расчет создан и отправлен на аудит');
             }
             setIsCreatingNew(false);
         } catch (err: unknown) {

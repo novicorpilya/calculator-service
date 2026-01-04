@@ -10,13 +10,14 @@ import {
     UserPlus, Users, Mail, Copy, Check, Trash2,
     User as UserIcon, History, Clock, ArrowRightLeft,
     RefreshCw, TrendingUp, Wallet, Activity,
-    ChevronRight, Briefcase, CheckCircle2, AlertCircle
+    ChevronRight, Briefcase, CheckCircle2, AlertCircle, Shield, FolderSearch
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [currentPage, setCurrentPage] = useState('admin-overview');
     const [users, setUsers] = useState<User[]>([]);
+    const [allCalculations, setAllCalculations] = useState<any[]>([]);
     const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [stats, setStats] = useState<{
@@ -34,16 +35,18 @@ export const AdminDashboard: React.FC = () => {
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const [usersData, invitesData, logsData, statsData] = await Promise.all([
+            const [usersData, invitesData, logsData, statsData, calcsData] = await Promise.all([
                 adminService.getUsers(),
                 adminService.getInvitations(),
                 auditService.getLogs(),
-                adminService.getSystemStats()
+                adminService.getSystemStats(),
+                adminService.getAllCalculations()
             ]);
             setUsers(usersData);
             setInvitations(invitesData);
             setLogs(logsData);
             setStats(statsData);
+            setAllCalculations(calcsData);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             console.error('Ошибка при загрузке данных:', message);
@@ -122,6 +125,49 @@ export const AdminDashboard: React.FC = () => {
             loadData();
         } catch (err: unknown) {
             toast.error(`Ошибка при удалении: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
+        }
+    };
+
+    const handleToggleBlock = async (user: User) => {
+        const newStatus = user.status === 'blocked' ? 'active' : 'blocked';
+        const action = newStatus === 'blocked' ? 'заблокировать' : 'разблокировать';
+
+        if (!confirm(`Вы действительно хотите ${action} пользователя ${user.email}?`)) return;
+
+        try {
+            await adminService.setUserStatus(user.id, newStatus);
+            toast.success(`Пользователь ${newStatus === 'blocked' ? 'заблокирован' : 'разблокирован'}`);
+            loadData();
+        } catch (err) {
+            toast.error('Ошибка при смене статуса');
+        }
+    };
+
+    const handleDeleteCalculation = async (calcId: string, orgName: string) => {
+        if (!confirm(`Вы уверены, что хотите удалить проект "${orgName}"? Это действие необратимо.`)) return;
+
+        try {
+            await adminService.adminDeleteCalculation(calcId);
+            toast.success('Проект успешно удален');
+            loadData();
+        } catch (err) {
+            toast.error('Ошибка при удалении проекта');
+        }
+    };
+
+    const handleStatusReturn = async (calcId: string, currentStatus: string) => {
+        const statuses = ['draft', 'sent', 'expert', 'suppliers', 'invoice', 'completed'];
+        const currentIndex = statuses.indexOf(currentStatus);
+        const prevStatus = currentIndex > 0 ? statuses[currentIndex - 1] : 'draft';
+
+        if (!confirm(`Вернуть проект на стадию "${prevStatus}"?`)) return;
+
+        try {
+            await adminService.adminUpdateCalculationStatus(calcId, prevStatus);
+            toast.success(`Проект возвращен на стадию ${prevStatus}`);
+            loadData();
+        } catch (err) {
+            toast.error('Ошибка при обновлении статуса');
         }
     };
 
@@ -354,6 +400,17 @@ export const AdminDashboard: React.FC = () => {
                                     </button>
 
                                     <button
+                                        onClick={() => handleToggleBlock(user)}
+                                        className={`p-2.5 rounded-xl border transition-all ${user.status === 'blocked'
+                                            ? 'bg-red-500 text-white border-red-500'
+                                            : 'bg-card border-border-theme hover:border-amber-500 text-foreground/10 hover:text-amber-500'
+                                            }`}
+                                        title={user.status === 'blocked' ? 'Разблокировать' : 'Заблокировать'}
+                                    >
+                                        <Shield size={16} />
+                                    </button>
+
+                                    <button
                                         onClick={() => handleDeleteUser(user)}
                                         className="p-2.5 rounded-xl bg-card border border-border-theme hover:border-red-500 text-foreground/10 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
                                         title="Удалить пользователя навсегда"
@@ -413,6 +470,55 @@ export const AdminDashboard: React.FC = () => {
         </div>
     );
 
+    const renderProjects = () => (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-foreground/40 ml-2">Все сделки в системе ({allCalculations.length})</h3>
+            <div className="grid grid-cols-1 gap-4">
+                {allCalculations.length === 0 ? (
+                    <div className="py-20 glass-card text-center opacity-30">
+                        <FolderSearch size={40} className="mx-auto mb-4" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Проектов пока нет</p>
+                    </div>
+                ) : allCalculations.map(calc => (
+                    <div key={calc.id} className="glass-card flex items-center justify-between !py-6 group">
+                        <div className="flex items-center gap-6">
+                            <div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center text-foreground/30">
+                                <Briefcase size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-black uppercase tracking-tight">{calc.organization_name}</h4>
+                                <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-[10px] font-black uppercase bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                        {calc.status}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-foreground/20 italic">
+                                        Позиций: {calc.results?.summary?.length || 0}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => handleStatusReturn(calc.id, calc.status)}
+                                className="p-3 bg-card border border-border-theme hover:border-amber-500 text-foreground/20 hover:text-amber-500 rounded-xl transition-all"
+                                title="Вернуть статус назад"
+                            >
+                                <RefreshCw size={18} />
+                            </button>
+                            <button
+                                onClick={() => handleDeleteCalculation(calc.id, calc.organization_name)}
+                                className="p-3 bg-card border border-border-theme hover:border-red-500 text-foreground/20 hover:text-red-500 rounded-xl transition-all"
+                                title="Удалить проект"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <DashboardHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} title="Панель Администратора" />
@@ -455,7 +561,10 @@ export const AdminDashboard: React.FC = () => {
                                 </div>
 
                                 {currentPage === 'admin-overview' ? renderOverview() :
-                                    currentPage === 'history' ? renderLogs() : renderTeam()}
+                                    currentPage === 'history' ? renderLogs() :
+                                        currentPage === 'team' ? renderTeam() :
+                                            currentPage === 'projects' ? renderProjects() :
+                                                renderOverview()}
                             </>
                         )}
                     </div>

@@ -8,6 +8,8 @@ export interface Message {
     calculation_id?: string;
     content: string;
     image_url?: string;
+    voice_url?: string;
+    voice_duration?: number;
     created_at: string;
 }
 
@@ -201,6 +203,29 @@ export const chatService = {
         return data.publicUrl;
     },
 
+    /**
+     * Voice Message Uploading Service
+     */
+    async uploadVoiceMessage(audioBlob: Blob): Promise<string> {
+        const fileName = `${crypto.randomUUID()}.webm`;
+        const filePath = `voice/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('voice-messages')
+            .upload(filePath, audioBlob, {
+                contentType: 'audio/webm',
+                cacheControl: '3600'
+            });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage
+            .from('voice-messages')
+            .getPublicUrl(filePath);
+
+        return data.publicUrl;
+    },
+
     async getRecipients(userId: string) {
         try {
             // 1. Get IDs from projects (calculations)
@@ -236,6 +261,91 @@ export const chatService = {
         } catch (error) {
             console.error('Error fetching recipients:', error);
             return [];
+        }
+    },
+
+    /**
+     * Permanent clearance of chat history (including storage).
+     */
+    async clearChatHistory(userA: string, userB: string): Promise<void> {
+        // 1. Get messages with attachments before deletion
+        const { data: messages, error: fetchError } = await supabase
+            .from('messages')
+            .select('image_url')
+            .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
+            .is('calculation_id', null);
+
+        if (fetchError) throw fetchError;
+
+        // 2. Delete messages from table
+        const { error: deleteError } = await supabase
+            .from('messages')
+            .delete()
+            .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
+            .is('calculation_id', null);
+
+        if (deleteError) throw deleteError;
+
+        // 3. Extract paths and delete from storage
+        const filesToDelete = messages
+            ?.map(m => m.image_url)
+            .filter(Boolean)
+            .map(url => {
+                // Public URL extraction logic
+                try {
+                    const parts = url!.split('/public/attachments/');
+                    return parts.length > 1 ? parts[1] : null;
+                } catch { return null; }
+            })
+            .filter(Boolean) as string[];
+
+        if (filesToDelete.length > 0) {
+            const { error: storageError } = await supabase.storage
+                .from('attachments')
+                .remove(filesToDelete);
+
+            if (storageError) console.error('[Storage:Cleanup:Error]', storageError);
+        }
+    },
+
+    /**
+     * Clear all revision messages for a specific project.
+     */
+    async clearProjectHistory(calculationId: string): Promise<void> {
+        // 1. Get messages with attachments
+        const { data: messages, error: fetchError } = await supabase
+            .from('messages')
+            .select('image_url')
+            .eq('calculation_id', calculationId);
+
+        if (fetchError) throw fetchError;
+
+        // 2. Delete messages
+        const { error: deleteError } = await supabase
+            .from('messages')
+            .delete()
+            .eq('calculation_id', calculationId);
+
+        if (deleteError) throw deleteError;
+
+        // 3. Extract paths and delete from storage
+        const filesToDelete = messages
+            ?.map(m => m.image_url)
+            .filter(Boolean)
+            .map(url => {
+                try {
+                    const parts = url!.split('/public/attachments/');
+                    return parts.length > 1 ? parts[1] : null;
+                } catch { return null; }
+            })
+            .filter(Boolean) as string[];
+
+        if (filesToDelete.length > 0) {
+            const { error: storageError } = await supabase.storage
+                .from('attachments')
+                .remove(filesToDelete);
+
+            if (storageError) console.error('[Storage:Cleanup:Error]', storageError);
         }
     }
 };

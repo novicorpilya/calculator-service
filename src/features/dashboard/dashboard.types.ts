@@ -1,7 +1,7 @@
 /**
  * Current lifecycle stage of a calculation project.
  */
-export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'revision' | 'approved' | 'suppliers' | 'invoice' | 'paid' | 'shipping' | 'completed' | 'closed';
+export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'revision' | 'invoice' | 'paid' | 'shipping' | 'completed' | 'closed';
 
 export type SyncEventType = 'UPDATE' | 'INSERT' | 'DELETE';
 
@@ -12,13 +12,28 @@ export interface SyncPayload {
     isSignal?: boolean;
 }
 
+export interface Supplier {
+    id: string;
+    name: string;
+    description?: string;
+    logo?: string;
+    rating?: number;
+    contacts?: {
+        phone?: string;
+        email?: string;
+        website?: string;
+    };
+    integration_type: 'internal' | 'api_1c' | 'api_custom';
+    status: 'active' | 'inactive';
+}
+
 export interface Comment {
     author: string;
     text: string;
     date: string;
 }
 
-export type InteractionType = 'created' | 'submitted' | 'comment' | 'revision' | 'approved';
+export type InteractionType = 'created' | 'submitted' | 'comment' | 'revision' | 'invoice';
 
 /**
  * Represents a single interaction/event in the project history trail.
@@ -89,6 +104,9 @@ export interface InventoryItem {
     color: string;
     quantity: number;
     price: number;
+    stock: number;
+    supplier_id?: string;
+    norm_area: number;
     total: number;
     // Calculation Breakdown
     calculation?: {
@@ -165,13 +183,11 @@ export interface Zone {
     color: string;
 }
 
-export const STATUS_CONFIG: Record<CalculationStatus, { label: string; color: string }> = {
+export const STATUS_CONFIG: Record<CalculationStatus, { label: string; color: string; ghost?: string }> = {
     draft: { label: 'Черновик', color: 'bg-gray-100 text-gray-800' },
-    sent: { label: 'Отправлен', color: 'bg-blue-100 text-blue-800' },
-    changes: { label: 'Требует изменений', color: 'bg-orange-100 text-orange-800' },
+    sent: { label: 'На проверке', color: 'bg-blue-100 text-blue-800' },
+    changes: { label: 'Требуют правок', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
     revision: { label: 'Правки внесены', color: 'bg-purple-100 text-purple-800' },
-    approved: { label: 'Утверждено', color: 'bg-green-100 text-green-800' },
-    suppliers: { label: 'Передано поставщикам', color: 'bg-indigo-100 text-indigo-800' },
     invoice: { label: 'Выставлен счет', color: 'bg-cyan-100 text-cyan-800' },
     paid: { label: 'Оплачено', color: 'bg-emerald-100 text-emerald-800' },
     shipping: { label: 'Поставка в работе', color: 'bg-amber-100 text-amber-800' },
@@ -190,4 +206,13 @@ export const ZONE_TYPES = [
     { value: 'white_zone', label: '⚪ WHITE — Молочные продукты', color: '#f8fafc' }
 ];
 
-
+export const COMPANY_REQUISITES = {
+    name: 'ООО "НОВИКОРП"',
+    inn: '7700012345',
+    kpp: '770101001',
+    account: '40702810000000012345',
+    bank: 'АО "ТИНЬКОФФ БАНК"',
+    bik: '044525974',
+    corrAccount: '30101810300000000974',
+    address: 'г. Москва, ул. Примерная, д. 10, оф. 5'
+};
