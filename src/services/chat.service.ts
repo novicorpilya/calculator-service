@@ -310,9 +310,8 @@ export const chatService = {
         // 1. Get messages with attachments before deletion
         const { data: messages, error: fetchError } = await supabase
             .from('messages')
-            .select('image_url')
-            .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
-            .is('calculation_id', null);
+            .select('image_url, voice_url')
+            .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`);
 
         if (fetchError) throw fetchError;
 
@@ -320,30 +319,24 @@ export const chatService = {
         const { error: deleteError } = await supabase
             .from('messages')
             .delete()
-            .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
-            .is('calculation_id', null);
+            .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`);
 
         if (deleteError) throw deleteError;
 
-        // 3. Extract paths and delete from storage
-        const filesToDelete = messages
-            ?.map(m => m.image_url)
-            .filter(Boolean)
+        // 3. Collect ALL media files (images and voices)
+        const mediaUrls = messages?.flatMap(m => [m.image_url, m.voice_url]).filter(Boolean) as string[];
+
+        const filesToDelete = mediaUrls
             .map(url => {
-                // Public URL extraction logic
                 try {
-                    const parts = url!.split('/public/attachments/');
+                    const parts = url.split('/public/attachments/');
                     return parts.length > 1 ? parts[1] : null;
                 } catch { return null; }
             })
             .filter(Boolean) as string[];
 
         if (filesToDelete.length > 0) {
-            const { error: storageError } = await supabase.storage
-                .from('attachments')
-                .remove(filesToDelete);
-
-            if (storageError) console.error('[Storage:Cleanup:Error]', storageError);
+            await supabase.storage.from('attachments').remove(filesToDelete).catch(console.error);
         }
     },
 
@@ -354,7 +347,7 @@ export const chatService = {
         // 1. Get messages with attachments
         const { data: messages, error: fetchError } = await supabase
             .from('messages')
-            .select('image_url')
+            .select('image_url, voice_url')
             .eq('calculation_id', calculationId);
 
         if (fetchError) throw fetchError;
@@ -367,24 +360,19 @@ export const chatService = {
 
         if (deleteError) throw deleteError;
 
-        // 3. Extract paths and delete from storage
-        const filesToDelete = messages
-            ?.map(m => m.image_url)
-            .filter(Boolean)
+        // 3. Cleanup storage
+        const mediaUrls = messages?.flatMap(m => [m.image_url, m.voice_url]).filter(Boolean) as string[];
+        const filesToDelete = mediaUrls
             .map(url => {
                 try {
-                    const parts = url!.split('/public/attachments/');
+                    const parts = url.split('/public/attachments/');
                     return parts.length > 1 ? parts[1] : null;
                 } catch { return null; }
             })
             .filter(Boolean) as string[];
 
         if (filesToDelete.length > 0) {
-            const { error: storageError } = await supabase.storage
-                .from('attachments')
-                .remove(filesToDelete);
-
-            if (storageError) console.error('[Storage:Cleanup:Error]', storageError);
+            await supabase.storage.from('attachments').remove(filesToDelete).catch(console.error);
         }
     },
 
@@ -399,8 +387,6 @@ export const chatService = {
             .eq('receiver_id', receiverId)
             .eq('is_read', false);
 
-        // PRODUCTION LOGIC: If calculationId is provided, mark only that project's messages.
-        // If NOT provided (e.g. general chat), mark ALL messages from this person as read.
         if (calculationId) {
             query = query.eq('calculation_id', calculationId);
         }

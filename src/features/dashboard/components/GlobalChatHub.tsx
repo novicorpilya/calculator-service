@@ -353,6 +353,7 @@ export const GlobalChatHub = React.memo(() => {
             setIsLoading(true);
             await chatService.clearChatHistory(user.id, selectedUser.id);
             setMessages([]);
+            setRecipients(prev => prev.map(r => r.id === selectedUser.id ? { ...r, lastMessage: undefined } : r));
             toast.success('История чата очищена');
         } catch (_error) {
             toast.error('Не удалось очистить историю');
