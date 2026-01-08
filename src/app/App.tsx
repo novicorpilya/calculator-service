@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthProvider'
@@ -9,7 +9,6 @@ import { Toaster } from 'sonner'
 
 import { ServiceProvider } from '@/core/di/ServiceContainer'
 import { ErrorBoundary } from '@/core/components/ErrorBoundary'
-import { initTelemetry } from '@/core/utils/logger'
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -26,10 +25,6 @@ const queryClient = new QueryClient({
  * Уровень: Senior Production Ready
  */
 export const App: React.FC = () => {
-    // Initialize telemetry on mount
-    useEffect(() => {
-        initTelemetry();
-    }, []);
 
     return (
         <ErrorBoundary>

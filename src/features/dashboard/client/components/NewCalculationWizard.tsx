@@ -14,6 +14,7 @@ import {
 import { type Venue } from '@/services/venue.service';
 import { type InventoryItemMaster } from '@/services/inventory.service';
 import { CalculationEngine } from '@/utils/calculation-engine';
+import { getTotalZonesArea, getTotalZonesStaff } from '@/core/domain/calculator.utils';
 import { toast } from 'sonner';
 import { CalculationBreakdown } from './CalculationBreakdown';
 import { useAuth } from '@/features/auth';
@@ -53,8 +54,8 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
     const [selectedVenueId, setSelectedVenueId] = useState<string>('');
     const [globalInventory, setGlobalInventory] = useState<InventoryItemMaster[]>([]);
 
-    const totalZonesArea = useMemo(() => zones.reduce((sum, zone) => sum + parseFloat(zone.area || '0'), 0), [zones]);
-    const totalZonesStaff = useMemo(() => zones.reduce((sum, zone) => sum + parseInt(zone.staffCount || '0'), 0), [zones]);
+    const totalZonesArea = useMemo(() => getTotalZonesArea(zones), [zones]);
+    const totalZonesStaff = useMemo(() => getTotalZonesStaff(zones), [zones]);
     const hasAreaWarning = useMemo(() => objectData.totalArea && totalZonesArea > parseFloat(objectData.totalArea), [objectData.totalArea, totalZonesArea]);
 
     // If initialData changes (e.g. edit mode started), update local states

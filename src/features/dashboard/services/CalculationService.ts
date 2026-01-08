@@ -13,6 +13,7 @@ export interface ICalculationService {
     update(id: string | number, updates: Partial<Calculation>): Promise<Calculation>;
     delete(id: string | number): Promise<void>;
     assignToMe(id: string | number, managerId: string): Promise<Calculation>;
+    adjustExpert(id: string | number, results: any, adjustments: any, version: number): Promise<Calculation>;
     getRegistry(): Promise<{ id: string | number; created_at: string }[]>;
 }
 
@@ -63,6 +64,7 @@ export class CalculationService implements ICalculationService {
                     case 'sent': action = 'submit'; break;
                     case 'invoice': action = 'approve'; break;
                     case 'changes': action = 'reject'; break;
+                    case 'revision': action = 'resolve'; break;
                     // draft and others (paid, shipping, etc) fall through to direct update
                 }
 
@@ -129,7 +131,7 @@ export class CalculationService implements ICalculationService {
                     }
                 }
 
-                const welcomeMessage = `👋 Здравствуйте!\n\nЯ ${managerName} по проекту #${projectNumber}.\n\nПриступаю к проверке расчёта. Если у вас есть вопросы или дополнительная информация — пишите мне в этот чат.\n\nСпасибо за обращение! 🤝`;
+                const welcomeMessage = `Здравствуйте! 👋\nМеня зовут ${managerName}, я ваш персональный менеджер по проекту #${projectNumber}.\n\nЧто я буду делать:\n\n🔍 Проверю корректность ваших расчётов и параметров\n💬 Отвечу на все вопросы по инвентарю и HACCP-стандартам\n💰 Сформирую оптимальное коммерческое предложение\n📋 Подготовлю счёт и документы к оплате\n\nЯ буду с вами на всех этапах — от проверки заявки до получения товара. Обычно на аудит и формирование предложения уходит 1-2 рабочих дня.\n\nЕсли у вас есть вопросы, специальные пожелания или дополнительные материалы (планировки, фото зон, особые требования) — пишите прямо сюда в чат или отправляйте файлы. 😊\n\nПриступаю к работе! 🚀`;
 
                 if (result.user_id) {
                     await this.chatService.sendMessage({
@@ -148,6 +150,16 @@ export class CalculationService implements ICalculationService {
         } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
             await this.recordError(id, `Assignment Error: ${errMsg}`);
+            throw error;
+        }
+    }
+
+    async adjustExpert(id: string | number, results: any, adjustments: any, version: number): Promise<Calculation> {
+        try {
+            return await this.repository.adjustCalculationExpert(id, results, adjustments, version);
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : String(error);
+            await this.recordError(id, `Expert Adjustment Error: ${errMsg}`);
             throw error;
         }
     }

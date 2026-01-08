@@ -43,3 +43,32 @@ export function formatCurrency(amount: number): string {
         maximumFractionDigits: 0
     }).format(amount);
 }
+
+// ============================================
+// Zone Aggregation Helpers
+// ============================================
+
+interface ZoneLike {
+    area?: string | number;
+    staffCount?: string | number;
+}
+
+/**
+ * Calculate total area across all zones.
+ * @param zones Array of zone objects with area field
+ * @returns Total area as number
+ */
+export function getTotalZonesArea(zones: ZoneLike[] = []): number {
+    if (!Array.isArray(zones)) return 0;
+    return zones.reduce((sum, zone) => sum + parseFloat(String(zone.area || '0')), 0);
+}
+
+/**
+ * Calculate total staff count across all zones.
+ * @param zones Array of zone objects with staffCount field
+ * @returns Total staff count as number
+ */
+export function getTotalZonesStaff(zones: ZoneLike[] = []): number {
+    if (!Array.isArray(zones)) return 0;
+    return zones.reduce((sum, zone) => sum + parseInt(String(zone.staffCount || '0'), 10), 0);
+}

@@ -4,15 +4,17 @@ import { useServices } from '@/core/di/ServiceContainer';
 import type { InventoryItemMaster } from '@/services/inventory.service';
 import type { CalculationEntity } from '@/core/domain/CalculationEntity';
 import type { CalculationStatus, CalculationResults } from '../dashboard.types';
-import { logger } from '@/core/utils/logger';
+import { logger } from '@/app/services';
+import { CalculationEngine } from '@/utils/calculation-engine';
 
 interface UseProductSelectionProps {
     user: { role?: string } | null;
     entity: CalculationEntity;
     onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: { results?: CalculationResults }) => void;
+    onAdjustExpert?: (id: string | number, results: CalculationResults, adjustments: any, version: number) => Promise<void>;
 }
 
-export function useProductSelection({ user, entity, onUpdateStatus }: UseProductSelectionProps) {
+export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpert }: UseProductSelectionProps) {
     const { inventoryService } = useServices();
 
     // State
@@ -26,10 +28,10 @@ export function useProductSelection({ user, entity, onUpdateStatus }: UseProduct
             inventoryService.getGlobalItems()
                 .then(setCatalog)
                 .catch(error => {
-                    logger.error('Failed to load inventory catalog', error, {
+                    logger.error('Failed to load inventory catalog', {
                         role: user.role,
-                        userId: (user as any)?.id // Attempt to log ID if available
-                    });
+                        userId: (user as any)?.id
+                    }, error);
                 });
         }
     }, [user, inventoryService]);
@@ -41,39 +43,108 @@ export function useProductSelection({ user, entity, onUpdateStatus }: UseProduct
             const newResults = JSON.parse(JSON.stringify(entity.results));
             const oldItem = newResults.summary[auditItemIndex];
 
-            // Update summary item
-            newResults.summary[auditItemIndex] = {
-                ...oldItem,
-                inventory: master.name,
-                sku: master.sku,
-                price: master.price,
-                supplier_id: master.supplier_id,
-                stock: master.stock
-            };
+            // Use core engine to calculate correct demand for the replacement product
+            const calculatedItem = CalculationEngine.calculateSingleItem(
+                master,
+                entity.rawData.zoneDetails || [],
+                {
+                    staffCount: String(entity.staffCount),
+                    dailyVisitors: String(entity.dailyVisitors),
+                    sanitaryLevel: entity.sanitaryLevel,
+                    replacementCycle: entity.replacementCycle,
+                    intensityLevel: entity.rawData.intensityLevel
+                }
+            );
 
-            // Update byZone items
+            // Update summary item
+            newResults.summary[auditItemIndex] = calculatedItem;
+
+            // Update byZone items (global replace logic)
             newResults.byZone.forEach((zone: any) => {
-                zone.items.forEach((item: any) => {
+                zone.items.forEach((item: any, idx: number) => {
                     if (item.inventory === oldItem.inventory && item.sku === oldItem.sku) {
-                        item.inventory = master.name;
-                        item.sku = master.sku;
-                        item.price = master.price;
-                        item.supplier_id = master.supplier_id;
-                        item.stock = master.stock;
+                        zone.items[idx] = { ...calculatedItem };
                     }
                 });
             });
 
-            onUpdateStatus(entity.id, entity.status, { results: newResults });
+            if (onAdjustExpert) {
+                await onAdjustExpert(entity.id, newResults, entity.managerAdjustments, entity.versionNumber);
+            } else {
+                onUpdateStatus(entity.id, entity.status, { results: newResults });
+            }
             setAuditItemIndex(null);
             toast.success(`Товар заменен на ${master.name}`);
         } catch (error) {
-            logger.error('Failed to swap product in calculation', error, {
+            logger.error('Failed to swap product in calculation', {
                 calculationId: entity.id,
                 targetIndex: auditItemIndex,
                 masterSku: master.sku
-            });
+            }, error);
             toast.error('Ошибка замены товара');
+        }
+    };
+
+    const handleRemoveItem = async (index: number) => {
+        try {
+            const newResults = JSON.parse(JSON.stringify(entity.results));
+            const removedItem = newResults.summary[index];
+            newResults.summary.splice(index, 1);
+
+            if (onAdjustExpert) {
+                await onAdjustExpert(entity.id, newResults, entity.managerAdjustments, entity.versionNumber);
+            } else {
+                onUpdateStatus(entity.id, entity.status, { results: newResults });
+            }
+            toast.success(`Товар ${removedItem.inventory} удален`);
+        } catch (error) {
+            toast.error('Ошибка удаления');
+        }
+    };
+
+    const handleAddItem = async (master: InventoryItemMaster) => {
+        if (!entity.results) return;
+
+        // Use core engine to calculate demand for the new item based on project metrics
+        const newItem = CalculationEngine.calculateSingleItem(
+            master,
+            entity.rawData.zoneDetails || [],
+            {
+                staffCount: String(entity.staffCount),
+                dailyVisitors: String(entity.dailyVisitors),
+                sanitaryLevel: entity.sanitaryLevel,
+                replacementCycle: entity.replacementCycle,
+                intensityLevel: entity.rawData.intensityLevel
+            }
+        );
+
+        const newResults = JSON.parse(JSON.stringify(entity.results));
+        newResults.summary.push(newItem);
+
+        try {
+            if (onAdjustExpert) {
+                await onAdjustExpert(entity.id, newResults, entity.managerAdjustments, entity.versionNumber);
+            } else {
+                onUpdateStatus(entity.id, entity.status, { results: newResults });
+            }
+            setAuditItemIndex(null);
+            toast.success(`Добавлена позиция: ${master.name}`);
+        } catch (error) {
+            toast.error('Ошибка при добавлении товара');
+        }
+    };
+
+    const handleUpdateAdjustments = async (adjustments: any) => {
+        if (!entity.results) return;
+        try {
+            if (onAdjustExpert) {
+                await onAdjustExpert(entity.id, entity.results, adjustments, entity.versionNumber);
+            } else {
+                onUpdateStatus(entity.id, entity.status, { manager_adjustments: adjustments } as any);
+            }
+            toast.success('Параметры обновлены');
+        } catch (error) {
+            toast.error('Ошибка обновления параметров');
         }
     };
 
@@ -83,6 +154,9 @@ export function useProductSelection({ user, entity, onUpdateStatus }: UseProduct
         auditItemIndex,
         setAuditItemIndex,
         catalog,
-        handleProductSelect
+        handleProductSelect,
+        handleAddItem,
+        handleRemoveItem,
+        handleUpdateAdjustments
     };
 }

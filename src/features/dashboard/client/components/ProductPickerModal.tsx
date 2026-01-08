@@ -8,7 +8,7 @@ interface ProductPickerModalProps {
     onClose: () => void;
     onSelect: (masterItem: InventoryItemMaster) => void;
     catalog: InventoryItemMaster[];
-    currentItem: InventoryItem;
+    currentItem?: InventoryItem;
 }
 
 export const ProductPickerModal: React.FC<ProductPickerModalProps> = ({
@@ -37,7 +37,11 @@ export const ProductPickerModal: React.FC<ProductPickerModalProps> = ({
                     <div className="space-y-1">
                         <h3 className="text-2xl font-black tracking-tight uppercase">Выбор продукта</h3>
                         <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">
-                            Замена для: <span className="text-primary">{currentItem.inventory}</span>
+                            {currentItem ? (
+                                <>Замена для: <span className="text-primary">{currentItem.inventory}</span></>
+                            ) : (
+                                <>Добавление новой позиции в расчет</>
+                            )}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-3 bg-card border border-border-theme rounded-xl hover:text-primary transition-all">
@@ -63,14 +67,14 @@ export const ProductPickerModal: React.FC<ProductPickerModalProps> = ({
                 {/* List */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
                     {filteredCatalog.length > 0 ? filteredCatalog.map((item) => {
-                        const isCurrent = item.sku === currentItem.sku;
+                        const isCurrent = currentItem && item.sku === currentItem.sku;
                         return (
                             <div
                                 key={item.id}
                                 onClick={() => onSelect(item)}
                                 className={`group relative p-6 rounded-[2rem] border-2 transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-6 ${isCurrent
-                                        ? 'bg-primary/5 border-primary shadow-lg shadow-primary/10'
-                                        : 'bg-card border-transparent hover:border-border-theme hover:bg-primary/5'
+                                    ? 'bg-primary/5 border-primary shadow-lg shadow-primary/10'
+                                    : 'bg-card border-transparent hover:border-border-theme hover:bg-primary/5'
                                     }`}
                             >
                                 <div className="flex items-center gap-6">

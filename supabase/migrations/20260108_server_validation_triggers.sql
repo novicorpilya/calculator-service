@@ -46,18 +46,21 @@ CREATE OR REPLACE FUNCTION validate_status_transition(
     new_status text
 ) RETURNS boolean AS $$
 DECLARE
-    allowed_transitions jsonb := '{
+    allowed_transitions jsonb := ''{
         "draft": ["sent"],
-        "sent": ["expert", "changes"],
-        "expert": ["changes", "suppliers"],
+        "sent": ["expert", "changes", "invoice"],
+        "expert": ["changes", "invoice"],
         "changes": ["revision", "sent"],
-        "revision": ["expert"],
-        "suppliers": ["invoice"],
-        "invoice": ["completed", "paid"],
-        "paid": ["completed"],
-        "ready": ["completed"],
-        "completed": []
-    }'::jsonb;
+        "revision": ["expert", "invoice"],
+        "invoice": ["payment_review", "changes"],
+        "payment_review": ["paid", "changes"],
+        "paid": ["processing"],
+        "processing": ["ready"],
+        "ready": ["shipping"],
+        "shipping": ["completed"],
+        "completed": ["closed"],
+        "closed": []
+    }''::jsonb;
     allowed_array jsonb;
 BEGIN
     -- If status hasn't changed, always allow
@@ -152,7 +155,11 @@ BEGIN
     -- Create constraint with all valid statuses including legacy ones
     ALTER TABLE calculations 
     ADD CONSTRAINT chk_calculation_status 
-    CHECK (status IN ('draft', 'sent', 'expert', 'changes', 'revision', 'suppliers', 'invoice', 'paid', 'ready', 'completed'));
+    CHECK (status IN (
+        ''draft'', ''sent'', ''expert'', ''changes'', ''revision'', 
+        ''invoice'', ''payment_review'', ''paid'', ''processing'', 
+        ''ready'', ''shipping'', ''completed'', ''closed''
+    ));
 END $$;
 
 -- 6. COMMENT: Document the validation logic

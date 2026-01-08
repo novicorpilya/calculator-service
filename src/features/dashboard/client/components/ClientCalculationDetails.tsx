@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import {
     ChevronLeft, Download, Send, Calendar,
     AlertCircle, CheckCircle, Trash2, AlertTriangle, Briefcase, FileText,
-    CreditCard, Copy, Boxes, MapPin
+    CreditCard, Copy, Boxes, MapPin, CheckCircle2, Package, Wallet, Clock,
+    Search, MessageSquare, Calculator, Plus, Settings, RefreshCcw
 } from 'lucide-react';
 import { type Calculation, type CalculationStatus, type CalculationResults } from '../../dashboard.types';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
@@ -15,9 +16,9 @@ import { ModernStatusBadge } from '../../components/ModernStatusBadge';
 import { ProjectChatSection } from './ProjectChatSection';
 import { CalculationBreakdown } from './CalculationBreakdown';
 import { ProductPickerModal } from './ProductPickerModal';
-import { exportToExcelWithPermissions } from '../../utils/excelExport';
 import { useProjectChat } from '@/features/chat/hooks/useProjectChat';
 import { useProductSelection } from '@/features/dashboard/hooks/useProductSelection';
+import { generateInvoicePDF } from '../../utils/pdfInvoiceGenerator';
 
 // Hardcoded company requisites (as they were in the original file)
 const COMPANY_REQUISITES = {
@@ -37,6 +38,7 @@ interface ClientCalculationDetailsProps {
     onDelete: (id: number | string) => void;
     onEdit: (calc: Calculation) => void;
     onAssign?: (id: number | string) => void;
+    onAdjustExpert?: (id: string | number, results: CalculationResults, adjustments: any, version: number) => Promise<void>;
     displayId?: number;
 }
 
@@ -47,6 +49,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     onDelete,
     onEdit,
     onAssign,
+    onAdjustExpert,
     displayId
 }) => {
     const { user } = useAuth();
@@ -74,12 +77,24 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         auditItemIndex,
         setAuditItemIndex,
         catalog,
-        handleProductSelect
-    } = useProductSelection({ user, entity, onUpdateStatus });
+        handleProductSelect,
+        handleAddItem,
+        handleRemoveItem,
+        handleUpdateAdjustments
+    } = useProductSelection({ user, entity, onUpdateStatus, onAdjustExpert });
 
     // Local State
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+    const handleDownloadPDF = () => {
+        try {
+            generateInvoicePDF(entity);
+            toast.success('Счет сформирован (PDF)');
+        } catch (error) {
+            console.error('PDF Error:', error);
+            toast.error('Ошибка генерации PDF');
+        }
+    };
 
     return (
         <div className="w-full max-w-[min(100%,1300px)] mx-auto space-y-[clamp(1.5rem,5vh,3.5rem)] animate-in fade-in duration-700 pb-20">
@@ -132,19 +147,26 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                    <button onClick={handleDownloadPDF} className="btn-premium-secondary">
+                        <Download className="w-5 h-5" /> {entity.status === 'invoice' ? 'Счет (PDF)' : 'Экспорт'}
+                    </button>
                     {user?.role !== 'manager' && (
-                        <button onClick={() => exportToExcelWithPermissions(entity, canSeePrices)} className="btn-premium-secondary">
-                            <Download className="w-5 h-5" /> Спецификация
-                        </button>
-                    )}
-                    {user?.role !== 'manager' && entity.isEditableByClient() && (
                         <div className="flex items-center gap-4">
-                            <button onClick={() => onEdit(calculation)} className="btn-premium-secondary">
-                                <FileText className="w-5 h-5" /> Редактировать
-                            </button>
-                            <button onClick={() => onUpdateStatus(entity.id, 'sent')} className="btn-premium">
-                                <Send className="w-5 h-5" /> Отправить
-                            </button>
+                            {entity.isEditableByClient() && (
+                                <button onClick={() => onEdit(calculation)} className="btn-premium-secondary">
+                                    <FileText className="w-5 h-5" /> Редактировать
+                                </button>
+                            )}
+                            {entity.status === 'draft' && (
+                                <button onClick={() => onUpdateStatus(entity.id, 'sent')} className="btn-premium">
+                                    <Send className="w-5 h-5" /> Отправить
+                                </button>
+                            )}
+                            {entity.status === 'changes' && (
+                                <button onClick={() => onUpdateStatus(entity.id, 'revision')} className="btn-premium">
+                                    <RefreshCcw className="w-5 h-5" /> Правки внесены
+                                </button>
+                            )}
                         </div>
                     )}
                     {user?.role === 'manager' && entity.canBeAssigned() && onAssign && (
@@ -162,7 +184,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                     onClick={() => onUpdateStatus(entity.id, 'changes')}
                                     className="btn-premium-secondary !text-orange-500 !border-orange-500/20 hover:!bg-orange-500/5"
                                 >
-                                    <AlertCircle className="w-5 h-5" /> На правки
+                                    <AlertCircle className="w-5 h-5" /> Требуют правок
                                 </button>
                             )}
                             {entity.canMoveToInvoice() && (
@@ -171,6 +193,22 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                     className="btn-premium !bg-emerald-500 !border-none"
                                 >
                                     <CheckCircle className="w-5 h-5" /> Выставить счет
+                                </button>
+                            )}
+                            {entity.isPaymentSent() && (
+                                <button
+                                    onClick={() => onUpdateStatus(entity.id, 'paid')}
+                                    className="btn-premium !bg-emerald-600 !border-none"
+                                >
+                                    <CheckCircle2 className="w-5 h-5" /> Подтвердить оплату
+                                </button>
+                            )}
+                            {entity.status === 'paid' && (
+                                <button
+                                    onClick={() => onUpdateStatus(entity.id, 'processing')}
+                                    className="btn-premium !bg-blue-600 !border-none"
+                                >
+                                    <Package className="w-5 h-5" /> В комплектацию
                                 </button>
                             )}
                             <button
@@ -243,9 +281,174 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         </div>
                     </div>
 
-                    <button onClick={() => window.print()} className="w-full btn-premium">
-                        <Download className="w-5 h-5" /> Скачать счет (PDF)
-                    </button>
+                    {entity.managerAdjustments?.notes && (
+                        <div className="p-8 bg-amber-500/5 border border-amber-500/20 rounded-2xl space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
+                                <AlertCircle size={14} /> Примечания к расчету
+                            </h4>
+                            <p className="text-xs leading-relaxed opacity-70 italic whitespace-pre-wrap">
+                                {entity.managerAdjustments.notes}
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button onClick={handleDownloadPDF} className="flex-1 btn-premium-secondary">
+                            <Download className="w-5 h-5" /> Скачать счет (PDF)
+                        </button>
+                        {user?.role !== 'manager' && (
+                            <button
+                                onClick={() => onUpdateStatus(entity.id, 'payment_review')}
+                                className="flex-1 btn-premium !bg-emerald-500 hover:!bg-emerald-600 !border-none text-white"
+                            >
+                                <Wallet className="w-5 h-5" /> Я оплатил
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {(entity.status === 'expert' || entity.status === 'revision') && (
+                <div className="space-y-8 animate-in zoom-in duration-500">
+                    <div className="glass-card !bg-indigo-500/5 border-indigo-500/30 p-10 space-y-8">
+                        <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-indigo-500 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-500/20">
+                                <Search size={32} />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-2xl font-black tracking-tight">Проводится экспертиза</h3>
+                                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
+                                    Менеджер детально изучает проект и готовит финальное предложение.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {[
+                                {
+                                    icon: Search,
+                                    title: 'Аудит требований',
+                                    desc: 'Проверка корректности данных и анализ специфики объекта.'
+                                },
+                                {
+                                    icon: MessageSquare,
+                                    title: 'Коммуникация',
+                                    desc: 'Уточнение нюансов, обсуждение деталей в чате.'
+                                },
+                                {
+                                    icon: Calculator,
+                                    title: 'Корректировка',
+                                    desc: 'Ручная настройка коэффициентов и оптимизация бюджета.'
+                                },
+                                {
+                                    icon: CreditCard,
+                                    title: 'Формирование',
+                                    desc: 'Расчет итоговой стоимости и подготовка документов.'
+                                }
+                            ].map((item, i) => (
+                                <div key={i} className="bg-card/40 p-6 rounded-[1.5rem] border border-border-theme space-y-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                        <item.icon size={20} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="text-[11px] font-black uppercase tracking-wider">{item.title}</h4>
+                                        <p className="text-[10px] text-foreground/50 leading-relaxed">{item.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {(entity.status === 'expert' || entity.status === 'revision') && user?.role === 'manager' && (
+                        <div className="glass-card !bg-card p-10 border-primary/20 space-y-8 shadow-2xl">
+                            <div className="flex items-center gap-4 mb-2">
+                                <div className="p-3 bg-primary/10 text-primary rounded-2xl">
+                                    <Settings size={24} />
+                                </div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Панель управления ценообразованием</h3>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Глобальная наценка (коэф.)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        defaultValue={entity.managerAdjustments?.global_margin || 1.0}
+                                        onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, global_margin: parseFloat(e.target.value) })}
+                                        className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
+                                    />
+                                    <p className="text-[9px] text-foreground/30 italic">Пример: 1.1 = +10% к сумме товаров</p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Доставка (₽)</label>
+                                    <input
+                                        type="number"
+                                        defaultValue={entity.managerAdjustments?.delivery_cost || 0}
+                                        onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, delivery_cost: parseFloat(e.target.value) })}
+                                        className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
+                                    />
+                                    <p className="text-[9px] text-foreground/30 italic">Фиксированная стоимость логистики</p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Доп. услуги / Сборка (₽)</label>
+                                    <input
+                                        type="number"
+                                        defaultValue={entity.managerAdjustments?.service_cost || 0}
+                                        onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, service_cost: parseFloat(e.target.value) })}
+                                        className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
+                                    />
+                                    <p className="text-[9px] text-foreground/30 italic">Монтаж, занос или другие услуги</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Специальные требования и примечания</label>
+                                <textarea
+                                    defaultValue={entity.managerAdjustments?.notes || ''}
+                                    onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, notes: e.target.value })}
+                                    className="w-full bg-background border border-border-theme p-6 rounded-[2rem] text-sm focus:border-primary outline-none transition-all min-h-[120px] resize-none"
+                                    placeholder="Особенности объекта, температурные режимы, требования HACCP..."
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+
+
+            {entity.isPaymentSent() && user?.role !== 'manager' && (
+                <div className="glass-card !bg-yellow-500/5 border-yellow-500/30 p-10 mb-8 space-y-4 animate-in fade-in duration-500">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-yellow-500 text-white rounded-3xl flex items-center justify-center">
+                            <Clock size={32} />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-2xl font-black tracking-tight">Оплата проверяется</h3>
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
+                                Менеджер подтвердит получение средств в течение рабочего дня.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {entity.isProcessing() && (
+                <div className="glass-card !bg-blue-500/5 border-blue-500/30 p-10 mb-8 space-y-4 animate-in fade-in duration-500">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-blue-500 text-white rounded-3xl flex items-center justify-center">
+                            <Package size={32} />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-2xl font-black tracking-tight">Комплектация заказа</h3>
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
+                                Мы готовим ваши товары к отгрузке. Следите за обновлениями в чате.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -283,15 +486,35 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                             hidePrices={!canSeePrices}
                                         />
                                         {isAuditMode && user?.role === 'manager' && (entity.status !== 'completed' && entity.status !== 'closed') && (
-                                            <button
-                                                onClick={() => setAuditItemIndex(i)}
-                                                className="absolute top-8 right-8 z-20 px-4 py-2 bg-primary text-white text-[9px] font-black uppercase rounded-lg shadow-xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                                            >
-                                                Назначить товар
-                                            </button>
+                                            <div className="absolute top-8 right-8 z-20 flex gap-2">
+                                                <button
+                                                    onClick={() => setAuditItemIndex(i)}
+                                                    className="px-4 py-2 bg-primary text-white text-[9px] font-black uppercase rounded-lg shadow-xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                                >
+                                                    <Calculator size={12} /> Заменить
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRemoveItem(i)}
+                                                    className="p-2 bg-red-500 text-white rounded-lg shadow-xl shadow-red-500/30 hover:scale-105 active:scale-95 transition-all"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
+
+                                {isAuditMode && user?.role === 'manager' && (
+                                    <button
+                                        onClick={() => setAuditItemIndex(-1)}
+                                        className="w-full py-8 border-2 border-dashed border-primary/20 rounded-[2rem] text-primary/40 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group/add"
+                                    >
+                                        <div className="p-4 bg-primary/5 rounded-full group-hover/add:scale-110 transition-transform">
+                                            <Plus size={32} />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Добавить позицию в расчет</span>
+                                    </button>
+                                )}
                             </div>
 
                             {/* Zone Visualization (Read Only) */}
@@ -343,9 +566,15 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 <ProductPickerModal
                     isOpen={true}
                     onClose={() => setAuditItemIndex(null)}
-                    onSelect={handleProductSelect}
+                    onSelect={(master) => {
+                        if (auditItemIndex === -1) {
+                            handleAddItem(master);
+                        } else {
+                            handleProductSelect(master);
+                        }
+                    }}
                     catalog={catalog}
-                    currentItem={entity.results.summary[auditItemIndex]}
+                    currentItem={auditItemIndex === -1 ? undefined : entity.results.summary[auditItemIndex]}
                 />
             )}
         </div>

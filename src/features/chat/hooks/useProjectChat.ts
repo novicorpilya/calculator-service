@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { chatService } from '@/app/services';
+import { chatService, logger } from '@/app/services';
 import type { Message } from '@/features/chat/types';
 import { toast } from 'sonner';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
-import { logger } from '@/core/utils/logger';
 
 export function useProjectChat(entity: CalculationEntity, user: { id: string; role?: string } | null) {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -16,7 +15,7 @@ export function useProjectChat(entity: CalculationEntity, user: { id: string; ro
             const data = await chatService.getCalculationMessages(String(entity.id));
             setMessages(data);
         } catch (error) {
-            logger.error('Failed to load project messages', error, { calculationId: entity.id });
+            logger.error('Failed to load project messages', { calculationId: entity.id }, error);
             toast.error('Ошибка загрузки истории правок');
         } finally {
             setLoadingMessages(false);
@@ -37,14 +36,14 @@ export function useProjectChat(entity: CalculationEntity, user: { id: string; ro
                 try {
                     await chatService.markAsRead(managerId, user.id, String(entity.id));
                 } catch (error) {
-                    logger.error('Failed to mark messages read (manager)', error, { managerId, calculationId: entity.id });
+                    logger.error('Failed to mark messages read (manager)', { managerId, calculationId: entity.id }, error);
                 }
             }
             if (userId && user.id !== userId) {
                 try {
                     await chatService.markAsRead(userId, user.id, String(entity.id));
                 } catch (error) {
-                    logger.error('Failed to mark messages read (client)', error, { targetUserId: userId, calculationId: entity.id });
+                    logger.error('Failed to mark messages read (client)', { targetUserId: userId, calculationId: entity.id }, error);
                 }
             }
         };
@@ -122,7 +121,7 @@ export function useProjectChat(entity: CalculationEntity, user: { id: string; ro
             setMessages([]);
             toast.success('История обсуждения очищена');
         } catch (error) {
-            logger.error('Failed to clear project history', error, { calculationId: entity.id });
+            logger.error('Failed to clear project history', { calculationId: entity.id }, error);
             toast.error('Не удалось очистить историю');
         } finally {
             setLoadingMessages(false);
@@ -186,11 +185,11 @@ export function useProjectChat(entity: CalculationEntity, user: { id: string; ro
                 });
             }
         } catch (error) {
-            logger.error('Failed to send project message', error, {
+            logger.error('Failed to send project message', {
                 calculationId: entity.id,
                 senderId: user.id,
                 attachmentCount: attachments.length
-            });
+            }, error);
             toast.error('Ошибка отправки');
             setMessages(prev => prev.filter(m => !optimisticMsgs.find(o => o.id === m.id)));
             throw error;

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { App } from '@/app/App'
 import '@/styles/global.css'
 
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { ErrorBoundary } from '@/core/components/ErrorBoundary'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

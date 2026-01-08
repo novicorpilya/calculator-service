@@ -52,7 +52,7 @@ export interface ICalculationRepository {
     delete(id: string | number): Promise<void>;
 
     executeAction(id: string | number, action: string, message?: string, payload?: Record<string, unknown>): Promise<Calculation>;
-
+    adjustCalculationExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation>;
     getRegistry(): Promise<{ id: string | number; created_at: string }[]>;
 }
 
@@ -77,6 +77,10 @@ interface CalculationDB {
     updated_at: string;
     total_cost_value?: number;
     total_items_count?: number;
+    version_number?: number;
+    manager_adjustments?: Record<string, any>;
+    locked_at?: string;
+    final_snapshot?: CalculationResults;
     manager_info?: {
         first_name?: string | null;
         last_name?: string | null;
@@ -138,7 +142,11 @@ export class CalculationRepository implements ICalculationRepository {
             unreadComments: 0,
             results: results,
             totalCost: totalCost,
-            history: db.history || []
+            history: db.history || [],
+            version_number: db.version_number || 1,
+            manager_adjustments: db.manager_adjustments || {},
+            locked_at: db.locked_at,
+            final_snapshot: db.final_snapshot
         };
     }
 
@@ -349,5 +357,26 @@ export class CalculationRepository implements ICalculationRepository {
             this.logger.error('Failed to delete calculation', { id }, error);
             throw new InfrastructureError('DELETE_CALCULATION_FAILED', error);
         }
+    }
+
+    async adjustCalculationExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation> {
+        const { data, error } = await this.client.rpc('adjust_calculation_expert', {
+            p_calculation_id: id,
+            p_results: results,
+            p_adjustments: adjustments,
+            p_current_version: version
+        });
+
+        if (error) {
+            console.error('❌ Supabase RPC Error Details:', {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
+            throw new InfrastructureError('EXECUTE_ACTION_FAILED', error);
+        }
+
+        return this.mapToEntity(data as CalculationDB);
     }
 }

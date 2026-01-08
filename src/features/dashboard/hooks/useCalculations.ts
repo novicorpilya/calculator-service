@@ -112,8 +112,28 @@ export function useCalculationActions() {
         }
     });
 
+    const adjustExpert = useMutation({
+        mutationFn: async ({ id, results, adjustments, version }: { id: string | number; results: any; adjustments: any; version: number }) => {
+            const result = await calculationService.adjustExpert(id, results, adjustments, version);
+            await chatService.sendSyncSignal(id, 'UPDATE');
+            return result;
+        },
+        onSuccess: (result, variables) => {
+            queryClient.setQueryData(dashboardKeys.detail(variables.id), result);
+            toast.success('Расчет успешно скорректирован');
+        },
+        onError: (err: any) => {
+            if (err?.code === 'CONCURRENCY_CONFLICT') {
+                toast.error('Конфликт версий: расчет был изменен другим менеджером. Пожалуйста, обновите страницу.');
+            } else {
+                toast.error(err instanceof Error ? err.message : 'Ошибка при сохранении правок');
+            }
+        }
+    });
+
     return {
         updateStatus,
-        assignToMe
+        assignToMe,
+        adjustExpert
     };
 }

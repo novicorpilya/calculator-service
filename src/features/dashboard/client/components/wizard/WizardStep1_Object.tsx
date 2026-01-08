@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { OBJECT_TYPES, SANITARY_LEVELS, INTENSITY_LEVELS } from '@/features/dashboard/dashboard.types';
+import { getTotalZonesStaff } from '@/core/domain/calculator.utils';
 import type { Venue } from '@/services/venue.service';
 import type { ObjectData } from './useCalculationWizard';
 import type { Zone } from '@/features/dashboard/dashboard.types';
@@ -18,7 +19,7 @@ export const WizardStep1_Object: React.FC<WizardStep1Props> = ({
     objectData, setObjectData, venues, onVenueSelect, onNext, zones
 }) => {
     // Computed logic
-    const totalZonesStaff = zones.reduce((sum, zone) => sum + parseInt(zone.staffCount || '0'), 0);
+    const totalZonesStaff = getTotalZonesStaff(zones);
 
     return (
         <div className="glass-card max-w-xl mx-auto !p-6 sm:!p-10 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-500">

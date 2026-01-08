@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pencil, Ruler, Plus, Layout, Trash2, AlertCircle } from 'lucide-react';
 import { ZONE_TYPES } from '@/features/dashboard/dashboard.types';
+import { getTotalZonesArea } from '@/core/domain/calculator.utils';
 import type { ObjectData } from './useCalculationWizard';
 import type { Zone } from '@/features/dashboard/dashboard.types';
 
@@ -18,7 +19,7 @@ interface WizardStep2Props {
 export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
     objectData, zones, onBackToStep1, onAddZone, onDeleteZone, onCalculate, showModal, setShowModal
 }) => {
-    const totalZonesArea = zones.reduce((sum, zone) => sum + parseFloat(zone.area || '0'), 0);
+    const totalZonesArea = getTotalZonesArea(zones);
     const hasAreaWarning = objectData.totalArea && totalZonesArea > parseFloat(objectData.totalArea);
 
     // Local state for the modal form

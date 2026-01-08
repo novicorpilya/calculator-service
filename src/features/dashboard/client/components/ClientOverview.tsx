@@ -10,7 +10,7 @@ import {
     Play
 } from 'lucide-react';
 import { type Calculation } from '../../dashboard.types';
-import { ModernStatusBadge } from './ClientCalculationsList';
+import { ModernStatusBadge } from '../../components/ModernStatusBadge';
 
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';

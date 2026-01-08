@@ -17,7 +17,7 @@ import {
     ArrowUpDown
 } from 'lucide-react';
 import { type Calculation } from '../../dashboard.types';
-import { ModernStatusBadge } from '../../client/components/ClientCalculationsList';
+import { ModernStatusBadge } from '../../components/ModernStatusBadge';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
 import { usePaginatedCalculations } from '../../hooks/usePaginatedCalculations';
@@ -396,8 +396,8 @@ export const ManagerCalculationsList = React.memo<ManagerCalculationsListProps>(
                                     key={pageNum}
                                     onClick={() => setPage(pageNum)}
                                     className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${pageNum === currentPage
-                                            ? 'bg-primary text-white shadow-lg'
-                                            : 'bg-card border border-border-theme hover:border-primary'
+                                        ? 'bg-primary text-white shadow-lg'
+                                        : 'bg-card border border-border-theme hover:border-primary'
                                         }`}
                                 >
                                     {pageNum}

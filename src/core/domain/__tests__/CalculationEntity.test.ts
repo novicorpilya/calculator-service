@@ -37,10 +37,10 @@ describe('CalculationEntity', () => {
             expect(entity.canTransitionTo('invoice')).toBe(false);
         });
 
-        test('should allow EXPERT to CHANGES or SUPPLIERS', () => {
+        test('should allow EXPERT to CHANGES or INVOICE', () => {
             const entity = new CalculationEntity(mockCalculation('expert'));
             expect(entity.canTransitionTo('changes')).toBe(true);
-            expect(entity.canTransitionTo('suppliers')).toBe(true);
+            expect(entity.canTransitionTo('invoice')).toBe(true);
         });
 
         test('should prevent EXPERT to COMPLETED directly', () => {
@@ -143,6 +143,8 @@ describe('CalculationEntity', () => {
             expect(new CalculationEntity(mockCalculation('invoice')).isInvoiced()).toBe(true);
             expect(new CalculationEntity(mockCalculation('completed')).isCompleted()).toBe(true);
             expect(new CalculationEntity(mockCalculation('sent')).isInvoiced()).toBe(false);
+            expect(new CalculationEntity(mockCalculation('payment_review')).isPaymentSent()).toBe(true);
+            expect(new CalculationEntity(mockCalculation('paid')).isPaid()).toBe(true);
         });
 
         test('getStatusCategory should return correct grouping', () => {

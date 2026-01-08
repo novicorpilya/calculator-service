@@ -1,16 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
     Send, MessageSquare, MoreVertical, Phone, Info,
     CheckCircle2, ArrowLeft, Paperclip, X, Loader2,
     Trash2, Smile, Mic
 } from 'lucide-react';
-import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
+import type { EmojiClickData } from 'emoji-picker-react';
 import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
 import { VoicePlayer } from '@/components/ui/VoicePlayer';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 import type { Message, ChatRecipient } from '../types';
-import { logger } from '@/core/utils/logger';
+import { logger } from '@/app/services';
 import { toast } from 'sonner';
+
+// Lazy load heavy emoji picker (~200KB)
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
 interface ChatWindowProps {
     currentUser: { id: string };
@@ -112,11 +115,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 });
             }
         } catch (error) {
-            logger.error('Failed to send message via form', error, {
+            logger.error('Failed to send message via form', {
                 userId: currentUser.id,
                 recipientId: selectedUser.id,
                 hasAttachments: attachments.length > 0
-            });
+            }, error);
             toast.error('Не удалось отправить сообщение');
         }
     };
@@ -134,11 +137,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 receiver_id: selectedUser.id
             });
         } catch (error) {
-            logger.error('Failed to send voice message', error, {
+            logger.error('Failed to send voice message', {
                 userId: currentUser.id,
                 recipientId: selectedUser.id,
                 duration
-            });
+            }, error);
             toast.error('Не удалось отправить голосовое сообщение');
         }
     };
@@ -256,7 +259,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 )}
                                 {msg.content && <p className="text-[13px] font-medium leading-relaxed">{msg.content}</p>}
                                 <div className="flex items-center gap-2 mt-3 justify-end opacity-40">
-                                    <span className="text-[8px] font-black uppercase tracking-widest">{new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span className="text-[8px] font-black uppercase tracking-widest">{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}</span>
                                     {msg.sender_id === currentUser.id && <CheckCircle2 size={10} />}
                                 </div>
                             </div>
@@ -300,7 +303,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         {/* Emoji Picker Popup */}
                         {showEmojiPicker && (
                             <div className="absolute bottom-full right-0 mb-2 z-50">
-                                <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                <Suspense fallback={<div className="w-[350px] h-[400px] bg-card rounded-lg animate-pulse flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+                                    <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                </Suspense>
                             </div>
                         )}
 

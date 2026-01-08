@@ -19,6 +19,7 @@ export class CalculationViewModel {
     get userId() { return this.entity.userId; }
     get results() { return this.entity.results; }
     get totalCost() { return this.entity.totalCost; }
+    get versionNumber() { return this.entity.versionNumber; }
 
     // UI Logic
     get unreadCommentsCount(): number {

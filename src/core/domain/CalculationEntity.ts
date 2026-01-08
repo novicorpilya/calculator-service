@@ -38,6 +38,10 @@ export class CalculationEntity {
     get sanitaryLevel() { return this.data.sanitaryLevel; }
     get replacementCycle() { return this.data.replacementCycle; }
     get zoneDetails() { return this.data.zoneDetails; }
+    get versionNumber() { return this.data.version_number || 1; }
+    get managerAdjustments() { return this.data.manager_adjustments || {}; }
+    get lockedAt() { return this.data.locked_at ? new Date(this.data.locked_at) : null; }
+    get finalSnapshot() { return this.data.final_snapshot; }
 
     // ===== STATUS MACHINE =====
 
@@ -47,13 +51,18 @@ export class CalculationEntity {
     canTransitionTo(target: CalculationStatus): boolean {
         const allowedTransitions: Partial<Record<CalculationStatus, CalculationStatus[]>> = {
             'draft': ['sent'],
-            'sent': ['expert', 'changes'],
-            'expert': ['changes', 'suppliers'],
+            'sent': ['expert', 'changes', 'invoice'],
+            'expert': ['changes', 'invoice'],
             'changes': ['revision', 'sent'],
-            'revision': ['expert'],
-            'suppliers': ['invoice'],
-            'invoice': ['completed'],
-            'completed': []
+            'revision': ['expert', 'invoice'],
+            'invoice': ['payment_review', 'changes'],
+            'payment_review': ['paid', 'changes'],
+            'paid': ['processing'],
+            'processing': ['ready'],
+            'ready': ['shipping'],
+            'shipping': ['completed'],
+            'completed': ['closed'],
+            'closed': []
         };
 
         const possible = allowedTransitions[this.data.status] || [];
@@ -85,6 +94,7 @@ export class CalculationEntity {
      * True for: draft, changes
      */
     isEditableByClient(): boolean {
+        if (this.isLocked()) return false;
         return ['draft', 'changes'].includes(this.data.status);
     }
 
@@ -101,15 +111,12 @@ export class CalculationEntity {
      * True for: sent, revision, expert, suppliers, invoice
      */
     isActionableByManager(): boolean {
+        if (this.isLocked() && this.data.status !== 'invoice') return false;
         return ['sent', 'revision', 'expert', 'suppliers', 'invoice'].includes(this.data.status);
     }
 
-    /**
-     * Can the MANAGER request changes from client?
-     * True for: sent, revision
-     */
     canRequestChanges(): boolean {
-        return ['sent', 'revision'].includes(this.data.status);
+        return ['sent', 'revision', 'expert'].includes(this.data.status);
     }
 
     /**
@@ -139,6 +146,27 @@ export class CalculationEntity {
      */
     isDraft(): boolean {
         return this.data.status === 'draft';
+    }
+
+    /**
+     * Has the client claimed that the invoice is paid?
+     */
+    isPaymentSent(): boolean {
+        return this.data.status === 'payment_review';
+    }
+
+    /**
+     * Is the payment confirmed by the manager?
+     */
+    isPaid(): boolean {
+        return ['paid', 'processing', 'ready', 'shipping', 'completed'].includes(this.data.status);
+    }
+
+    /**
+     * Is the order being prepared/packed?
+     */
+    isProcessing(): boolean {
+        return this.data.status === 'processing';
     }
 
     /**
@@ -179,6 +207,20 @@ export class CalculationEntity {
         if (this.isCompleted()) return 'completed';
         if (this.isPendingReview() || this.isPendingClientChanges()) return 'pending';
         return 'active';
+    }
+
+    /**
+     * Enterprise Audit: Is the project locked from basic mutation?
+     */
+    isLocked(): boolean {
+        return !!this.data.locked_at;
+    }
+
+    /**
+     * Enterprise Audit: Can manager edit items in Expert Mode?
+     */
+    canEditInExpertMode(userId: string): boolean {
+        return this.data.status === 'expert' && this.isAssignedTo(userId) && !this.isLocked();
     }
 }
 

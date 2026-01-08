@@ -1,5 +1,5 @@
 import React, { Component, type ReactNode } from 'react';
-import { logger } from '@/core/utils/logger';
+import { logger } from '@/app/services';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
@@ -32,9 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         // Log to telemetry
-        logger.error('React Error Boundary caught an error', error, {
+        logger.error('React Error Boundary caught an error', {
             componentStack: errorInfo.componentStack,
-        });
+        }, error);
 
         // Store error info for display
         this.setState({ errorInfo });

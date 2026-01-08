@@ -1,30 +1,58 @@
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
-
 import { type VercelRequest, type VercelResponse } from '@vercel/node';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Runtime validation for required environment variables
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-// Создаем серверный клиент Supabase для проверки токена
-const supabaseAdmin = createClient(
-    process.env.VITE_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // Нужен Service Role ключ для надежной проверки
-);
+function validateEnv(): { valid: true } | { valid: false; missing: string[] } {
+    const missing: string[] = [];
+    if (!SUPABASE_URL) missing.push('VITE_SUPABASE_URL');
+    if (!SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+    if (!RESEND_API_KEY) missing.push('RESEND_API_KEY');
+
+    if (missing.length > 0) {
+        return { valid: false, missing };
+    }
+    return { valid: true };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    // Validate environment configuration
+    const envCheck = validateEnv();
+    if (!envCheck.valid) {
+        console.error('[send-invite] Missing env variables:', envCheck.missing);
+        return res.status(500).json({
+            error: 'Server misconfiguration',
+            details: `Missing: ${envCheck.missing.join(', ')}`
+        });
+    }
 
-    // SECURITY: Проверяем авторизацию
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // SECURITY: Validate authorization header
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+    if (!authHeader) {
+        return res.status(401).json({ error: 'Missing auth header' });
+    }
 
-    // Проверяем токен через Supabase
+    // Initialize clients after env validation
+    const supabaseAdmin = createClient(SUPABASE_URL as string, SERVICE_ROLE_KEY as string);
+    const resend = new Resend(RESEND_API_KEY as string);
+
+    // Verify token via Supabase
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-    if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+    if (authError || !user) {
+        return res.status(401).json({ error: 'Invalid token' });
+    }
 
-    // Проверяем, что пользователь — админ
+    // Verify admin role
     const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('role')
@@ -35,7 +63,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).json({ error: 'Forbidden: Admin only' });
     }
 
-    const { email, role, inviteLink } = req.body;
+    // Validate request body
+    const { email, role, inviteLink } = req.body || {};
+    if (!email || !role || !inviteLink) {
+        return res.status(400).json({
+            error: 'Missing required fields',
+            required: ['email', 'role', 'inviteLink']
+        });
+    }
 
     try {
         const data = await resend.emails.send({
@@ -57,7 +92,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         return res.status(200).json(data);
-    } catch {
+    } catch (error) {
+        console.error('[send-invite] Failed to send email:', error);
         return res.status(500).json({ error: 'Failed to send email' });
     }
 }

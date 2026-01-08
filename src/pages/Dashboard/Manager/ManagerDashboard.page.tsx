@@ -38,7 +38,7 @@ export const ManagerDashboard: React.FC = () => {
     const { data: leads = [], isLoading: loadingLeads, error: errorLeads } = useUnassignedLeads();
 
     // Actions
-    const { updateStatus, assignToMe } = useCalculationActions();
+    const { updateStatus, assignToMe, adjustExpert } = useCalculationActions();
 
     // Single Calculation Fetch (if selected)
     const { data: selectedCalculation } = useCalculation(selectedId);
@@ -91,6 +91,10 @@ export const ManagerDashboard: React.FC = () => {
         });
     };
 
+    const handleAdjustExpert = async (id: string | number, results: any, adjustments: any, version: number) => {
+        await adjustExpert.mutateAsync({ id, results, adjustments, version });
+    };
+
     if (selectedCalculation) {
         return (
             <div className="min-h-screen bg-background flex flex-col">
@@ -104,6 +108,7 @@ export const ManagerDashboard: React.FC = () => {
                             displayId={allCalculations.findIndex(c => String(c.id) === String(selectedId)) + 1}
                             onBack={() => setSelectedId(null)}
                             onUpdateStatus={handleUpdateStatus}
+                            onAdjustExpert={handleAdjustExpert}
                             onDelete={() => { }}
                             onEdit={() => { }}
                             onAssign={handleAssign}

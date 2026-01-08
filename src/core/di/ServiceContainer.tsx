@@ -6,7 +6,6 @@ import { BroadcastService } from '@/features/chat/services/BroadcastService';
 import { LogManager, LogLevel } from '@/core/logging/LogManager';
 import { CalculationRepository } from '@/features/dashboard/repositories/CalculationRepository';
 import { CalculationService, type ICalculationService } from '@/features/dashboard/services/CalculationService';
-import { AuditService } from '@/core/audit/AuditService';
 
 import { PresenceService, type IPresenceService } from '@/features/chat/services/PresenceService';
 import { AuditLogService, type IAuditLogService } from '@/services/audit.service';
@@ -18,10 +17,9 @@ import { SupplierService, type ISupplierService } from '@/services/supplier.serv
 
 interface IServiceContainer {
     chatService: IChatService;
-    presenceService: IPresenceService; // Use Interface
+    presenceService: IPresenceService;
     logger: LogManager;
     calculationService: ICalculationService;
-    auditService: AuditService; // Keep the display one for now or merge
     auditLogService: IAuditLogService;
     adminService: IAdminService;
     emailService: IEmailService;
@@ -54,7 +52,6 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
             const presenceService = services.presenceService || new PresenceService(supabase);
             const calculationRepo = new CalculationRepository(supabase, logger);
 
-            const auditService = services.auditService || new AuditService();
             const auditLogService = services.auditLogService || new AuditLogService(supabase);
             const adminService = services.adminService || new AdminService(supabase, auditLogService);
             const emailService = services.emailService || new EmailService(supabase);
@@ -70,14 +67,13 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
                 presenceService,
                 logger,
                 calculationService,
-                auditService,
                 auditLogService,
                 adminService,
                 emailService,
                 venueService,
                 inventoryService,
                 supplierService,
-                ...services // Ensure passed overrides are final
+                ...services
             } as IServiceContainer;
         }
 
@@ -92,7 +88,6 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
         const calculationRepo = new CalculationRepository(supabase, logger);
 
         // Application Layer
-        const auditService = new AuditService();
         const auditLogService = new AuditLogService(supabase);
         const adminService = new AdminService(supabase, auditLogService);
         const emailService = new EmailService(supabase);
@@ -109,7 +104,6 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
             presenceService,
             logger,
             calculationService,
-            auditService,
             auditLogService,
             adminService,
             emailService,

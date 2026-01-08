@@ -8,6 +8,7 @@ import {
     RESERVE_COEFFS
 } from '../features/dashboard/dashboard.types';
 import { type InventoryItemMaster } from '../services/inventory.service';
+import { getTotalZonesArea, getTotalZonesStaff } from '@/core/domain/calculator.utils';
 
 /**
  * CalculationEngine v3.0 (Senior Implementation)
@@ -36,7 +37,7 @@ export const CalculationEngine = {
         const reserveKey = intensityKey as keyof typeof RESERVE_COEFFS;
         const kReserve = RESERVE_COEFFS[reserveKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
 
-        const totalZonesStaff = zones.reduce((sum, zone) => sum + parseInt(zone.staffCount || '0'), 0);
+        const totalZonesStaff = getTotalZonesStaff(zones);
         const globalPersonnel = totalZonesStaff > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0');
         const globalVisitors = parseInt(objectData.dailyVisitors || '0');
 
@@ -151,6 +152,82 @@ export const CalculationEngine = {
                 ...item,
                 total: item.quantity // Ensure total reflects quantity in summary
             }))
+        };
+    },
+
+    /**
+     * Calculates demand for a single master item based on aggregate project data.
+     * Useful for manual additions by managers in Expert Mode.
+     */
+    calculateSingleItem(
+        item: InventoryItemMaster,
+        zones: Zone[],
+        objectData: {
+            staffCount: string;
+            dailyVisitors: string;
+            sanitaryLevel: string;
+            replacementCycle: string;
+            intensityLevel?: string;
+        }
+    ): InventoryItem {
+        const intensityKey = (objectData.intensityLevel || 'medium').toLowerCase();
+        const kIntensity = INTENSITY_LEVELS.find(l => l.value === intensityKey)?.coeff ?? 1.0;
+        const reserveKey = intensityKey as keyof typeof RESERVE_COEFFS;
+        const kReserve = RESERVE_COEFFS[reserveKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
+
+        const totalArea = getTotalZonesArea(zones);
+        const totalStaff = getTotalZonesStaff(zones);
+        const globalStaff = totalStaff > 0 ? totalStaff : parseInt(objectData.staffCount || '0');
+        const globalVisitors = parseInt(objectData.dailyVisitors || '0');
+
+        // Demand components
+        const qArea = (totalArea / 100) * (item.norm_area || 0);
+        const qStaff = globalStaff * (item.norm_personnel || 0);
+        const qVisitors = (globalVisitors / 100) * (item.norm_intensity || 0);
+
+        const qBase = Math.max(qArea, qStaff, qVisitors);
+        const kZone = ZONE_COEFFS[item.color] ?? 1.0;
+        const totalQuantityFloat = qBase * kZone * kIntensity * (1 + kReserve);
+        const minQuantity = (item.norm_personnel > 0 || item.norm_area > 0) ? 1 : 0;
+        const finalQuantity = Math.max(Math.ceil(totalQuantityFloat), minQuantity);
+
+        const replacementCycle = item.replacement_cycle_days || 365;
+        const annualMultiplier = 365 / replacementCycle;
+        const annualConsumption = finalQuantity * annualMultiplier;
+        const monthlyOrder = annualConsumption / 12;
+
+        return {
+            inventory: item.name,
+            sku: item.sku,
+            color: item.color,
+            quantity: finalQuantity,
+            price: item.price,
+            total: finalQuantity,
+            stock: item.stock,
+            norm_area: item.norm_area,
+            supplier_id: item.supplier_id,
+            norms: {
+                area: item.norm_area,
+                personnel: item.norm_personnel,
+                intensity: item.norm_intensity,
+                replacementCycle: replacementCycle
+            },
+            calculation: {
+                qArea: Number(qArea.toFixed(2)),
+                qStaff: Number(qStaff.toFixed(2)),
+                qVisitors: Number(qVisitors.toFixed(2)),
+                qBase: Number(qBase.toFixed(2)),
+                kZone,
+                kIntensity,
+                kReserve,
+                monthlyOrder: Number(monthlyOrder.toFixed(1)),
+                annualConsumption: Math.ceil(annualConsumption),
+                annualBudget: Math.ceil(annualConsumption * item.price),
+                reorderPoint: Math.ceil(finalQuantity * 0.3),
+                safetyStock: Math.ceil(finalQuantity * 0.2),
+                formula: `MAX(${qArea.toFixed(1)}, ${qStaff.toFixed(1)}, ${qVisitors.toFixed(1)}) × ${kZone} × ${kIntensity} × ${1 + kReserve}`,
+                breakdown: `Ручное добавление: лимитирующий фактор ${qBase.toFixed(1)} ед. База с учетом зоны (${kZone.toFixed(2)}) и нагрузки (${kIntensity.toFixed(2)}).`
+            }
         };
     }
 };
