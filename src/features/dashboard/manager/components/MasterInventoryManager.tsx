@@ -6,15 +6,17 @@ import {
     Tag,
     DollarSign
 } from 'lucide-react';
-import { inventoryService, type InventoryItemMaster } from '@/services/inventory.service';
+import { type InventoryItemMaster } from '@/services/inventory.service';
 import { ZONE_TYPES } from '../../dashboard.types';
 import { toast } from 'sonner';
+import { useServices } from '@/core/di/ServiceContainer';
 
 /**
  * Product Catalog View for Managers.
  * Displays the current global assortment synchronized with the supplier database.
  */
 export const MasterInventoryManager = React.memo(() => {
+    const { inventoryService } = useServices();
     const [items, setItems] = useState<InventoryItemMaster[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,12 +26,12 @@ export const MasterInventoryManager = React.memo(() => {
             setLoading(true);
             const data = await inventoryService.getGlobalItems();
             setItems(data);
-        } catch (error) {
+        } catch {
             toast.error('Ошибка при загрузке ассортимента');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [inventoryService]);
 
     useEffect(() => {
         fetchItems();

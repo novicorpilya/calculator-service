@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface InventoryItemMaster {
     id: string;
@@ -19,15 +19,27 @@ export interface InventoryItemMaster {
 
 export type CreateInventoryItemData = Omit<InventoryItemMaster, 'id' | 'created_at' | 'updated_at'>;
 
+export interface IInventoryService {
+    getGlobalItems(): Promise<InventoryItemMaster[]>;
+    upsertItem(item: Partial<InventoryItemMaster> & { name: string }): Promise<InventoryItemMaster>;
+    deleteItem(id: string): Promise<void>;
+}
+
 /**
  * Service for managing global inventory catalog and item norms.
  */
-export const inventoryService = {
+export class InventoryService implements IInventoryService {
+    private supabase: SupabaseClient;
+
+    constructor(supabase: SupabaseClient) {
+        this.supabase = supabase;
+    }
+
     /**
      * Fetches all inventory items from the master catalog.
      */
     async getGlobalItems(): Promise<InventoryItemMaster[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('inventory_items')
             .select('*')
             .order('name', { ascending: true });
@@ -147,13 +159,13 @@ export const inventoryService = {
             ];
         }
         return data || [];
-    },
+    }
 
     /**
      * Creates or updates an inventory item in the catalog.
      */
     async upsertItem(item: Partial<InventoryItemMaster> & { name: string }): Promise<InventoryItemMaster> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('inventory_items')
             .upsert({
                 ...item,
@@ -164,13 +176,13 @@ export const inventoryService = {
 
         if (error) throw error;
         return data;
-    },
+    }
 
     /**
      * Deletes an inventory item from the catalog by ID.
      */
     async deleteItem(id: string): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('inventory_items')
             .delete()
             .eq('id', id);

@@ -11,12 +11,15 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ imageUrl, 
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        setIsVisible(true);
+        const timer = setTimeout(() => setIsVisible(true), 10);
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleEsc);
-        return () => window.removeEventListener('keydown', handleEsc);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('keydown', handleEsc);
+        };
     }, [onClose]);
 
     const handleDownload = async () => {
@@ -30,7 +33,7 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ imageUrl, 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        } catch (error) {
+        } catch {
             window.open(imageUrl, '_blank');
         }
     };

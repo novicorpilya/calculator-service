@@ -14,13 +14,18 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ voiceUrl, duration, cl
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const requestRef = useRef<number | null>(null);
 
-    // Animation frame for ultra-smooth progress
+    const animateRef = useRef<(() => void) | null>(null);
     const animate = React.useCallback(() => {
         if (audioRef.current && !audioRef.current.paused) {
             setCurrentTime(audioRef.current.currentTime);
-            requestRef.current = requestAnimationFrame(animate);
+            if (animateRef.current) {
+                requestRef.current = requestAnimationFrame(animateRef.current);
+            }
         }
     }, []);
+    useEffect(() => {
+        animateRef.current = animate;
+    }, [animate]);
 
     useEffect(() => {
         const audio = new Audio(voiceUrl);

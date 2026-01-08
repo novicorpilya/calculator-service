@@ -92,6 +92,70 @@ export const calculationsService = {
         return (data || []).map(db => this.mapToEntity(db))
     },
 
+    /**
+     * Server-Side Paginated Query
+     * @param params - Pagination and filter parameters
+     */
+    async getPaginated(params: {
+        page: number;
+        pageSize: number;
+        search?: string;
+        sortBy?: 'created_at' | 'updated_at' | 'organization_name' | 'total_cost_value';
+        sortOrder?: 'asc' | 'desc';
+        status?: CalculationStatus;
+        managerId?: string | null;
+    }): Promise<{
+        data: Calculation[];
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        const { page, pageSize, search, sortBy = 'created_at', sortOrder = 'desc', status, managerId } = params;
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        let query = supabase
+            .from('calculations')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)', { count: 'exact' });
+
+        // Filter by manager
+        if (managerId === null) {
+            query = query.is('manager_id', null).neq('status', 'draft');
+        } else if (managerId) {
+            query = query.eq('manager_id', managerId);
+        }
+
+        // Filter by status
+        if (status) {
+            query = query.eq('status', status);
+        }
+
+        // Search by organization name
+        if (search && search.trim()) {
+            query = query.ilike('organization_name', `%${search.trim()}%`);
+        }
+
+        // Order
+        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+        // Pagination
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        const total = count || 0;
+        return {
+            data: (data || []).map(db => this.mapToEntity(db)),
+            total,
+            page,
+            pageSize,
+            totalPages: Math.ceil(total / pageSize)
+        };
+    },
+
     async assignToMe(calculationId: string | number): Promise<Calculation> {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('User not authenticated')

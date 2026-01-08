@@ -45,7 +45,7 @@ export const ClientProfile = React.memo(() => {
                 address: isManager ? undefined : data.address,
             });
             toast.success('Профиль успешно обновлен');
-        } catch (err) {
+        } catch {
             toast.error('Ошибка при обновлении профиля');
         }
     };

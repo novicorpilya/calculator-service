@@ -14,10 +14,10 @@ import {
 } from 'lucide-react';
 import { type Calculation, type InventoryItem, type Supplier } from '../../dashboard.types';
 import { type Venue } from '@/services/venue.service';
-import { type InventoryItemMaster, inventoryService } from '@/services/inventory.service';
-import { supplierService } from '@/services/supplier.service';
+import { type InventoryItemMaster } from '@/services/inventory.service';
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth';
+import { useServices } from '@/core/di/ServiceContainer';
 
 interface InventoryManagerProps {
     calculations: Calculation[];
@@ -29,6 +29,8 @@ interface InventoryManagerProps {
  * Handles procurement summaries, catalog browsing, and filtering by venue/supplier.
  */
 export const InventoryManager = React.memo<InventoryManagerProps>(({ calculations, venues }) => {
+    const { supplierService, inventoryService } = useServices();
+
     const [activeTab, setActiveTab] = useState<'procurement' | 'catalog'>('procurement');
     const [selectedVenue, setSelectedVenue] = useState<string>('all');
     const [selectedSupplier, setSelectedSupplier] = useState<string>('all');
@@ -49,14 +51,14 @@ export const InventoryManager = React.memo<InventoryManagerProps>(({ calculation
                 ]);
                 setSuppliers(suppliersData);
                 setGlobalInventory(catalogData);
-            } catch (error) {
+            } catch {
                 toast.error('Ошибка загрузки данных');
             } finally {
                 setIsLoadingData(false);
             }
         };
         loadInitialData();
-    }, []);
+    }, [supplierService, inventoryService]);
 
     // Summary calculation based on approved projects
     const procurementData = useMemo(() => {

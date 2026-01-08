@@ -5,6 +5,8 @@ import {
     TrendingUp, FileCheck, Layers, Map, Clock, Briefcase
 } from 'lucide-react';
 import { type Calculation, OBJECT_TYPES } from '../../dashboard.types';
+import { CalculationEntity } from '@/core/domain/CalculationEntity';
+import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
 
 interface ClientCalculationsListProps {
     calculations: Calculation[];
@@ -33,14 +35,19 @@ export const ModernStatusBadge: React.FC<{ status: Calculation['status'] }> = ({
     const config = {
         draft: { label: 'Черновик', color: 'bg-slate-400', ghost: 'bg-card text-foreground/60' },
         sent: { label: 'На проверке', color: 'bg-primary', ghost: 'bg-primary/10 text-primary' },
+        expert: { label: 'Экспертиза', color: 'bg-indigo-500', ghost: 'bg-indigo-500/10 text-indigo-600' },
+        suppliers: { label: 'Подбор поставщиков', color: 'bg-yellow-500', ghost: 'bg-yellow-500/10 text-yellow-600' },
         changes: { label: 'Требуют правок', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
         revision: { label: 'Правки внесены', color: 'bg-purple-500', ghost: 'bg-purple-500/10 text-purple-600' },
         invoice: { label: 'Выставлен счет', color: 'bg-cyan-500', ghost: 'bg-cyan-500/10 text-cyan-600' },
         paid: { label: 'Оплачено', color: 'bg-emerald-500', ghost: 'bg-emerald-500/10 text-emerald-600' },
+        ready: { label: 'Готово к отгрузке', color: 'bg-green-500', ghost: 'bg-green-500/10 text-green-600' },
         shipping: { label: 'Поставка в работе', color: 'bg-amber-500', ghost: 'bg-amber-500/10 text-amber-600' },
         completed: { label: 'Поставка завершена', color: 'bg-teal-500', ghost: 'bg-teal-500/10 text-teal-600' },
         closed: { label: 'Проект закрыт', color: 'bg-slate-400', ghost: 'bg-slate-400/10 text-slate-500' },
     }[status] || { label: status, color: 'bg-slate-400', ghost: 'bg-slate-100 text-slate-600' };
+
+    if (!config) return null;
 
     return (
         <div className={`px-4 py-1.5 rounded-full ${config.ghost} text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-current border-opacity-10`}>
@@ -59,16 +66,22 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
     const [filterStatus, setFilterStatus] = useState('all');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-    const stats = useMemo(() => ({
-        total: calculations.length,
-        invoiced: calculations.filter(c => c.status === 'invoice' || c.status === 'paid').length,
-        totalArea: calculations.reduce((acc, c) => acc + (c.totalArea || 0), 0),
-        pending: calculations.filter(c => c.status === 'sent' || c.status === 'changes').length
-    }), [calculations]);
+    // Convert DTOs to VMs
+    const viewModels = useMemo(() =>
+        calculations.map(c => new CalculationViewModel(new CalculationEntity(c))),
+        [calculations]
+    );
 
-    const filteredCalculations = calculations.filter(calc => {
-        const matchesSearch = calc.organizationName.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesFilter = filterStatus === 'all' || calc.status === filterStatus;
+    const stats = useMemo(() => ({
+        total: viewModels.length,
+        invoiced: viewModels.filter(c => c.status === 'invoice' || c.status === 'paid').length,
+        totalArea: viewModels.reduce((acc, c) => acc + (c.totalArea || 0), 0),
+        pending: viewModels.filter(c => c.status === 'sent' || c.status === 'changes').length
+    }), [viewModels]);
+
+    const filteredCalculations = viewModels.filter(vm => {
+        const matchesSearch = vm.organizationName.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = filterStatus === 'all' || vm.status === filterStatus;
         return matchesSearch && matchesFilter;
     });
 
@@ -156,78 +169,104 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
                     ? "grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-6 sm:gap-8"
                     : "space-y-6"
                 }>
-                    {filteredCalculations.map((calc, index) => (
+                    {filteredCalculations.map((vm, index) => (
                         <div
-                            key={calc.id}
-                            onClick={() => onSelect(calc)}
+                            key={vm.id}
+                            onClick={() => onSelect(vm.rawData)}
                             className={`
                                 relative glass-card cursor-pointer overflow-hidden transition-all duration-500
-                                hover:-translate-y-3 hover:shadow-2xl hover:border-primary/30
-                                ${viewMode === 'list' ? 'flex flex-wrap items-center gap-10 p-8' : ''}
+                                hover:-translate-y-2 hover:shadow-2xl hover:border-primary/30 group
+                                ${viewMode === 'list' ? 'flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10 p-6 lg:p-8' : 'flex flex-col justify-between'}
                             `}
                             style={{ animationDelay: `${index * 50}ms` }}
                         >
-                            <div className={`flex justify-between items-start mb-8 ${viewMode === 'list' ? 'mb-0' : ''}`}>
-                                <div className="p-5 rounded-2xl bg-primary/10 text-primary">
-                                    <FileCheck className="w-8 h-8 font-black" />
+                            <div className={`flex justify-between items-start ${viewMode === 'list' ? 'w-full lg:w-auto lg:min-w-[200px]' : 'mb-6'}`}>
+                                <div className="flex items-center gap-4">
+                                    <div className="p-4 rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform duration-500">
+                                        <FileCheck className="w-8 h-8 font-black" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] font-black text-foreground/30 uppercase tracking-widest">PROJ-ID</span>
+                                        <p className="font-mono text-xl font-black text-foreground/40 leading-none">#{String(index + 1).padStart(3, '0')}</p>
+                                    </div>
                                 </div>
-                                <ModernStatusBadge status={calc.status} />
+                                <div className={viewMode === 'list' ? 'lg:hidden' : ''}>
+                                    <ModernStatusBadge status={vm.status} />
+                                </div>
                             </div>
 
-                            <div className="flex-1 space-y-6">
+                            <div className="flex-1 space-y-6 w-full">
                                 <div>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-                                            {OBJECT_TYPES.find(t => t.value === calc.type)?.label || 'Объект'}
+                                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] bg-primary/5 px-3 py-1 rounded-full">
+                                            {OBJECT_TYPES.find(t => t.value === vm.type)?.label || 'Объект'}
                                         </span>
-                                        {calc.unreadComments > 0 && (
-                                            <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
+                                        {viewMode === 'list' && (
+                                            <div className="hidden lg:block">
+                                                <ModernStatusBadge status={vm.status} />
+                                            </div>
+                                        )}
+                                        {vm.isNew && (
+                                            <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-500/10 text-red-500 text-[9px] font-black uppercase tracking-widest">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                New
+                                            </span>
                                         )}
                                     </div>
-                                    <h3 className="text-2xl font-black tracking-tight line-clamp-1">
-                                        {calc.organizationName}
+                                    <h3 className="text-2xl font-black tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-300">
+                                        {vm.organizationName}
                                     </h3>
                                 </div>
 
-                                <div className="grid grid-cols-1 min-[400px]:grid-cols-3 gap-6 py-6 border-y border-border-theme">
+                                <div className={`grid gap-4 py-6 border-y border-border-theme ${viewMode === 'list' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 w-full' : 'grid-cols-2 sm:grid-cols-3'}`}>
                                     <div>
                                         <p className="text-[9px] font-black text-foreground/50 uppercase tracking-widest mb-1.5">Площадь</p>
-                                        <p className="text-sm font-black">{calc.totalArea} м²</p>
+                                        <p className="text-sm font-black flex items-center gap-1">
+                                            {vm.totalArea}
+                                            <span className="text-[10px] text-foreground/40">м²</span>
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-black text-foreground/50 uppercase tracking-widest mb-1.5">Зоны</p>
-                                        <p className="text-sm font-black">{calc.zonesCount}</p>
+                                        <p className="text-sm font-black">{vm.zonesCount}</p>
                                     </div>
-                                    <div>
+                                    <div className="col-span-2 sm:col-span-1">
                                         <p className="text-[9px] font-black text-foreground/50 uppercase tracking-widest mb-1.5">Бюджет</p>
                                         <p className="text-sm font-black text-primary">
-                                            {calc.totalCost ? `${calc.totalCost.toLocaleString()} ₽` : '—'}
+                                            {vm.totalCostDisplay}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-2">
-                                    <div className="flex items-center gap-6">
-                                        <div className="flex items-center gap-2 text-foreground/40">
+                                <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+                                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                                        <div className="flex items-center gap-2 text-foreground/40" title="Дата создания">
                                             <Clock className="w-4 h-4" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">{calc.createdDate}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">
+                                                {vm.formattedDate}
+                                            </span>
                                         </div>
-                                        {calc.manager && calc.manager !== 'Назначается' && (
-                                            <div className="flex items-center gap-2 text-foreground/40 border-l border-border-theme pl-6">
+
+                                        {vm.manager && vm.manager !== 'Назначается' && (
+                                            <div className="flex items-center gap-2 text-foreground/40 pl-4 border-l border-border-theme" title="Менеджер">
                                                 <Briefcase className="w-4 h-4 text-primary" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">{calc.manager}</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60 max-w-[100px] truncate">{vm.manager}</span>
                                             </div>
                                         )}
-                                        {calc.comments.length > 0 && (
-                                            <div className="flex items-center gap-2 text-primary">
+
+                                        {vm.commentsCount > 0 && (
+                                            <div className="flex items-center gap-2 text-primary pl-4 border-l border-border-theme">
                                                 <MessageSquare className="w-4 h-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">{calc.comments.length}</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{vm.commentsCount}</span>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 group-hover:text-primary transition-colors">
-                                        Подробнее <ArrowUpRight className="inline w-4 h-4 ml-1" />
-                                    </div>
+
+                                    {viewMode !== 'list' && (
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 group-hover:translate-x-1 transition-transform duration-300 flex items-center gap-2 opacity-0 group-hover:opacity-100">
+                                            Открыть <ArrowUpRight className="w-3.5 h-3.5" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -183,8 +183,16 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                             <div key={calc.id} className="group block space-y-3 relative pl-6">
                                 <div className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-border-theme group-hover:bg-primary transition-colors" />
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-foreground/40">{calc.createdDate}</p>
+                                    <p className="text-[10px] font-black uppercase text-foreground/40">
+                                        {(() => {
+                                            try {
+                                                const date = new Date(calc.createdDate);
+                                                return isNaN(date.getTime()) ? calc.createdDate : new Intl.DateTimeFormat('ru-RU').format(date);
+                                            } catch { return calc.createdDate; }
+                                        })()}
+                                    </p>
                                     <h4 className="text-[13px] font-black uppercase tracking-tight truncate group-hover:text-primary transition-colors">
+                                        <span className="text-foreground/30 mr-2 opacity-50 font-mono">#{String(calculations.indexOf(calc) + 1).padStart(3, '0')}</span>
                                         {calc.organizationName}
                                     </h4>
                                 </div>

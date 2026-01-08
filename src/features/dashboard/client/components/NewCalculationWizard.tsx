@@ -11,12 +11,13 @@ import {
     SANITARY_LEVELS,
     INTENSITY_LEVELS
 } from '../../dashboard.types';
-import { venueService, type Venue } from '@/services/venue.service';
-import { inventoryService, type InventoryItemMaster } from '@/services/inventory.service';
+import { type Venue } from '@/services/venue.service';
+import { type InventoryItemMaster } from '@/services/inventory.service';
 import { CalculationEngine } from '@/utils/calculation-engine';
 import { toast } from 'sonner';
 import { CalculationBreakdown } from './CalculationBreakdown';
 import { useAuth } from '@/features/auth';
+import { useServices } from '@/core/di/ServiceContainer';
 
 interface NewCalculationWizardProps {
     onCancel: () => void;
@@ -30,6 +31,7 @@ interface NewCalculationWizardProps {
  */
 export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onCancel, onComplete, initialData }) => {
     const { user } = useAuth();
+    const { venueService, inventoryService } = useServices();
     const [isSubmitting, setIsSubmitting] = useState<'draft' | 'sent' | null>(null);
 
     const [step, setStep] = useState(1);
@@ -88,7 +90,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
             }
         };
         fetchVenues();
-    }, []);
+    }, [venueService, inventoryService]);
 
     const handleVenueSelect = (venueId: string) => {
         setSelectedVenueId(venueId);

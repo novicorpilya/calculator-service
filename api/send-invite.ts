@@ -1,6 +1,8 @@
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 
+import { type VercelRequest, type VercelResponse } from '@vercel/node';
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Создаем серверный клиент Supabase для проверки токена
@@ -9,7 +11,7 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY! // Нужен Service Role ключ для надежной проверки
 );
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     // SECURITY: Проверяем авторизацию
@@ -55,7 +57,7 @@ export default async function handler(req: any, res: any) {
         });
 
         return res.status(200).json(data);
-    } catch (error) {
+    } catch {
         return res.status(500).json({ error: 'Failed to send email' });
     }
 }

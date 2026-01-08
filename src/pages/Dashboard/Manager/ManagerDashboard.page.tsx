@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { DashboardHeader } from '@/features/dashboard/components/DashboardHeader';
 import { DashboardSidebar } from '@/features/dashboard/components/DashboardSidebar';
 import {
@@ -9,160 +10,85 @@ import {
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
 import { ClientCalculationDetails } from '@/features/dashboard/client/components/ClientCalculationDetails';
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
-import type { Calculation, CalculationStatus, SyncPayload } from '@/features/dashboard/dashboard.types';
-import { calculationsService } from '@/services/calculations.service';
-import { chatService } from '@/services/chat.service';
+import type { Calculation, CalculationStatus } from '@/features/dashboard/dashboard.types';
 import { useAuth } from '@/features/auth';
-import { toast } from 'sonner';
+import { chatService } from '@/app/services'; // Import singleton
+import {
+    useManagerWorkload,
+    useUnassignedLeads,
+    useCalculationActions,
+    dashboardKeys,
+    useCalculation
+} from '@/features/dashboard/hooks/useCalculations';
 
 /**
  * Production-ready Manager Dashboard.
- * Implements high-consistency synchronization and unified state.
+ * Refactored to use React Query for caching, deduping, and state management.
  */
 export const ManagerDashboard: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
     const [currentPage, setCurrentPage] = useState('overview');
-    const [calculations, setCalculations] = useState<Calculation[]>([]);
     const [selectedId, setSelectedId] = useState<string | number | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
     const { user } = useAuth();
+    const queryClient = useQueryClient();
 
-    // Unified Sync Context (Persistent across renders, but isolated from React State)
-    const syncContext = useRef({
-        isFetching: false,
-        inFlightSyncs: new Set<string>(),
-        notifications: new Set<string>() // Deduplication set for toasts
-    });
+    // Data Fetching Hooks
+    const { data: myProjects = [], isLoading: loadingMy, error: errorMy } = useManagerWorkload(user?.id);
+    const { data: leads = [], isLoading: loadingLeads, error: errorLeads } = useUnassignedLeads();
 
-    const managerProjects = React.useMemo(() =>
-        calculations.filter(c => String(c.manager_id) === String(user?.id)),
-        [calculations, user?.id]);
+    // Actions
+    const { updateStatus, assignToMe } = useCalculationActions();
 
-    const unassignedLeads = React.useMemo(() =>
-        calculations.filter(c => !c.manager_id && c.status !== 'draft'),
-        [calculations]);
+    // Single Calculation Fetch (if selected)
+    const { data: selectedCalculation } = useCalculation(selectedId);
 
-    const selectedCalculation = React.useMemo(() =>
-        calculations.find(c => String(c.id) === String(selectedId)) || null,
-        [calculations, selectedId]);
+    // Combine all calculations for Overview stats
+    // Note: This approach mimics previous behavior. For large datasets, stats should come from backend.
+    const allCalculations = React.useMemo(() => [...myProjects, ...leads], [myProjects, leads]);
 
-    /**
-     * Authoritative data fetcher
-     */
-    const loadData = useCallback(async (isSilent = false) => {
-        if (syncContext.current.isFetching && !isSilent) return;
-        try {
-            syncContext.current.isFetching = true;
-            if (!isSilent) setLoading(true);
-            setError(null);
-
-            const [myProjects, newLeads] = await Promise.all([
-                calculationsService.getManagerWorkload(),
-                calculationsService.getUnassignedCalculations()
-            ]);
-
-            setCalculations([...myProjects, ...newLeads]);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Ошибка синхронизации данных');
-        } finally {
-            setLoading(false);
-            syncContext.current.isFetching = false;
-        }
-    }, []);
+    const loading = loadingMy || loadingLeads;
+    const error = errorMy ? String(errorMy) : errorLeads ? String(errorLeads) : null;
 
     /**
-     * Senior Sync: High-consistency entity refresh
+     * Real-time Sync Subscription
+     * When a signal arrives, we invalidate queries to trigger refetch.
      */
-    const syncProject = useCallback(async (id: string | number) => {
-        const sid = String(id);
-        if (syncContext.current.inFlightSyncs.has(sid)) return;
-
-        try {
-            syncContext.current.inFlightSyncs.add(sid);
-
-            // DB Propagation Delay (Read-after-Write safety)
-            await new Promise(r => setTimeout(r, 450));
-
-            const fullDoc = await calculationsService.getCalculationById(id);
-
-            setCalculations(prev => {
-                const index = prev.findIndex(c => String(c.id) === sid);
-                const prevDoc = prev[index];
-
-                // Unified Notification Logic with Deduplication
-                const notifyKey = `${sid}_${fullDoc.status}`;
-                if (fullDoc.status === 'revision' && prevDoc?.status !== 'revision') {
-                    if (!syncContext.current.notifications.has(notifyKey)) {
-                        toast.success(`Клиент внес правки в проект «${fullDoc.organizationName}»`, {
-                            icon: '✨',
-                            duration: 5000,
-                            id: `toast_${sid}`
-                        });
-                        syncContext.current.notifications.add(notifyKey);
-                    }
-                }
-
-                if (index !== -1) {
-                    const newArr = [...prev];
-                    newArr[index] = fullDoc;
-                    return newArr;
-                } else if (fullDoc.status !== 'draft' || String(fullDoc.manager_id) === String(user?.id)) {
-                    return [fullDoc, ...prev];
-                }
-                return prev;
-            });
-
-        } catch (err) {
-            console.error('[Sync:Error]', sid, err);
-            loadData(true);
-        } finally {
-            syncContext.current.inFlightSyncs.delete(sid);
-        }
-    }, [user?.id, loadData]);
-
     useEffect(() => {
         if (!user?.id) return;
 
-        loadData();
-
-        const unsubscribe = chatService.subscribeToCalculations((payload: SyncPayload) => {
+        const unsubscribe = chatService.subscribeToProjects((payload: { id: string | number, isSignal?: boolean }) => {
+            // Optimistic update logging
             if (import.meta.env.DEV) {
-                console.debug(`[Sync:Pulse] ${payload.id} via ${payload.isSignal ? 'Signal' : 'DB'}`);
+                console.debug(`[Sync:Pulse] ${payload.id} invalidating queries...`);
             }
-            syncProject(payload.id);
+
+            // Invalidate all dashboard data to ensure consistency
+            // In a more complex app, we'd update specific cache entries
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+
+            // Show toast if relevant (Re-implement specific toast logic if critical)
+            // Simplified for now to focus on data consistency
         });
 
         return () => unsubscribe();
-    }, [user?.id, loadData, syncProject]);
+    }, [user?.id, queryClient]);
 
     const handleAssign = async (id: string | number) => {
-        try {
-            setLoading(true);
-            await calculationsService.assignToMe(id);
-            toast.success('Проект взят в работу');
-            await chatService.sendSyncSignal(id, 'UPDATE');
-            setSelectedId(null);
-            setCurrentPage('pipeline');
-            await loadData(true);
-        } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : 'Ошибка назначения');
-        } finally {
-            setLoading(false);
-        }
+        assignToMe.mutate({ id, managerId: user!.id }, {
+            onSuccess: () => {
+                setSelectedId(null);
+                setCurrentPage('pipeline');
+            }
+        });
     };
 
-    const handleUpdateStatus = async (id: number | string, status: CalculationStatus, additionalUpdates: Partial<Calculation> = {}) => {
-        try {
-            const updated = await calculationsService.updateCalculation(id, { status, ...additionalUpdates });
-            setCalculations(prev => prev.map(c => String(c.id) === String(id) ? updated : c));
-            await chatService.sendSyncSignal(id, 'UPDATE');
-            if (!additionalUpdates.results) {
-                toast.success(`Статус: ${status}`);
-            }
-        } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : 'Ошибка обновления статуса');
-        }
+    const handleUpdateStatus = (id: number | string, status: CalculationStatus, additionalUpdates: Partial<Calculation> = {}) => {
+        updateStatus.mutate({
+            id,
+            status,
+            updates: additionalUpdates
+        });
     };
 
     if (selectedCalculation) {
@@ -173,6 +99,9 @@ export const ManagerDashboard: React.FC = () => {
                     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
                         <ClientCalculationDetails
                             calculation={selectedCalculation}
+                            // Calculate display ID based on index in list? Or just raw index?
+                            // Preserving logic: find index in combined list
+                            displayId={allCalculations.findIndex(c => String(c.id) === String(selectedId)) + 1}
                             onBack={() => setSelectedId(null)}
                             onUpdateStatus={handleUpdateStatus}
                             onDelete={() => { }}
@@ -223,12 +152,11 @@ export const ManagerDashboard: React.FC = () => {
                         ) : (
                             <>
                                 {currentPage === 'overview' && (
-                                    <ManagerOverview calculations={calculations} onNavigate={setCurrentPage} />
+                                    <ManagerOverview calculations={allCalculations} onNavigate={setCurrentPage} />
                                 )}
                                 {currentPage === 'pipeline' && (
                                     <ManagerCalculationsList
-                                        myProjects={managerProjects}
-                                        unassignedLeads={unassignedLeads}
+                                        userId={user!.id}
                                         onSelect={(calc) => setSelectedId(calc.id)}
                                     />
                                 )}

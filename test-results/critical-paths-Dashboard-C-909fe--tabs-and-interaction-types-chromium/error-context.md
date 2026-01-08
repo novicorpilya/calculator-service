@@ -1,0 +1,196 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7] [cursor=pointer]:
+            - img [ref=e9]
+            - generic [ref=e12]:
+              - generic [ref=e13]: Hics
+              - generic [ref=e14]: Inventory
+          - heading "Детали проекта" [level=1] [ref=e17]
+        - generic [ref=e18]:
+          - 'button "Текущая тема: system" [ref=e19]':
+            - img [ref=e21]
+          - button "Выйти" [ref=e28]:
+            - img [ref=e29]
+            - generic [ref=e32]: Выйти
+    - main [ref=e33]:
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - generic [ref=e37]:
+            - button [ref=e38]:
+              - img [ref=e39]
+            - generic [ref=e41]:
+              - generic [ref=e42]:
+                - heading "🏨 Отель" [level=1] [ref=e43]
+                - generic [ref=e44]: На проверке
+              - generic [ref=e46]:
+                - paragraph [ref=e47]:
+                  - img [ref=e48]
+                  - text: 2026-01-05T05:49:30.683397+00:00
+                - paragraph [ref=e50]:
+                  - img [ref=e51]
+                  - text: Назначается
+          - button "Спецификация" [ref=e55] [cursor=pointer]:
+            - img [ref=e56]
+            - text: Спецификация
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - img [ref=e64]
+                - paragraph [ref=e74]: Зоны
+                - paragraph [ref=e75]: "1"
+              - generic [ref=e76]:
+                - img [ref=e78]
+                - paragraph [ref=e81]: Площадь
+                - paragraph [ref=e82]: 100 м²
+              - generic [ref=e83]:
+                - img [ref=e85]
+                - paragraph [ref=e88]: Тип объекта
+                - paragraph [ref=e89]: hotel
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - heading "Спецификация инвентаря" [level=3] [ref=e92]
+                - generic [ref=e93]: 2 ед.
+              - generic [ref=e94]:
+                - generic [ref=e96]:
+                  - generic [ref=e97]:
+                    - generic [ref=e98]:
+                      - generic [ref=e101]: 🟢 GREEN — Кухня / Бар
+                      - heading "Салфетка ПВАмикро (Green/Kitchen)" [level=4] [ref=e102]
+                      - paragraph [ref=e103]: "АРТ: VP-PVA-G"
+                    - generic [ref=e104]:
+                      - paragraph [ref=e105]: Запас в наличии
+                      - paragraph [ref=e106]: 1ШТ
+                  - generic [ref=e107]:
+                    - generic [ref=e108]:
+                      - generic [ref=e109]:
+                        - paragraph [ref=e110]: По площади (Q_area)
+                        - paragraph [ref=e111]: 0.25 ед
+                      - generic [ref=e112]:
+                        - paragraph [ref=e113]: По персоналу (Q_staff)
+                        - paragraph [ref=e114]: 0 ед
+                      - generic [ref=e115]:
+                        - paragraph [ref=e116]: По трафику (Q_visitors)
+                        - paragraph [ref=e117]: 0 ед/д
+                    - generic [ref=e119]:
+                      - generic [ref=e120]:
+                        - img [ref=e121]
+                        - generic [ref=e123]: Математическая модель (ISO 18406)
+                      - paragraph [ref=e124]: MAX(0.3, 0.0, 0.0) × 1 × 1 × 1.15
+                      - generic [ref=e125]:
+                        - img [ref=e126]
+                        - paragraph [ref=e128]: "Лимитирующий фактор: 0.3 ед. База запаса с учетом зоны (1.00) и нагрузки (1.00)."
+                    - generic [ref=e130]:
+                      - generic [ref=e131]:
+                        - heading "Прогноз расхода" [level=5] [ref=e132]:
+                          - img [ref=e133]
+                          - text: Прогноз расхода
+                        - generic [ref=e136]:
+                          - generic [ref=e137]:
+                            - generic [ref=e138]: "Годовое потребление:"
+                            - generic [ref=e139]: 18 шт
+                          - generic [ref=e140]:
+                            - generic [ref=e141]: "Финансовый расчет:"
+                            - generic [ref=e142]: На этапе договора
+                          - generic [ref=e143]:
+                            - generic [ref=e144]: "Месячный заказ:"
+                            - generic [ref=e145]: 1.4 шт
+                      - generic [ref=e146]:
+                        - heading "Управление запасами" [level=5] [ref=e147]:
+                          - img [ref=e148]
+                          - text: Управление запасами
+                        - generic [ref=e151]:
+                          - generic [ref=e152]:
+                            - generic [ref=e153]: "Точка перезаказа (ROP):"
+                            - generic [ref=e154]: 1 шт
+                          - generic [ref=e155]:
+                            - generic [ref=e156]: "Страховой запас:"
+                            - generic [ref=e157]: 1 шт
+                          - generic [ref=e158]:
+                            - generic [ref=e159]: "Цикл замены:"
+                            - generic [ref=e160]: Раз в 45 дн
+                - generic [ref=e164]:
+                  - generic [ref=e165]:
+                    - generic [ref=e166]:
+                      - generic [ref=e169]: 🟢 GREEN — Кухня / Бар
+                      - heading "Средство для гриля \"GRILL-CLEANER\" (5л)" [level=4] [ref=e170]
+                      - paragraph [ref=e171]: "АРТ: PB-GRIL-05"
+                    - generic [ref=e172]:
+                      - paragraph [ref=e173]: Запас в наличии
+                      - paragraph [ref=e174]: 1ШТ
+                  - generic [ref=e175]:
+                    - generic [ref=e176]:
+                      - generic [ref=e177]:
+                        - paragraph [ref=e178]: По площади (Q_area)
+                        - paragraph [ref=e179]: 0.05 ед
+                      - generic [ref=e180]:
+                        - paragraph [ref=e181]: По персоналу (Q_staff)
+                        - paragraph [ref=e182]: 0 ед
+                      - generic [ref=e183]:
+                        - paragraph [ref=e184]: По трафику (Q_visitors)
+                        - paragraph [ref=e185]: 0 ед/д
+                    - generic [ref=e187]:
+                      - generic [ref=e188]:
+                        - img [ref=e189]
+                        - generic [ref=e191]: Математическая модель (ISO 18406)
+                      - paragraph [ref=e192]: MAX(0.1, 0.0, 0.0) × 1 × 1 × 1.15
+                      - generic [ref=e193]:
+                        - img [ref=e194]
+                        - paragraph [ref=e196]: "Лимитирующий фактор: 0.1 ед. База запаса с учетом зоны (1.00) и нагрузки (1.00)."
+                    - generic [ref=e198]:
+                      - generic [ref=e199]:
+                        - heading "Прогноз расхода" [level=5] [ref=e200]:
+                          - img [ref=e201]
+                          - text: Прогноз расхода
+                        - generic [ref=e204]:
+                          - generic [ref=e205]:
+                            - generic [ref=e206]: "Годовое потребление:"
+                            - generic [ref=e207]: 26 шт
+                          - generic [ref=e208]:
+                            - generic [ref=e209]: "Финансовый расчет:"
+                            - generic [ref=e210]: На этапе договора
+                          - generic [ref=e211]:
+                            - generic [ref=e212]: "Месячный заказ:"
+                            - generic [ref=e213]: 2 шт
+                      - generic [ref=e214]:
+                        - heading "Управление запасами" [level=5] [ref=e215]:
+                          - img [ref=e216]
+                          - text: Управление запасами
+                        - generic [ref=e219]:
+                          - generic [ref=e220]:
+                            - generic [ref=e221]: "Точка перезаказа (ROP):"
+                            - generic [ref=e222]: 1 шт
+                          - generic [ref=e223]:
+                            - generic [ref=e224]: "Страховой запас:"
+                            - generic [ref=e225]: 1 шт
+                          - generic [ref=e226]:
+                            - generic [ref=e227]: "Цикл замены:"
+                            - generic [ref=e228]: Раз в 30 дн
+          - generic [ref=e232]:
+            - generic [ref=e233]:
+              - generic [ref=e234]:
+                - heading "История проекта" [level=3] [ref=e235]
+                - button [ref=e237]:
+                  - img [ref=e238]
+              - generic [ref=e242]:
+                - button "Обсуждение" [ref=e243]
+                - button "Лента событий" [active] [ref=e244]: Лента событий
+            - generic [ref=e248]:
+              - img [ref=e250]
+              - generic [ref=e253]:
+                - generic [ref=e254]:
+                  - generic [ref=e255]: e2e-scu0jt@test.com
+                  - generic [ref=e256]: 5 янв., 08:49
+                - generic [ref=e257]:
+                  - paragraph [ref=e258]: Проект создан и отправлен эксперту
+                  - generic [ref=e259]:
+                    - img [ref=e260]
+                    - text: submit
+  - region "Notifications alt+T"
+```

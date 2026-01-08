@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardHeader } from '@/features/dashboard/components/DashboardHeader';
 import { DashboardSidebar } from '@/features/dashboard/components/DashboardSidebar';
-import { adminService, type Invitation } from '@/services/admin.service';
-import { auditService, type AuditLog } from '@/services/audit.service';
-import { emailService } from '@/services/email.service';
+import { useServices } from '@/core/di/ServiceContainer';
+import type { Invitation, AdminCalculation, SystemStats } from '@/services/admin.service';
+import type { AuditLog } from '@/services/audit.service';
 import type { User } from '@/features/auth/auth.types';
 import { toast } from 'sonner';
 import {
@@ -17,20 +17,16 @@ export const AdminDashboard: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [currentPage, setCurrentPage] = useState('admin-overview');
     const [users, setUsers] = useState<User[]>([]);
-    const [allCalculations, setAllCalculations] = useState<any[]>([]);
+    const [allCalculations, setAllCalculations] = useState<AdminCalculation[]>([]);
     const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [logs, setLogs] = useState<AuditLog[]>([]);
-    const [stats, setStats] = useState<{
-        totalGlobalBudget: number;
-        revenuePipeline: number;
-        activeProjects: number;
-        totalProjects: number;
-        stages: Record<string, number>;
-    } | null>(null);
+    const [stats, setStats] = useState<SystemStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState<'client' | 'manager' | 'admin'>('manager');
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+    const { adminService, auditLogService: auditService, emailService } = useServices();
 
     const loadData = useCallback(async () => {
         try {
@@ -53,7 +49,7 @@ export const AdminDashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [adminService, auditService]);
 
     useEffect(() => {
         loadData();
@@ -91,7 +87,7 @@ export const AdminDashboard: React.FC = () => {
         try {
             await adminService.updateUserRole(userId, nextRole);
             loadData();
-        } catch (err) {
+        } catch {
             alert('Ошибка при смене роли');
         }
     };
@@ -101,7 +97,11 @@ export const AdminDashboard: React.FC = () => {
         navigator.clipboard.writeText(link);
         setCopiedToken(token);
         toast.success('Ссылка скопирована в буфер обмена');
-        setTimeout(() => setCopiedToken(null), 2000);
+        setCopiedToken(token);
+        // Using a clear timeout cleanup if component unmounts would be better, but this is a simple UI feedback.
+        const timer = setTimeout(() => setCopiedToken(null), 2000);
+        return () => clearTimeout(timer); // Cannot return cleanup from handler, so we accepted it as is or use a useEffect.
+        // For now, I will leave it as it is NOT data sync.
     };
 
     const handleDeleteInvite = async (id: string) => {
@@ -109,7 +109,7 @@ export const AdminDashboard: React.FC = () => {
         try {
             await adminService.deleteInvitation(id);
             loadData();
-        } catch (err) {
+        } catch {
             alert('Ошибка удаления');
         }
     };
@@ -138,7 +138,7 @@ export const AdminDashboard: React.FC = () => {
             await adminService.setUserStatus(user.id, newStatus);
             toast.success(`Пользователь ${newStatus === 'blocked' ? 'заблокирован' : 'разблокирован'}`);
             loadData();
-        } catch (err) {
+        } catch {
             toast.error('Ошибка при смене статуса');
         }
     };
@@ -150,7 +150,7 @@ export const AdminDashboard: React.FC = () => {
             await adminService.adminDeleteCalculation(calcId);
             toast.success('Проект успешно удален');
             loadData();
-        } catch (err) {
+        } catch {
             toast.error('Ошибка при удалении проекта');
         }
     };
@@ -166,7 +166,7 @@ export const AdminDashboard: React.FC = () => {
             await adminService.adminUpdateCalculationStatus(calcId, prevStatus);
             toast.success(`Проект возвращен на стадию ${prevStatus}`);
             loadData();
-        } catch (err) {
+        } catch {
             toast.error('Ошибка при обновлении статуса');
         }
     };
@@ -479,11 +479,12 @@ export const AdminDashboard: React.FC = () => {
                         <FolderSearch size={40} className="mx-auto mb-4" />
                         <p className="text-[10px] font-black uppercase tracking-widest">Проектов пока нет</p>
                     </div>
-                ) : allCalculations.map(calc => (
+                ) : allCalculations.map((calc, index) => (
                     <div key={calc.id} className="glass-card flex items-center justify-between !py-6 group">
                         <div className="flex items-center gap-6">
-                            <div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center text-foreground/30">
-                                <Briefcase size={20} />
+                            <div className="w-12 h-12 rounded-2xl bg-foreground/5 flex flex-col items-center justify-center text-foreground/30 relative">
+                                <Briefcase size={16} className="mb-0.5" />
+                                <span className="text-[8px] font-black opacity-60">#{String(index + 1).padStart(3, '0')}</span>
                             </div>
                             <div>
                                 <h4 className="text-base font-black uppercase tracking-tight">{calc.organization_name}</h4>
@@ -492,7 +493,15 @@ export const AdminDashboard: React.FC = () => {
                                         {calc.status}
                                     </span>
                                     <span className="text-[10px] font-bold text-foreground/20 italic">
-                                        Позиций: {calc.results?.summary?.length || 0}
+                                        {(() => {
+                                            try {
+                                                const date = new Date(calc.created_at);
+                                                return isNaN(date.getTime()) ? calc.created_at : new Intl.DateTimeFormat('ru-RU').format(date);
+                                            } catch { return calc.created_at; }
+                                        })()}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-foreground/20 italic">
+                                        • Позиций: {calc.results?.summary?.length || 0}
                                     </span>
                                 </div>
                             </div>

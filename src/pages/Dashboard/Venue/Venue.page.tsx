@@ -14,8 +14,9 @@ import {
     Save,
     X
 } from 'lucide-react';
-import { venueService, type Venue, type CreateVenueData } from '@/services/venue.service';
+import { type Venue, type CreateVenueData } from '@/services/venue.service';
 import { toast } from 'sonner';
+import { useServices } from '@/core/di/ServiceContainer';
 
 const VENUE_TYPE_CONFIG = {
     restaurant: { label: 'Ресторан', icon: UtensilsCrossed, color: 'text-orange-500' },
@@ -26,6 +27,7 @@ const VENUE_TYPE_CONFIG = {
 };
 
 export const VenuePage: React.FC = () => {
+    const { venueService } = useServices();
     const [venues, setVenues] = useState<Venue[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,7 +47,7 @@ export const VenuePage: React.FC = () => {
             setLoading(true);
             const data = await venueService.getVenues();
             setVenues(data);
-        } catch (error) {
+        } catch {
             toast.error('Не удалось загрузить список заведений');
         } finally {
             setLoading(false);
@@ -94,7 +96,7 @@ export const VenuePage: React.FC = () => {
             await venueService.deleteVenue(id);
             toast.success('Заведение удалено');
             fetchVenues();
-        } catch (error) {
+        } catch {
             toast.error('Ошибка при удалении');
         }
     };
@@ -197,10 +199,10 @@ export const VenuePage: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-foreground/30">Персонал</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-foreground/30">Посетители</p>
                                         <div className="flex items-center gap-2">
                                             <Users size={14} className="text-primary" />
-                                            <span className="text-[12px] font-black tracking-tight">{venue.staff_count} чел.</span>
+                                            <span className="text-[12px] font-black tracking-tight">{venue.visitors_per_day} / день</span>
                                         </div>
                                     </div>
                                 </div>
@@ -275,11 +277,11 @@ export const VenuePage: React.FC = () => {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest ml-1">Посад. мест</label>
+                                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest ml-1">Посетителей в день</label>
                                     <input
                                         type="number"
-                                        value={formData.seating_capacity}
-                                        onChange={e => setFormData({ ...formData, seating_capacity: Number(e.target.value) })}
+                                        value={formData.visitors_per_day}
+                                        onChange={e => setFormData({ ...formData, visitors_per_day: Number(e.target.value) })}
                                         className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all"
                                     />
                                 </div>

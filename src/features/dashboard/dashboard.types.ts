@@ -1,7 +1,7 @@
 /**
  * Current lifecycle stage of a calculation project.
  */
-export type CalculationStatus = 'draft' | 'sent' | 'changes' | 'revision' | 'invoice' | 'paid' | 'shipping' | 'completed' | 'closed';
+export type CalculationStatus = 'draft' | 'sent' | 'expert' | 'changes' | 'revision' | 'suppliers' | 'invoice' | 'paid' | 'ready' | 'shipping' | 'completed' | 'closed';
 
 export type SyncEventType = 'UPDATE' | 'INSERT' | 'DELETE';
 
@@ -33,7 +33,7 @@ export interface Comment {
     date: string;
 }
 
-export type InteractionType = 'created' | 'submitted' | 'comment' | 'revision' | 'invoice';
+export type InteractionType = 'created' | 'submitted' | 'comment' | 'revision' | 'invoice' | 'error';
 
 /**
  * Represents a single interaction/event in the project history trail.
@@ -186,10 +186,13 @@ export interface Zone {
 export const STATUS_CONFIG: Record<CalculationStatus, { label: string; color: string; ghost?: string }> = {
     draft: { label: 'Черновик', color: 'bg-gray-100 text-gray-800' },
     sent: { label: 'На проверке', color: 'bg-blue-100 text-blue-800' },
+    expert: { label: 'Экспертиза', color: 'bg-indigo-100 text-indigo-800' },
+    suppliers: { label: 'Подбор поставщиков', color: 'bg-yellow-100 text-yellow-800' },
     changes: { label: 'Требуют правок', color: 'bg-orange-500', ghost: 'bg-orange-500/10 text-orange-600' },
     revision: { label: 'Правки внесены', color: 'bg-purple-100 text-purple-800' },
     invoice: { label: 'Выставлен счет', color: 'bg-cyan-100 text-cyan-800' },
     paid: { label: 'Оплачено', color: 'bg-emerald-100 text-emerald-800' },
+    ready: { label: 'Готово к отгрузке', color: 'bg-green-100 text-green-800' },
     shipping: { label: 'Поставка в работе', color: 'bg-amber-100 text-amber-800' },
     completed: { label: 'Поставка завершена', color: 'bg-teal-100 text-teal-800' },
     closed: { label: 'Проект закрыт', color: 'bg-slate-100 text-slate-800' }

@@ -9,12 +9,13 @@ import { ClientOverview } from '@/features/dashboard/client/components/ClientOve
 import { InventoryManager } from '@/features/dashboard/client/components/InventoryManager';
 import { VenuePage } from '../Venue/Venue.page';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
-import type { Calculation, SyncPayload } from '@/features/dashboard/dashboard.types';
-import { calculationsService } from '@/services/calculations.service';
-import { venueService, type Venue } from '@/services/venue.service';
-import { chatService } from '@/services/chat.service';
+import type { Calculation } from '@/features/dashboard/dashboard.types';
+import { useServices } from '@/core/di/ServiceContainer';
+import type { Venue } from '@/services/venue.service';
 import { useAuth } from '@/features/auth';
 import { toast } from 'sonner';
+
+import { CalculationEntity } from '@/core/domain/CalculationEntity';
 
 /**
  * Production-ready Client Dashboard.
@@ -32,6 +33,7 @@ export const ClientDashboard: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     const { user } = useAuth();
+    const { calculationService, chatService, venueService } = useServices();
 
     // Performance and Sync Refs
     const state = useRef({
@@ -54,7 +56,7 @@ export const ClientDashboard: React.FC = () => {
             setError(null);
 
             const [calcData, venueData] = await Promise.all([
-                calculationsService.getMyCalculations(),
+                calculationService.getMyCalculations(user!.id),
                 venueService.getVenues()
             ]);
 
@@ -66,7 +68,7 @@ export const ClientDashboard: React.FC = () => {
             setLoading(false);
             state.current.isFetching = false;
         }
-    }, []);
+    }, [calculationService, venueService, user]);
 
     /**
      * Senior Sync Pattern
@@ -78,10 +80,8 @@ export const ClientDashboard: React.FC = () => {
         try {
             state.current.inFlightSyncs.add(sid);
 
-            // Propagation pulse delay (450ms is production benchmark for Postgres/Realtime index)
-            await new Promise(r => setTimeout(r, 450));
-
-            const fullDoc = await calculationsService.getCalculationById(id);
+            // Fetch immediately - removing artificial delay which is an anti-pattern
+            const fullDoc = await calculationService.getCalculation(id);
 
             setCalculations(prev => {
                 const index = prev.findIndex(c => String(c.id) === sid);
@@ -96,20 +96,20 @@ export const ClientDashboard: React.FC = () => {
             });
 
             toast.info('Информация обновлена', { duration: 2500 });
-        } catch (err) {
+        } catch {
             console.warn('[Sync:Client:Retry]', sid);
             loadData(true);
         } finally {
             state.current.inFlightSyncs.delete(sid);
         }
-    }, [user?.id, loadData]);
+    }, [user?.id, loadData, calculationService]);
 
     useEffect(() => {
         if (!user?.id) return;
 
         loadData();
 
-        const unsubscribe = chatService.subscribeToCalculations((payload: SyncPayload) => {
+        const unsubscribe = chatService.subscribeToProjects((payload: { id: string | number, isSignal?: boolean }) => {
             if (import.meta.env.DEV) {
                 console.debug(`[Sync:Pulse:Client] ${payload.id} via ${payload.isSignal ? 'Signal' : 'DB'}`);
             }
@@ -117,7 +117,7 @@ export const ClientDashboard: React.FC = () => {
         });
 
         return () => unsubscribe();
-    }, [user?.id, loadData, syncProject]);
+    }, [user?.id, loadData, syncProject, chatService]);
 
     const handleNewCalculationComplete = async (calculation: Calculation) => {
         try {
@@ -130,7 +130,7 @@ export const ClientDashboard: React.FC = () => {
                     ? 'revision'
                     : statusFromWizard;
 
-                const updated = await calculationsService.updateCalculation(calculation.id, {
+                const updated = await calculationService.update(calculation.id, {
                     ...calculation,
                     status: nextStatus
                 });
@@ -148,7 +148,7 @@ export const ClientDashboard: React.FC = () => {
                     toast.success('Черновик успешно обновлен');
                 }
             } else {
-                const created = await calculationsService.createCalculation(calculation);
+                const created = await calculationService.create(calculation, user!.id);
                 setCalculations([created, ...calculations]);
                 setSelectedId(created.id);
                 await chatService.sendSyncSignal(created.id, 'INSERT');
@@ -164,8 +164,17 @@ export const ClientDashboard: React.FC = () => {
     };
 
     const handleUpdateStatus = async (id: number | string, status: Calculation['status']) => {
+        const current = calculations.find(c => String(c.id) === String(id));
+        if (current) {
+            const entity = new CalculationEntity(current);
+            if (!entity.canTransitionTo(status)) {
+                toast.error(`Невозможно перевести статус из "${current.status}" в "${status}"`);
+                return;
+            }
+        }
+
         try {
-            const updated = await calculationsService.updateCalculation(id, { status });
+            const updated = await calculationService.update(id, { status });
             setCalculations(prev => prev.map(c => String(c.id) === String(id) ? updated : c));
             await chatService.sendSyncSignal(id, 'UPDATE');
             toast.success('Статус изменен');
@@ -176,7 +185,7 @@ export const ClientDashboard: React.FC = () => {
 
     const handleDeleteCalculation = async (id: number | string) => {
         try {
-            await calculationsService.deleteCalculation(id);
+            await calculationService.delete(id);
             setCalculations(prev => prev.filter(c => String(c.id) !== String(id)));
             setSelectedId(null);
             toast.success('Расчет удален');
@@ -218,6 +227,7 @@ export const ClientDashboard: React.FC = () => {
                     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
                         <ClientCalculationDetails
                             calculation={selectedCalculation}
+                            displayId={calculations.findIndex(c => String(c.id) === String(selectedId)) + 1}
                             onBack={() => setSelectedId(null)}
                             onUpdateStatus={handleUpdateStatus}
                             onDelete={handleDeleteCalculation}

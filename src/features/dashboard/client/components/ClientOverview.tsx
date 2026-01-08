@@ -12,6 +12,9 @@ import {
 import { type Calculation } from '../../dashboard.types';
 import { ModernStatusBadge } from './ClientCalculationsList';
 
+import { CalculationEntity } from '@/core/domain/CalculationEntity';
+import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
+
 interface ClientOverviewProps {
     calculations: Calculation[];
     venuesCount: number;
@@ -29,7 +32,13 @@ export const ClientOverview = React.memo<ClientOverviewProps>(({
     onNavigateToVenues,
     onSelectCalculation
 }) => {
-    const recentCalculations = useMemo(() => calculations.slice(0, 3), [calculations]);
+    // Map to ViewModels for consistent display logic
+    const recentVms = useMemo(() =>
+        calculations
+            .slice(0, 3)
+            .map(c => new CalculationViewModel(new CalculationEntity(c))),
+        [calculations]
+    );
 
     const stats = useMemo(() => ({
         totalBudget: calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0),
@@ -154,33 +163,34 @@ export const ClientOverview = React.memo<ClientOverviewProps>(({
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
-                    {recentCalculations.length > 0 ? (
-                        recentCalculations.map((calc) => (
+                    {recentVms.length > 0 ? (
+                        recentVms.map((vm, index) => (
                             <div
-                                key={calc.id}
-                                onClick={() => onSelectCalculation(calc)}
+                                key={vm.id}
+                                onClick={() => onSelectCalculation(vm.rawData)}
                                 className="group bg-card border border-border-theme p-6 rounded-[2rem] hover:border-primary/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-6 cursor-pointer"
                             >
                                 <div className="flex items-center gap-6">
-                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                        <History size={24} />
+                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex flex-col items-center justify-center text-primary shrink-0">
+                                        <History size={20} className="mb-0.5" />
+                                        <span className="text-[8px] font-black opacity-60">#{String(index + 1).padStart(3, '0')}</span>
                                     </div>
                                     <div className="space-y-1 min-w-0">
                                         <div className="flex items-center gap-3">
-                                            <h4 className="text-lg font-black uppercase tracking-tight truncate">{calc.organizationName}</h4>
-                                            <ModernStatusBadge status={calc.status} />
+                                            <h4 className="text-lg font-black uppercase tracking-tight truncate">{vm.organizationName}</h4>
+                                            <ModernStatusBadge status={vm.status} />
                                         </div>
                                         <div className="flex items-center gap-4 text-[10px] font-black text-foreground/30 uppercase tracking-widest">
-                                            <span>{calc.createdDate}</span>
+                                            <span>{vm.formattedDate}</span>
                                             <span>•</span>
-                                            <span>{calc.totalArea} м²</span>
+                                            <span>{vm.totalArea} м²</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-12 pt-4 sm:pt-0 border-t sm:border-t-0 border-border-theme">
                                     <div className="text-right">
                                         <p className="text-[10px] font-black text-foreground/30 uppercase tracking-widest mb-1">Сумма</p>
-                                        <p className="text-lg font-black tracking-tight">{calc.totalCost?.toLocaleString() || '0'} ₽</p>
+                                        <p className="text-lg font-black tracking-tight">{vm.totalCostDisplay}</p>
                                     </div>
                                     <div className="w-10 h-10 rounded-full border border-border-theme flex items-center justify-center text-foreground/20 group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all">
                                         <ChevronRight size={20} />

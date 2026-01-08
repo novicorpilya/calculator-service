@@ -1,12 +1,25 @@
 import { toast } from 'sonner';
-import { supabase } from '@/services/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const emailService = {
-    async sendInvitation(email: string, role: string, inviteLink: string) {
+export interface EmailResponse {
+    success: boolean;
+    mode?: 'production' | 'development-mock';
+}
 
+export interface IEmailService {
+    sendInvitation(email: string, role: string, inviteLink: string): Promise<EmailResponse>;
+}
+
+export class EmailService implements IEmailService {
+    private supabase: SupabaseClient;
+
+    constructor(supabase: SupabaseClient) {
+        this.supabase = supabase;
+    }
+
+    async sendInvitation(email: string, role: string, inviteLink: string): Promise<EmailResponse> {
         try {
-            // Получаем текущую сессию для передачи токена
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await this.supabase.auth.getSession();
 
             const response = await fetch('/api/send-invite', {
                 method: 'POST',
@@ -18,7 +31,7 @@ export const emailService = {
             });
 
             if (response.ok) {
-                return await response.json();
+                return { success: true, mode: 'production' };
             }
 
             if (!response.ok && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
@@ -38,9 +51,9 @@ export const emailService = {
             console.error('[Email Service Error]', error);
             throw error;
         }
-    },
+    }
 
-    logDevEmail(email: string, role: string, inviteLink: string) {
+    private logDevEmail(email: string, role: string, inviteLink: string) {
         console.log('%c------------------------------------------', 'color: #3b82f6; font-weight: bold;');
         console.log('%c📧 [DEV MODE] ПИСЬМО БЫЛО БЫ ОТПРАВЛЕНО:', 'color: #3b82f6; font-size: 14px; font-weight: bold;');
         console.log(`Кому: ${email}`);
@@ -60,4 +73,4 @@ export const emailService = {
             }
         });
     }
-};
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { supabase } from '@/services/supabase';
+
 import {
     LayoutDashboard,
     ShieldCheck,
@@ -15,7 +15,7 @@ import {
     MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { chatService } from '@/services/chat.service';
+import { useServices } from '@/core/di/ServiceContainer';
 
 interface DashboardSidebarProps {
     isOpen: boolean;
@@ -29,6 +29,7 @@ interface DashboardSidebarProps {
  */
 export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, currentPage, onNavigate }) => {
     const { user } = useAuth();
+    const { chatService } = useServices();
     const [unreadCount, setUnreadCount] = React.useState(0);
 
     // Fetch and subscribe to unread messages
@@ -37,8 +38,8 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
 
         const updateCount = async () => {
             try {
-                const counts = await chatService.getUnreadCount(user.id);
-                const total = Object.values(counts).reduce((a, b) => a + b, 0);
+                const counts = await chatService.getUnreadCounts(user.id);
+                const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
                 setUnreadCount(total);
             } catch (error) {
                 console.error('Error fetching unread count:', error);
@@ -47,30 +48,10 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
 
         updateCount();
 
-        // Subscribe to NEW messages
-        const unsubscribe = chatService.subscribeToMessages((msg) => {
-            if (msg.receiver_id === user.id) {
-                updateCount();
-            }
+        // Subscribe to NEW messages globally to catch notifications
+        const unsubscribe = chatService.subscribeToMessages(() => {
+            updateCount();
         });
-
-        // Listen for internal "read" broadcasts for instant UI updates
-        const systemChannel = supabase.channel('chat_notifications')
-            .on('broadcast', { event: 'messages_read' }, (payload) => {
-                if (payload.payload.receiverId === user.id) {
-                    updateCount();
-                }
-            })
-            // Also listen to database updates directly
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'messages',
-                filter: `receiver_id=eq.${user.id}`
-            }, () => {
-                updateCount();
-            })
-            .subscribe();
 
         // Re-fetch on window focus (production best practice)
         const handleFocus = () => updateCount();
@@ -78,10 +59,9 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
 
         return () => {
             unsubscribe();
-            supabase.removeChannel(systemChannel);
             window.removeEventListener('focus', handleFocus);
         };
-    }, [user?.id]);
+    }, [user, chatService]);
 
     const menuItems = React.useMemo(() => {
         const role = user?.role;

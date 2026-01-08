@@ -1,5 +1,6 @@
 import React from 'react'
 import { supabase } from '@/services/supabase'
+import { type RealtimeChannel } from '@supabase/supabase-js'
 import { authService } from '@/features/auth/auth.service'
 import type { User, LoginCredentials, RegisterCredentials, UpdateProfileData } from '@/features/auth/auth.types'
 
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     React.useEffect(() => {
         let isMounted = true;
-        let profileSubscription: any = null;
+        let profileSubscription: RealtimeChannel | null = null;
 
         const checkRecovery = () => {
             return window.location.hash.includes('type=recovery') ||

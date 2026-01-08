@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface AuditLog {
     id: string;
@@ -8,23 +8,38 @@ export interface AuditLog {
     entity_type: string;
     entity_id?: string;
     details: Record<string, unknown>;
-    // Helper property from join
     profiles?: {
         email: string;
     };
 }
 
-export const auditService = {
+export interface IAuditLogService {
+    logAction(
+        action: string,
+        entityType: string,
+        entityId?: string,
+        details?: Record<string, unknown>
+    ): Promise<void>;
+    getLogs(limit?: number): Promise<AuditLog[]>;
+}
+
+export class AuditLogService implements IAuditLogService {
+    private supabase: SupabaseClient;
+
+    constructor(supabase: SupabaseClient) {
+        this.supabase = supabase;
+    }
+
     async logAction(
         action: string,
         entityType: string,
         entityId?: string,
         details: Record<string, unknown> = {}
-    ) {
-        const { data: { user } } = await supabase.auth.getUser();
+    ): Promise<void> {
+        const { data: { user } } = await this.supabase.auth.getUser();
         if (!user) return;
 
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('audit_logs')
             .insert({
                 user_id: user.id,
@@ -35,10 +50,10 @@ export const auditService = {
             });
 
         if (error) console.error('Failed to log action:', error);
-    },
+    }
 
     async getLogs(limit = 50): Promise<AuditLog[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('audit_logs')
             .select(`
                 *,
@@ -50,4 +65,4 @@ export const auditService = {
         if (error) throw error;
         return data || [];
     }
-};
+}

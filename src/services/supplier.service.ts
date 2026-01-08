@@ -1,15 +1,26 @@
-import { supabase } from './supabase'
-import { type Supplier } from '../features/dashboard/dashboard.types'
+import { type SupabaseClient } from '@supabase/supabase-js';
+import { type Supplier } from '../features/dashboard/dashboard.types';
+
+export interface ISupplierService {
+    getSuppliers(): Promise<Supplier[]>;
+    getSupplierById(id: string): Promise<Supplier | null>;
+}
 
 /**
  * Service for managing suppliers and their integrations.
  */
-export const supplierService = {
+export class SupplierService implements ISupplierService {
+    private supabase: SupabaseClient;
+
+    constructor(supabase: SupabaseClient) {
+        this.supabase = supabase;
+    }
+
     /**
      * Fetches all registered suppliers.
      */
     async getSuppliers(): Promise<Supplier[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('suppliers')
             .select('*')
             .order('name', { ascending: true });
@@ -47,13 +58,13 @@ export const supplierService = {
             ];
         }
         return data || [];
-    },
+    }
 
     /**
      * Gets a specific supplier by ID.
      */
     async getSupplierById(id: string): Promise<Supplier | null> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('suppliers')
             .select('*')
             .eq('id', id)

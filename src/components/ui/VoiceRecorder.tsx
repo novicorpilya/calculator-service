@@ -1,11 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Square } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Square, X } from 'lucide-react';
 
-interface VoiceRecorderProps {
+export interface VoiceRecorderProps {
     onRecordingComplete: (audioBlob: Blob, duration: number) => void;
+    onCancel?: () => void;
 }
 
-export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplete }) => {
+export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplete, onCancel }) => {
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -13,19 +14,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
     const timerRef = useRef<number | null>(null);
     const startTimeRef = useRef<number>(0);
 
-    useEffect(() => {
-        // Auto-start recording when component mounts
-        startRecording();
-
-        return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
-            }
-        };
-    }, []);
-
-    const startRecording = async () => {
+    const startRecording = useCallback(async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const mediaRecorder = new MediaRecorder(stream, {
@@ -56,7 +45,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
             setRecordingTime(0);
 
             // Update timer based on actual elapsed time
-            timerRef.current = setInterval(() => {
+            timerRef.current = window.setInterval(() => {
                 const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
                 setRecordingTime(elapsed);
             }, 100); // Update every 100ms for smooth display, but show only full seconds
@@ -65,7 +54,22 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
             console.error('Error accessing microphone:', error);
             alert('Не удалось получить доступ к микрофону. Проверьте разрешения.');
         }
-    };
+    }, [onRecordingComplete]);
+
+    useEffect(() => {
+        // Auto-start recording when component mounts
+        const timer = setTimeout(() => {
+            startRecording();
+        }, 0);
+
+        return () => {
+            clearTimeout(timer);
+            if (timerRef.current) clearInterval(timerRef.current);
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+            }
+        };
+    }, [startRecording]);
 
     const stopRecording = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -80,6 +84,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const handleCancel = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+        }
+        if (timerRef.current) clearInterval(timerRef.current);
+        onCancel?.();
+    };
+
     if (isRecording) {
         return (
             <div className="flex items-center gap-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl animate-pulse">
@@ -89,6 +101,15 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                         {formatTime(recordingTime)}
                     </span>
                 </div>
+                {onCancel && (
+                    <button
+                        onClick={handleCancel}
+                        className="p-2 text-foreground/40 hover:text-foreground transition-colors rounded-lg"
+                        aria-label="Отменить запись"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
                 <button
                     onClick={stopRecording}
                     className="ml-auto p-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all flex items-center gap-2"

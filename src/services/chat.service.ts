@@ -12,6 +12,7 @@ export interface Message {
     voice_duration?: number;
     created_at: string;
     is_read?: boolean;
+    is_edited?: boolean;
 }
 
 /**
@@ -86,9 +87,38 @@ export const chatService = {
     },
 
     /**
+     * Update an existing message (e.g., mark as edited or read)
+     */
+    async updateMessage(messageId: string, payload: Partial<Message>): Promise<Message> {
+        const { data, error } = await supabase
+            .from('messages')
+            .update({ ...payload, is_edited: payload.content ? true : payload.is_edited })
+            .eq('id', messageId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Broadcast update
+        const channel = supabase.channel(this.CHANNELS.GLOBAL_SYNC);
+        await channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'message_updated',
+                    payload: data
+                });
+                supabase.removeChannel(channel);
+            }
+        });
+
+        return data as Message;
+    },
+
+    /**
      * Secure subscription to messages with automatic cleanup
      */
-    subscribeToMessages(callback: (msg: Message) => void, calculationId?: string) {
+    subscribeToMessages(callback: (msg: Message, eventType?: 'INSERT' | 'UPDATE' | 'DELETE') => void, calculationId?: string) {
         const channelName = calculationId
             ? `${this.CHANNELS.CHAT_PREFIX}${calculationId}`
             : this.CHANNELS.GLOBAL_SYNC;
@@ -99,19 +129,42 @@ export const chatService = {
                 { event: 'new_message' },
                 ({ payload }: { payload: Message }) => {
                     if (!calculationId || payload.calculation_id === calculationId) {
-                        callback(payload);
+                        callback(payload, 'INSERT');
                     }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'message_updated' },
+                ({ payload }: { payload: Message }) => {
+                    if (!calculationId || payload.calculation_id === calculationId) {
+                        callback(payload, 'UPDATE');
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'message_deleted' },
+                ({ payload }: { payload: { messageId: string } }) => {
+                    // Create a dummy message object for deletion if needed, or refine callback
+                    callback({ id: payload.messageId } as Message, 'DELETE');
                 }
             )
             .on(
                 'postgres_changes',
                 {
-                    event: 'INSERT',
+                    event: '*',
                     schema: 'public',
                     table: 'messages',
                     filter: calculationId ? `calculation_id=eq.${calculationId}` : undefined
                 },
-                (payload) => callback(payload.new as Message)
+                (payload) => {
+                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                        callback(payload.new as Message, payload.eventType);
+                    } else if (payload.eventType === 'DELETE') {
+                        callback(payload.old as Message, 'DELETE');
+                    }
+                }
             )
             .subscribe();
 
@@ -228,10 +281,11 @@ export const chatService = {
 
     async getRecipients(userId: string) {
         try {
-            // 1. Get all users linked via calculations or messages
+            // 1. Get ONLY calculations linked to THIS user (Privacy & Performance fix)
             const { data: linkedCalculations } = await supabase
                 .from('calculations')
-                .select('user_id, manager_id');
+                .select('user_id, manager_id')
+                .or(`user_id.eq.${userId},manager_id.eq.${userId}`);
 
             const { data: allMsgs } = await supabase
                 .from('messages')
@@ -254,7 +308,15 @@ export const chatService = {
             const { data: profiles } = await supabase
                 .from('profiles')
                 .select('id, organization_name, role, first_name, last_name')
-                .in('id', Array.from(linkedIds));
+                .in('id', Array.from(linkedIds)) as {
+                    data: {
+                        id: string;
+                        organization_name: string | null;
+                        role: string;
+                        first_name: string | null;
+                        last_name: string | null;
+                    }[] | null
+                };
 
             if (!profiles) return [];
 
@@ -267,7 +329,14 @@ export const chatService = {
                 .order('created_at', { ascending: false });
 
             // Group by contact ID to find the newest for each
-            const lastMsgMap = new Map<string, any>();
+            const lastMsgMap = new Map<string, {
+                content: string | null;
+                created_at: string;
+                sender_id: string;
+                receiver_id: string;
+                image_url: string | null;
+                voice_url: string | null;
+            }>();
             lastMessages?.forEach(m => {
                 const contactId = m.sender_id === userId ? m.receiver_id : m.sender_id;
                 if (!lastMsgMap.has(contactId)) {
@@ -327,16 +396,21 @@ export const chatService = {
         const mediaUrls = messages?.flatMap(m => [m.image_url, m.voice_url]).filter(Boolean) as string[];
 
         const filesToDelete = mediaUrls
-            .map(url => {
-                try {
-                    const parts = url.split('/public/attachments/');
-                    return parts.length > 1 ? parts[1] : null;
-                } catch { return null; }
-            })
+            .filter(url => url.includes('/attachments/'))
+            .map(url => url.split('/attachments/').pop())
             .filter(Boolean) as string[];
 
         if (filesToDelete.length > 0) {
             await supabase.storage.from('attachments').remove(filesToDelete).catch(console.error);
+        }
+
+        const voiceToDelete = mediaUrls
+            .filter(url => url.includes('/voice-messages/'))
+            .map(url => url.split('/voice-messages/').pop())
+            .filter(Boolean) as string[];
+
+        if (voiceToDelete.length > 0) {
+            await supabase.storage.from('voice-messages').remove(voiceToDelete).catch(console.error);
         }
     },
 
@@ -362,18 +436,69 @@ export const chatService = {
 
         // 3. Cleanup storage
         const mediaUrls = messages?.flatMap(m => [m.image_url, m.voice_url]).filter(Boolean) as string[];
+
         const filesToDelete = mediaUrls
-            .map(url => {
-                try {
-                    const parts = url.split('/public/attachments/');
-                    return parts.length > 1 ? parts[1] : null;
-                } catch { return null; }
-            })
+            .filter(url => url.includes('/attachments/'))
+            .map(url => url.split('/attachments/').pop())
             .filter(Boolean) as string[];
 
         if (filesToDelete.length > 0) {
             await supabase.storage.from('attachments').remove(filesToDelete).catch(console.error);
         }
+
+        const voiceToDelete = mediaUrls
+            .filter(url => url.includes('/voice-messages/'))
+            .map(url => url.split('/voice-messages/').pop())
+            .filter(Boolean) as string[];
+
+        if (voiceToDelete.length > 0) {
+            await supabase.storage.from('voice-messages').remove(voiceToDelete).catch(console.error);
+        }
+    },
+
+    /**
+     * Delete a single message and its associated media
+     */
+    async deleteMessage(messageId: string): Promise<void> {
+        // 1. Get message data for media cleanup
+        const { data: message, error: fetchError } = await supabase
+            .from('messages')
+            .select('image_url, voice_url')
+            .eq('id', messageId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // 2. Delete from database
+        const { error: deleteError } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', messageId);
+
+        if (deleteError) throw deleteError;
+
+        // 3. Cleanup media
+        if (message.image_url) {
+            const fileName = message.image_url.split('/attachments/').pop();
+            if (fileName) await supabase.storage.from('attachments').remove([fileName]).catch(console.error);
+        }
+        if (message.voice_url) {
+            const fileName = message.voice_url.split('/voice-messages/').pop();
+            if (fileName) await supabase.storage.from('voice-messages').remove([fileName]).catch(console.error);
+        }
+
+        // Broadcast deletion
+        const channel = supabase.channel(this.CHANNELS.GLOBAL_SYNC);
+        await channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'message_deleted',
+                    payload: { messageId }
+                });
+                supabase.removeChannel(channel);
+            }
+        });
     },
 
     /**
