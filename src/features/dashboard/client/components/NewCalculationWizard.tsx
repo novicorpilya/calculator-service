@@ -115,12 +115,12 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
             setZones([...zones, {
                 ...currentZone,
                 name: zoneName,
-                id: Date.now(),
+                id: Date.now().toString(),
                 type: currentZone.type,
                 area: currentZone.area,
                 staffCount: currentZone.staffCount || '0',
                 color: currentZone.color
-            }]);
+            } as Zone]);
             setCurrentZone({ type: '', area: '', staffCount: '', color: '' });
             setShowModal(false);
         }

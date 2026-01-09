@@ -139,10 +139,10 @@ describe('CalculationEntity', () => {
             expect(entity.isAssignedTo('other')).toBe(false);
         });
 
-        test('isInvoiced and isCompleted should correctly identify final states', () => {
-            expect(new CalculationEntity(mockCalculation('invoice')).isInvoiced()).toBe(true);
+        test('canSubmitPayment and isCompleted should correctly identify final states', () => {
+            expect(new CalculationEntity(mockCalculation('invoice')).canSubmitPayment()).toBe(true);
             expect(new CalculationEntity(mockCalculation('completed')).isCompleted()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('sent')).isInvoiced()).toBe(false);
+            expect(new CalculationEntity(mockCalculation('sent')).canSubmitPayment()).toBe(false);
             expect(new CalculationEntity(mockCalculation('payment_review')).isPaymentSent()).toBe(true);
             expect(new CalculationEntity(mockCalculation('paid')).isPaid()).toBe(true);
         });
