@@ -163,18 +163,18 @@ export const ClientDashboard: React.FC = () => {
         }
     };
 
-    const handleUpdateStatus = async (id: number | string, status: Calculation['status']) => {
+    const handleUpdateStatus = async (id: number | string, status: Calculation['status'], additional?: Partial<Calculation>) => {
         const current = calculations.find(c => String(c.id) === String(id));
         if (current) {
             const entity = new CalculationEntity(current);
-            if (!entity.canTransitionTo(status)) {
+            if (status !== current.status && !entity.canTransitionTo(status)) {
                 toast.error(`Невозможно перевести статус из "${current.status}" в "${status}"`);
                 return;
             }
         }
 
         try {
-            const updated = await calculationService.update(id, { status });
+            const updated = await calculationService.update(id, { status, ...additional });
             setCalculations(prev => prev.map(c => String(c.id) === String(id) ? updated : c));
             await chatService.sendSyncSignal(id, 'UPDATE');
             toast.success('Статус изменен');

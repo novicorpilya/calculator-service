@@ -53,7 +53,6 @@ export interface ICalculationRepository {
 
     executeAction(id: string | number, action: string, message?: string, payload?: Record<string, unknown>): Promise<Calculation>;
     adjustCalculationExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation>;
-    getRegistry(): Promise<{ id: string | number; created_at: string }[]>;
 }
 
 // Internal DB Interface (Strictly Typed)
@@ -81,15 +80,17 @@ interface CalculationDB {
     manager_adjustments?: Record<string, any>;
     locked_at?: string;
     final_snapshot?: CalculationResults;
+    receipt_path?: string;
     manager_info?: {
         first_name?: string | null;
         last_name?: string | null;
         organization_name?: string | null;
-    } | Array<{
+    };
+    client_info?: {
         first_name?: string | null;
         last_name?: string | null;
-        organization_name?: string | null;
-    }>;
+    };
+    project_number?: number;
 }
 
 export class CalculationRepository implements ICalculationRepository {
@@ -103,16 +104,20 @@ export class CalculationRepository implements ICalculationRepository {
 
     private mapToEntity(db: CalculationDB): Calculation {
         const results = db.results;
-        const totalCost = results?.summary?.reduce((sum: number, item) => sum + (item.total * (item.price || 0)), 0) || 0;
+        const totalCost = db.total_cost_value || 0;
 
         const mInfo = db.manager_info;
         const managerData = Array.isArray(mInfo) ? mInfo[0] : mInfo;
+        const cInfo = db.client_info;
+        const clientData = Array.isArray(cInfo) ? cInfo[0] : cInfo;
 
         let managerName = 'Назначается';
         if (managerData) {
             const fullName = `${managerData.first_name || ''} ${managerData.last_name || ''}`.trim();
             managerName = fullName || 'Специалист';
         }
+
+        const clientName = clientData ? clientData.first_name || 'Клиент' : 'Клиент';
 
         // 10/10 Validation: Ensure JSONB fields are valid
         const zonesParse = z.array(ZoneSchema).safeParse(db.zone_details || []);
@@ -146,14 +151,17 @@ export class CalculationRepository implements ICalculationRepository {
             version_number: db.version_number || 1,
             manager_adjustments: db.manager_adjustments || {},
             locked_at: db.locked_at,
-            final_snapshot: db.final_snapshot
+            final_snapshot: db.final_snapshot,
+            receipt_path: db.receipt_path,
+            client_name: clientName,
+            project_number: db.project_number
         };
     }
 
     async getById(id: string | number): Promise<Calculation> {
         const { data, error } = await this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(first_name, last_name, organization_name)')
+            .select('*, manager_info:profiles!manager_id(first_name, last_name, organization_name), client_info:profiles!user_id(first_name, last_name)')
             .eq('id', id)
             .single();
 
@@ -167,7 +175,7 @@ export class CalculationRepository implements ICalculationRepository {
     async getByUserId(userId: string): Promise<Calculation[]> {
         const { data, error } = await this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
@@ -219,7 +227,7 @@ export class CalculationRepository implements ICalculationRepository {
         // Build query
         let query = this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)', { count: 'exact' });
+            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)', { count: 'exact' });
 
         // Filter by manager
         if (managerId === null) {
@@ -304,7 +312,9 @@ export class CalculationRepository implements ICalculationRepository {
             dbUpdates.total_cost_value = summary.reduce((acc, item) => acc + (Number(item.total) || (Number(item.price) * Number(item.quantity) || 0)), 0);
             dbUpdates.total_items_count = summary.length;
         }
-        if (updates.status !== undefined) dbUpdates.status = updates.status;
+        if (updates.receipt_path !== undefined) {
+            dbUpdates.receipt_path = updates.receipt_path;
+        }
 
         dbUpdates.updated_at = new Date().toISOString();
 
@@ -337,19 +347,7 @@ export class CalculationRepository implements ICalculationRepository {
         return this.mapToEntity(data as CalculationDB);
     }
 
-    async getRegistry(): Promise<{ id: string | number; created_at: string }[]> {
-        const { data, error } = await this.client
-            .from('calculations')
-            .select('id, created_at')
-            .order('created_at', { ascending: true });
 
-        if (error) {
-            // Non-critical, log and return empty
-            this.logger.warn('Failed to fetch calculation registry for numbering', error);
-            return [];
-        }
-        return data || [];
-    }
 
     async delete(id: string | number): Promise<void> {
         const { error } = await this.client.from('calculations').delete().eq('id', id);

@@ -108,9 +108,9 @@ const MessageBubble = React.memo<{
 
                 {/* Text Content */}
                 {msg.content && (
-                    <p className="text-[13px] font-medium leading-relaxed">
+                    <div className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap">
                         {highlightText(msg.content, searchQuery)}
-                    </p>
+                    </div>
                 )}
 
                 {/* Footer (only for text/voice messages) */}

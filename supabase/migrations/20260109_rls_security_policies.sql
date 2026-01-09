@@ -38,9 +38,10 @@ CREATE POLICY "calculations_select_client" ON calculations
 CREATE POLICY "calculations_insert_client" ON calculations
     FOR INSERT WITH CHECK (user_id = auth.uid());
 
--- Clients can update their own draft calculations
+-- Clients can update their own calculations
+-- (Transition logic is controlled by DB triggers, RLS only checks ownership)
 CREATE POLICY "calculations_update_client" ON calculations
-    FOR UPDATE USING (user_id = auth.uid() AND status = 'draft');
+    FOR UPDATE USING (user_id = auth.uid());
 
 -- Managers can see calculations assigned to them
 CREATE POLICY "calculations_select_manager" ON calculations
@@ -195,6 +196,25 @@ CREATE POLICY "suppliers_modify_admin" ON suppliers
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- ============================================
+-- 10. CALCULATION_AUDIT_LOG
+-- ============================================
+ALTER TABLE calculation_audit_log ENABLE ROW LEVEL SECURITY;
+
+-- Allow insert for all (required by triggers firing on user actions)
+CREATE POLICY "calculation_audit_log_insert" ON calculation_audit_log
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Users see logs for their participation, managers see all
+CREATE POLICY "calculation_audit_log_select" ON calculation_audit_log
+    FOR SELECT USING (
+        actor_id = auth.uid() 
+        OR EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND role IN ('manager', 'admin')
         )
     );
 

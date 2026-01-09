@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { useServices } from '@/core/di/ServiceContainer';
 import {
     ChevronLeft, Download, Send, Calendar,
     AlertCircle, CheckCircle, Trash2, AlertTriangle, Briefcase, FileText,
-    CreditCard, Copy, Boxes, MapPin, CheckCircle2, Package, Wallet, Clock,
-    Search, MessageSquare, Calculator, Plus, Settings, RefreshCcw
+    CreditCard, Boxes, MapPin, CheckCircle2, Package, Clock,
+    Search, MessageSquare, Calculator, Plus, Settings, RefreshCcw, X
 } from 'lucide-react';
 import { type Calculation, type CalculationStatus, type CalculationResults } from '../../dashboard.types';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
@@ -19,22 +20,12 @@ import { ProductPickerModal } from './ProductPickerModal';
 import { useProjectChat } from '@/features/chat/hooks/useProjectChat';
 import { useProductSelection } from '@/features/dashboard/hooks/useProductSelection';
 import { generateInvoicePDF } from '../../utils/pdfInvoiceGenerator';
-
-// Hardcoded company requisites (as they were in the original file)
-const COMPANY_REQUISITES = {
-    name: "ООО «НОВИКОРП»",
-    inn: "7720868200",
-    kpp: "772001001",
-    bank: "АО «ТИНЬКОФФ БАНК»",
-    bik: "044525974",
-    account: "40702810310001362623",
-    corrAccount: "30101810145250000974"
-};
+import { PaymentStatusView } from './PaymentStatusView';
 
 interface ClientCalculationDetailsProps {
     calculation: Calculation;
     onBack: () => void;
-    onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: { results?: CalculationResults }) => void;
+    onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: Partial<Calculation>) => void;
     onDelete: (id: number | string) => void;
     onEdit: (calc: Calculation) => void;
     onAssign?: (id: number | string) => void;
@@ -53,7 +44,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     displayId
 }) => {
     const { user } = useAuth();
-    // Removed useServices as it's now handled in useProductSelection
+    const { calculationService } = useServices();
 
     // Initialize Domain Entity and VM
     const entity = useMemo(() => new CalculationEntity(calculation), [calculation]);
@@ -196,12 +187,20 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 </button>
                             )}
                             {entity.isPaymentSent() && (
-                                <button
-                                    onClick={() => onUpdateStatus(entity.id, 'paid')}
-                                    className="btn-premium !bg-emerald-600 !border-none"
-                                >
-                                    <CheckCircle2 className="w-5 h-5" /> Подтвердить оплату
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => onUpdateStatus(entity.id, 'paid')}
+                                        className="btn-premium !bg-emerald-600 !border-none"
+                                    >
+                                        <CheckCircle2 className="w-5 h-5" /> Подтвердить оплату
+                                    </button>
+                                    <button
+                                        onClick={() => onUpdateStatus(entity.id, 'invoice')}
+                                        className="btn-premium-secondary !text-red-500 !border-red-500/20 hover:!bg-red-500/5 px-4"
+                                    >
+                                        <X size={18} /> Оплата не принята
+                                    </button>
+                                </div>
                             )}
                             {entity.status === 'paid' && (
                                 <button
@@ -222,90 +221,21 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 </div>
             </div>
 
-            {entity.isInvoiced() && (
-                <div className="glass-card !bg-primary/5 border-primary/30 p-10 space-y-8 animate-in zoom-in duration-500">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-primary text-white rounded-3xl flex items-center justify-center shadow-xl shadow-primary/20">
-                            <CreditCard size={32} />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="text-2xl font-black tracking-tight">Реквизиты для оплаты</h3>
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
-                                Проект прошел аудит. Ожидаем оплату для запуска логистики.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-card/50 p-8 rounded-[2rem] border border-border-theme">
-                        <div className="space-y-6">
-                            {[
-                                { label: 'Получатель', value: COMPANY_REQUISITES.name },
-                                { label: 'ИНН', value: COMPANY_REQUISITES.inn },
-                                { label: 'КПП', value: COMPANY_REQUISITES.kpp },
-                                { label: 'Банк', value: COMPANY_REQUISITES.bank },
-                            ].map((req, i) => (
-                                <div key={i} className="flex justify-between items-center group/req">
-                                    <div>
-                                        <p className="text-[8px] font-black text-foreground/30 uppercase tracking-[0.2em] mb-1">{req.label}</p>
-                                        <p className="text-[13px] font-black">{req.value}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => { navigator.clipboard.writeText(req.value); toast.success('Скопировано'); }}
-                                        className="p-2 opacity-0 group-hover/req:opacity-100 hover:text-primary transition-all bg-transparent border-none cursor-pointer"
-                                    >
-                                        <Copy size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="space-y-6">
-                            {[
-                                { label: 'Бик', value: COMPANY_REQUISITES.bik },
-                                { label: 'Р/С', value: COMPANY_REQUISITES.account },
-                                { label: 'К/С', value: COMPANY_REQUISITES.corrAccount },
-                                { label: 'Сумма счета', value: `${totalCost.toLocaleString()} ₽` },
-                            ].map((req, i) => (
-                                <div key={i} className="flex justify-between items-center group/req">
-                                    <div>
-                                        <p className="text-[8px] font-black text-foreground/30 uppercase tracking-[0.2em] mb-1">{req.label}</p>
-                                        <p className={`text-[13px] font-black ${req.label === 'Сумма счета' ? 'text-primary' : ''}`}>{req.value}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => { navigator.clipboard.writeText(req.value); toast.success('Скопировано'); }}
-                                        className="p-2 opacity-0 group-hover/req:opacity-100 hover:text-primary transition-all bg-transparent border-none cursor-pointer"
-                                    >
-                                        <Copy size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {entity.managerAdjustments?.notes && (
-                        <div className="p-8 bg-amber-500/5 border border-amber-500/20 rounded-2xl space-y-3">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
-                                <AlertCircle size={14} /> Примечания к расчету
-                            </h4>
-                            <p className="text-xs leading-relaxed opacity-70 italic whitespace-pre-wrap">
-                                {entity.managerAdjustments.notes}
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <button onClick={handleDownloadPDF} className="flex-1 btn-premium-secondary">
-                            <Download className="w-5 h-5" /> Скачать счет (PDF)
-                        </button>
-                        {user?.role !== 'manager' && (
-                            <button
-                                onClick={() => onUpdateStatus(entity.id, 'payment_review')}
-                                className="flex-1 btn-premium !bg-emerald-500 hover:!bg-emerald-600 !border-none text-white"
-                            >
-                                <Wallet className="w-5 h-5" /> Я оплатил
-                            </button>
-                        )}
-                    </div>
-                </div>
+            {(entity.canSubmitPayment() || entity.isPaymentSent() || (entity.isPaid() && calculation.receipt_path)) && (
+                <PaymentStatusView
+                    calculation={calculation}
+                    userRole={user?.role as any}
+                    onUploadReceipt={async (file) => {
+                        const filePath = await calculationService.uploadReceipt(entity.id, file, entity.userId || user?.id || '');
+                        await onUpdateStatus(entity.id, 'payment_review', {
+                            receipt_path: filePath
+                        } as any);
+                    }}
+                    onContactManager={() => {
+                        // Switch to chat tab in ProjectChatSection
+                        toast.info('Откройте раздел "Обсуждение" ниже');
+                    }}
+                />
             )}
 
             {(entity.status === 'expert' || entity.status === 'revision') && (

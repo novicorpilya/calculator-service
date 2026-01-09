@@ -3,6 +3,8 @@ import type { Calculation } from '../dashboard.types';
 import { ApplicationError } from '@/core/errors/AppErrors';
 import { supabase } from '@/services/supabase';
 import type { IChatService } from '@/features/chat/services/ChatService';
+import { CALCULATION_STATUS, CALCULATION_ACTION } from '@/core/constants/calculation.constants';
+import { CHAT_TEMPLATES } from '@/features/chat/constants/templates';
 
 export interface ICalculationService {
     getMyCalculations(userId: string): Promise<Calculation[]>;
@@ -14,7 +16,8 @@ export interface ICalculationService {
     delete(id: string | number): Promise<void>;
     assignToMe(id: string | number, managerId: string): Promise<Calculation>;
     adjustExpert(id: string | number, results: any, adjustments: any, version: number): Promise<Calculation>;
-    getRegistry(): Promise<{ id: string | number; created_at: string }[]>;
+    uploadReceipt(id: string | number, file: File, userId: string): Promise<string>;
+    getSignedReceiptUrl(path: string): Promise<string>;
 }
 
 export class CalculationService implements ICalculationService {
@@ -43,9 +46,7 @@ export class CalculationService implements ICalculationService {
         return this.repository.getManagerWorkload(managerId);
     }
 
-    async getRegistry(): Promise<{ id: string | number; created_at: string }[]> {
-        return this.repository.getRegistry();
-    }
+
 
     // ATOMIC CREATE
     async create(calc: Partial<Calculation>, userId: string): Promise<Calculation> {
@@ -59,30 +60,27 @@ export class CalculationService implements ICalculationService {
     async update(id: string | number, updates: Partial<Calculation>): Promise<Calculation> {
         try {
             if (updates.status) {
-                let action = '';
+                // Determine action name
+                let action: string = updates.status;
                 switch (updates.status) {
-                    case 'sent': action = 'submit'; break;
-                    case 'invoice': action = 'approve'; break;
-                    case 'changes': action = 'reject'; break;
-                    case 'revision': action = 'resolve'; break;
-                    // draft and others (paid, shipping, etc) fall through to direct update
+                    case CALCULATION_STATUS.SENT: action = CALCULATION_ACTION.SUBMIT; break;
+                    case CALCULATION_STATUS.INVOICE: action = CALCULATION_ACTION.APPROVE; break;
+                    case CALCULATION_STATUS.CHANGES: action = CALCULATION_ACTION.REJECT; break;
+                    case CALCULATION_STATUS.REVISION: action = CALCULATION_ACTION.RESOLVE; break;
+                    case CALCULATION_STATUS.PAID: action = CALCULATION_ACTION.ACCEPT_PAYMENT; break;
                 }
 
-                if (action) {
-                    const contentValues: Partial<Calculation> = { ...updates };
-                    delete contentValues.status;
+                const contentUpdates: Partial<Calculation> = { ...updates };
+                delete contentUpdates.status;
 
-                    // Update content first if needed
-                    if (Object.keys(contentValues).length > 0) {
-                        await this.repository.updateContent(id, contentValues);
-                    }
-
-                    // Execute status action atomically
-                    return await this.repository.executeAction(id, action);
+                if (Object.keys(contentUpdates).length > 0) {
+                    await this.repository.updateContent(id, contentUpdates);
                 }
+
+                return await this.repository.executeAction(id, action);
             }
 
-            // Non-status updates or direct status changes (e.g., draft, on_hold, paid, etc.)
+            // Non-status updates (only data changes)
             return await this.repository.updateContent(id, updates);
         } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
@@ -109,10 +107,7 @@ export class CalculationService implements ICalculationService {
 
             // Send automated welcome message
             try {
-                // Fetch manager's profile for their name
-                const registry = await this.repository.getRegistry();
-                const projectIndex = registry.findIndex(r => String(r.id) === String(id));
-                const projectNumber = projectIndex >= 0 ? projectIndex + 1 : '—';
+                const projectNumber = result.project_number || '—';
 
                 // Fetch manager's profile directly for accurate name
                 const { data: profile } = await supabase
@@ -131,7 +126,7 @@ export class CalculationService implements ICalculationService {
                     }
                 }
 
-                const welcomeMessage = `Здравствуйте! 👋\nМеня зовут ${managerName}, я ваш персональный менеджер по проекту #${projectNumber}.\n\nЧто я буду делать:\n\n🔍 Проверю корректность ваших расчётов и параметров\n💬 Отвечу на все вопросы по инвентарю и HACCP-стандартам\n💰 Сформирую оптимальное коммерческое предложение\n📋 Подготовлю счёт и документы к оплате\n\nЯ буду с вами на всех этапах — от проверки заявки до получения товара. Обычно на аудит и формирование предложения уходит 1-2 рабочих дня.\n\nЕсли у вас есть вопросы, специальные пожелания или дополнительные материалы (планировки, фото зон, особые требования) — пишите прямо сюда в чат или отправляйте файлы. 😊\n\nПриступаю к работе! 🚀`;
+                const welcomeMessage = CHAT_TEMPLATES.WELCOME(managerName, projectNumber);
 
                 if (result.user_id) {
                     await this.chatService.sendMessage({
@@ -161,6 +156,42 @@ export class CalculationService implements ICalculationService {
             const errMsg = error instanceof Error ? error.message : String(error);
             await this.recordError(id, `Expert Adjustment Error: ${errMsg}`);
             throw error;
+        }
+    }
+
+    async uploadReceipt(id: string | number, file: File, userId: string): Promise<string> {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `receipt_${Date.now()}.${fileExt}`;
+            const filePath = `${userId}/${id}/${fileName}`;
+
+            const { error: uploadError } = await (this.repository as any).client.storage
+                .from('receipts')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw new ApplicationError('UPLOAD_FAILED', uploadError.message);
+            }
+
+            return filePath;
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : String(error);
+            await this.recordError(id, `Receipt Upload Error: ${errMsg}`);
+            throw error;
+        }
+    }
+
+    async getSignedReceiptUrl(path: string): Promise<string> {
+        try {
+            const { data, error } = await (this.repository as any).client.storage
+                .from('receipts')
+                .createSignedUrl(path, 3600);
+
+            if (error) throw error;
+            return data.signedUrl;
+        } catch (error: unknown) {
+            console.error('[CalculationService] Failed to get signed URL', error);
+            throw new ApplicationError('SIGNED_URL_FAILED', 'Could not retrieve file access');
         }
     }
 }

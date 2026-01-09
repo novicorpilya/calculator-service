@@ -190,10 +190,13 @@ export interface Calculation {
     manager_adjustments?: Record<string, any>;
     locked_at?: string;
     final_snapshot?: CalculationResults;
+    receipt_path?: string;
+    client_name?: string;
+    project_number?: number;
 }
 
 export interface Zone {
-    id: number | string;
+    id: string;
     name: string;
     type: string;
     area: string;

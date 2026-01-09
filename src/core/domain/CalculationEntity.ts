@@ -1,7 +1,5 @@
-import type {
-    Calculation,
-    CalculationStatus
-} from '../../features/dashboard/dashboard.types';
+import type { Calculation, CalculationStatus } from '@/features/dashboard/dashboard.types';
+import { CALCULATION_STATUS } from '../constants/calculation.constants';
 
 import { calculateTotalCost } from './calculator.utils';
 
@@ -56,7 +54,7 @@ export class CalculationEntity {
             'changes': ['revision', 'sent'],
             'revision': ['expert', 'invoice'],
             'invoice': ['payment_review', 'changes'],
-            'payment_review': ['paid', 'changes'],
+            'payment_review': ['paid', 'changes', 'invoice'],
             'paid': ['processing'],
             'processing': ['ready'],
             'ready': ['shipping'],
@@ -111,12 +109,21 @@ export class CalculationEntity {
      * True for: sent, revision, expert, suppliers, invoice
      */
     isActionableByManager(): boolean {
-        if (this.isLocked() && this.data.status !== 'invoice') return false;
-        return ['sent', 'revision', 'expert', 'suppliers', 'invoice'].includes(this.data.status);
+        const statuses: CalculationStatus[] = [
+            CALCULATION_STATUS.SENT,
+            CALCULATION_STATUS.REVISION,
+            CALCULATION_STATUS.EXPERT,
+            CALCULATION_STATUS.INVOICE,
+            CALCULATION_STATUS.PAYMENT_REVIEW
+        ];
+
+        if (this.isLocked() && this.data.status !== CALCULATION_STATUS.INVOICE) return false;
+        return statuses.includes(this.data.status);
     }
 
     canRequestChanges(): boolean {
-        return ['sent', 'revision', 'expert'].includes(this.data.status);
+        const statuses: CalculationStatus[] = [CALCULATION_STATUS.SENT, CALCULATION_STATUS.REVISION, CALCULATION_STATUS.EXPERT];
+        return statuses.includes(this.data.status);
     }
 
     /**
@@ -124,42 +131,55 @@ export class CalculationEntity {
      * True for: sent, revision, changes (fast-track)
      */
     canMoveToInvoice(): boolean {
-        return ['sent', 'revision', 'changes', 'expert', 'suppliers'].includes(this.data.status);
+        const statuses: CalculationStatus[] = [
+            CALCULATION_STATUS.SENT,
+            CALCULATION_STATUS.REVISION,
+            CALCULATION_STATUS.CHANGES,
+            CALCULATION_STATUS.EXPERT
+        ];
+        return statuses.includes(this.data.status);
     }
 
     /**
      * Is the calculation in invoice/payment stage?
      */
-    isInvoiced(): boolean {
-        return this.data.status === 'invoice';
+    canSubmitPayment(): boolean {
+        return this.data.status === CALCULATION_STATUS.INVOICE;
     }
 
     /**
      * Is the calculation completed?
      */
     isCompleted(): boolean {
-        return this.data.status === 'completed';
+        return this.data.status === CALCULATION_STATUS.COMPLETED;
     }
 
     /**
      * Is the calculation a draft?
      */
     isDraft(): boolean {
-        return this.data.status === 'draft';
+        return this.data.status === CALCULATION_STATUS.DRAFT;
     }
 
     /**
      * Has the client claimed that the invoice is paid?
      */
     isPaymentSent(): boolean {
-        return this.data.status === 'payment_review';
+        return this.data.status === CALCULATION_STATUS.PAYMENT_REVIEW;
     }
 
     /**
      * Is the payment confirmed by the manager?
      */
     isPaid(): boolean {
-        return ['paid', 'processing', 'ready', 'shipping', 'completed'].includes(this.data.status);
+        const statuses: CalculationStatus[] = [
+            CALCULATION_STATUS.PAID,
+            CALCULATION_STATUS.PROCESSING,
+            CALCULATION_STATUS.READY,
+            CALCULATION_STATUS.SHIPPING,
+            CALCULATION_STATUS.COMPLETED
+        ];
+        return statuses.includes(this.data.status);
     }
 
     /**
