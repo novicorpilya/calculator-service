@@ -19,6 +19,7 @@ import { ROUTES } from '@/app/routes/routes.constants'
 import { setRememberMePreference } from '@/services/supabase/storage'
 import { authService } from '@/features/auth/auth.service'
 import { toast } from 'sonner'
+import { logger } from '@/app/services';
 
 interface HoRecaAuthProps {
     initialMode?: AuthMode
@@ -58,7 +59,7 @@ export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' })
                         })
                     }
                 } catch (e) {
-                    console.error('Invite check failed', e)
+                    logger.error('Invite check failed', { error: e })
                 }
             }
         }

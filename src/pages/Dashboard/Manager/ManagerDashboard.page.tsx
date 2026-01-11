@@ -12,7 +12,7 @@ import { ClientCalculationDetails } from '@/features/dashboard/client/components
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
 import type { Calculation, CalculationStatus } from '@/features/dashboard/dashboard.types';
 import { useAuth } from '@/features/auth';
-import { chatService } from '@/app/services'; // Import singleton
+import { chatService, logger } from '@/app/services'; // Import singleton
 import {
     useManagerWorkload,
     useUnassignedLeads,
@@ -60,7 +60,7 @@ export const ManagerDashboard: React.FC = () => {
         const unsubscribe = chatService.subscribeToProjects((payload: { id: string | number, isSignal?: boolean }) => {
             // Optimistic update logging
             if (import.meta.env.DEV) {
-                console.debug(`[Sync:Pulse] ${payload.id} invalidating queries...`);
+                logger.debug(`[Sync:Pulse] ${payload.id} invalidating queries...`);
             }
 
             // Invalidate all dashboard data to ensure consistency
@@ -103,9 +103,7 @@ export const ManagerDashboard: React.FC = () => {
                     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
                         <ClientCalculationDetails
                             calculation={selectedCalculation}
-                            // Calculate display ID based on index in list? Or just raw index?
-                            // Preserving logic: find index in combined list
-                            displayId={allCalculations.findIndex(c => String(c.id) === String(selectedId)) + 1}
+                            displayId={selectedCalculation.project_number}
                             onBack={() => setSelectedId(null)}
                             onUpdateStatus={handleUpdateStatus}
                             onAdjustExpert={handleAdjustExpert}
@@ -128,7 +126,7 @@ export const ManagerDashboard: React.FC = () => {
                     currentPage === 'pipeline' ? 'Проекты' :
                         currentPage === 'overview' ? 'Обзор' :
                             currentPage === 'chat' ? 'Чат' :
-                                currentPage === 'kb' ? 'Инвентарь' : 'Панель эксперта'
+                                currentPage === 'kb' ? 'Реестр товаров' : 'Панель эксперта'
                 }
             />
 

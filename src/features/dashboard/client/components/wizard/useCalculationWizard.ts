@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { type Calculation, type CalculationResults, type Zone, ZONE_TYPES } from '@/features/dashboard/dashboard.types';
-import { venueService } from '@/app/services';
-import { inventoryService } from '@/app/services';
+import { venueService, inventoryService, logger } from '@/app/services';
 import type { Venue } from '@/services/venue.service';
 import type { InventoryItemMaster } from '@/services/inventory.service';
 import { toast } from 'sonner';
@@ -54,9 +53,9 @@ export const useCalculationWizard = (initialData?: Calculation) => {
                     inventoryService.getGlobalItems()
                 ]);
                 setVenues(vData);
-                setGlobalInventory(iData);
+                setGlobalInventory(iData.data);
             } catch (e) {
-                console.error('Failed to load wizard data', e);
+                logger.error('Failed to load wizard data', { error: e });
             } finally {
                 setIsLoadingData(false);
             }

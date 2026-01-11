@@ -1,8 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/core/di/ServiceContainer';
-import { generateShortToken } from '@/core/utils/crypto';
-import type { Message, MessageCreatePayload } from '../types';
+import type { Message, MessageCreatePayload, MessageEventType } from '../types';
 
 interface UseMessagesOptions {
     currentUserId: string;
@@ -72,9 +71,14 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
 
+            const clientMessageId = crypto.randomUUID();
+            // Inject the ID into params for the mutationFn to pick up
+            newMessage.client_message_id = clientMessageId;
+
             // Optimistic update
             const tempMessage: Message = {
-                id: `temp-${generateShortToken(12)}`,
+                id: `temp-${clientMessageId}`,
+                client_message_id: clientMessageId,
                 sender_id: currentUserId,
                 receiver_id: selectedUserId,
                 content: newMessage.content,
@@ -83,6 +87,8 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 voice_duration: newMessage.voice_duration,
                 created_at: new Date().toISOString(),
                 is_edited: false,
+                calculation_id: null,
+                status: 'pending' as any,
             };
 
             queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, tempMessage]);
@@ -106,28 +112,32 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 content: params.content || '',
                 image_url: publicUrl,
                 reply_to_id: params.reply_to_id,
-                calculation_id: params.calculation_id,
+                calculation_id: null,
+                client_message_id: params.client_message_id,
             });
         },
         onMutate: async (params) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
 
-            const clientId = generateShortToken(16);
+            const clientMessageId = crypto.randomUUID();
+            params.client_message_id = clientMessageId; // Inject for mutationFn
+
             const tempMessage: Message = {
-                id: `temp-${clientId}`,
-                client_id: clientId,
+                id: `temp-${clientMessageId}`,
+                client_message_id: clientMessageId,
                 sender_id: params.sender_id || currentUserId,
                 receiver_id: params.receiver_id || selectedUserId,
                 content: params.content || '',
                 image_url: params.previewUrl,
                 created_at: new Date().toISOString(),
                 is_edited: false,
+                calculation_id: null,
             };
 
             queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, tempMessage]);
 
-            return { previousMessages, tempId: tempMessage.id, clientId };
+            return { previousMessages, tempId: tempMessage.id, clientMessageId };
         },
         onError: (_err: Error, _variables: unknown, context?: { previousMessages?: Message[] }) => {
             queryClient.setQueryData(queryKey, context?.previousMessages);
@@ -147,16 +157,20 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 content: '',
                 voice_url: publicUrl,
                 voice_duration: params.duration,
+                calculation_id: null,
+                client_message_id: params.client_message_id,
             });
         },
         onMutate: async (params) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
 
-            const clientId = generateShortToken(16);
+            const clientMessageId = crypto.randomUUID();
+            params.client_message_id = clientMessageId; // Inject for mutationFn
+
             const tempMessage: Message = {
-                id: `temp-${clientId}`,
-                client_id: clientId,
+                id: `temp-${clientMessageId}`,
+                client_message_id: clientMessageId,
                 sender_id: params.sender_id || currentUserId,
                 receiver_id: params.receiver_id || selectedUserId,
                 content: '',
@@ -164,11 +178,12 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 voice_duration: params.duration,
                 created_at: new Date().toISOString(),
                 is_edited: false,
+                calculation_id: null,
             };
 
             queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, tempMessage]);
 
-            return { previousMessages, tempId: tempMessage.id, clientId };
+            return { previousMessages, tempId: tempMessage.id, clientMessageId };
         },
         onError: (_err: Error, _variables: unknown, context?: { previousMessages?: Message[] }) => {
             queryClient.setQueryData(queryKey, context?.previousMessages);
@@ -240,34 +255,51 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
     });
 
     // 3. Realtime Handler
-    const handleIncomingMessage = useCallback(async (message: Message, event: 'INSERT' | 'UPDATE' | 'DELETE') => {
+    const handleIncomingMessage = useCallback(async (message: Message, event: MessageEventType) => {
         if (event === 'INSERT') {
             if (message.image_url) {
                 await preloadImageWithRetry(message.image_url);
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
 
-            // Atomic Update with Deduplication
+            // Atomic Update with Exact Identity Matching
             queryClient.setQueryData(queryKey, (old: Message[] = []) => {
                 if (old.some(m => m.id === message.id)) return old;
 
                 let replaced = false;
                 const nextMessages = old.map(m => {
-                    const isTemp = m.id.startsWith('temp-');
-                    const isSenderMatch = m.sender_id === message.sender_id;
-                    const isMatchingContent = m.content === message.content && m.content !== '';
-                    const isMatchingImage = m.image_url && message.image_url;
-                    const isMatchingVoice = m.voice_url && message.voice_url;
+                    if (replaced) return m;
 
-                    if (!replaced && isTemp && isSenderMatch && (isMatchingContent || isMatchingImage || isMatchingVoice)) {
+                    // 1. Primary Match: client_message_id
+                    if (message.client_message_id && m.client_message_id === message.client_message_id) {
                         replaced = true;
-                        return { ...message, client_id: m.client_id };
+                        return { ...message, status: 'sent' };
                     }
+
+                    // 2. Secondary Match: Fallback for media/voice (empty content)
+                    // Match by sender + absence of real ID + matching media properties
+                    const isMediaFallback = m.id.startsWith('temp-') &&
+                        m.sender_id === message.sender_id &&
+                        !m.content && !message.content &&
+                        ((m.voice_duration && m.voice_duration === message.voice_duration) ||
+                            (m.image_url && message.image_url));
+
+                    if (isMediaFallback) {
+                        replaced = true;
+                        return { ...message, status: 'sent' };
+                    }
+
+                    // 3. Tertiary Match: Fallback for text messages
+                    if (m.id.startsWith('temp-') && m.sender_id === message.sender_id && m.content === message.content && m.content !== '') {
+                        replaced = true;
+                        return { ...message, status: 'sent' };
+                    }
+
                     return m;
                 });
 
                 if (replaced) return nextMessages;
-                return [...old, message];
+                return [...old, { ...message, status: 'sent' }];
             });
         } else {
             // Processing UPDATE and DELETE
@@ -277,6 +309,15 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                         return old.map(m => m.id === message.id ? message : m);
                     case 'DELETE':
                         return old.filter(m => m.id !== message.id);
+                    case 'RECONNECT':
+                        queryClient.invalidateQueries({ queryKey });
+                        return old;
+                    case 'READ':
+                        // If selected friend read my messages
+                        if (message.receiver_id === selectedUserId) {
+                            return old.map(m => m.sender_id === currentUserId ? { ...m, is_read: true } : m);
+                        }
+                        return old;
                     default:
                         return old;
                 }

@@ -1,6 +1,7 @@
 import React from 'react'
 import { LogOut, User } from 'lucide-react'
 import { useAuth } from '@/features/auth'
+import { logger } from '@/app/services';
 
 export const Header: React.FC = () => {
     const { user, logout } = useAuth()
@@ -9,7 +10,7 @@ export const Header: React.FC = () => {
         try {
             await logout()
         } catch (error) {
-            console.error('Logout failed:', error)
+            logger.error('Logout failed', { error });
         }
     }
 

@@ -192,7 +192,7 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                                         })()}
                                     </p>
                                     <h4 className="text-[13px] font-black uppercase tracking-tight truncate group-hover:text-primary transition-colors">
-                                        <span className="text-foreground/30 mr-2 opacity-50 font-mono">#{String(calculations.indexOf(calc) + 1).padStart(3, '0')}</span>
+                                        <span className="text-foreground/30 mr-2 opacity-50 font-mono">#{String(calc.project_number || calculations.indexOf(calc) + 1).padStart(3, '0')}</span>
                                         {calc.organizationName}
                                     </h4>
                                 </div>

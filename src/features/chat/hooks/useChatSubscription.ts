@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/services/supabase';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { CHAT_CHANNELS, type Message } from '../types';
+import { type Message } from '../types';
 
 interface UseChatSubscriptionOptions {
     currentUserId: string;
@@ -49,16 +49,21 @@ export function useChatSubscription({
     useEffect(() => {
         if (!currentUserId || currentUserId === 'undefined') return;
 
-        console.log(`[Realtime] Establishing stable connection for ${currentUserId}`);
 
+
+        const personalChannel = `user_updates_${currentUserId}`;
         const channel = supabase
-            .channel(CHAT_CHANNELS.GLOBAL_SYNC)
+            .channel(personalChannel)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'messages' },
                 (payload: RealtimePostgresChangesPayload<Message>) => {
                     const event = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
                     const msg = (event === 'DELETE' ? payload.old : payload.new) as Message;
+
+                    // CRITICAL: Ignore project messages in direct chat subscription
+                    if (msg.calculation_id) return;
+
                     const { selectedUserId: currentSelected, onIncomingMessage: handleMsg, onRecipientUpdate: handleRecipient, onUnreadIncrement: handleUnread } = callbacksRef.current;
 
                     const isForCurrentChat =
@@ -72,13 +77,14 @@ export function useChatSubscription({
                     }
 
                     // 2. Update recipient list on new messages
-                    if (event === 'INSERT') {
-                        const contactId = msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
+                    // Ensure sender_id and receiver_id check to satisfy TS (string | null vs string)
+                    if (event === 'INSERT' && msg.sender_id && msg.receiver_id) {
+                        const contactId = msg.sender_id === currentUserId ? msg.receiver_id! : msg.sender_id!;
                         handleRecipient(msg, contactId);
 
                         // 3. Handle unread count
                         if (msg.sender_id !== currentUserId && (!currentSelected || msg.sender_id !== currentSelected)) {
-                            handleUnread(msg.sender_id);
+                            handleUnread(msg.sender_id!);
                         }
                     }
                 }
@@ -87,17 +93,24 @@ export function useChatSubscription({
                 const { sender_id, receiver_id } = payload;
                 callbacksRef.current.onHistoryCleared(sender_id, receiver_id);
             })
+            .on('broadcast', { event: 'messages_read' }, ({ payload }) => {
+                const { receiverId, calculationId } = payload;
+                // If it's a global chat (no calculationId), notify the active message list
+                if (!calculationId) {
+                    callbacksRef.current.onIncomingMessage({ receiver_id: receiverId } as any, 'READ' as any);
+                }
+            })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('[Realtime] Stable connection JOINED');
+
                 }
                 if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                    console.error(`[Realtime] Connection issue: ${status}`);
+                    // Fail silently in production or handle via a dedicated logger
                 }
             });
 
         return () => {
-            console.log('[Realtime] Cleaning up stable connection');
+
             supabase.removeChannel(channel);
         };
     }, [currentUserId]); // ONLY depend on currentUserId

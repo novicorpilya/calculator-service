@@ -21,6 +21,7 @@ import { ModernStatusBadge } from '../../components/ModernStatusBadge';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
 import { usePaginatedCalculations } from '../../hooks/usePaginatedCalculations';
+import { useUnreadCount } from '@/features/chat/hooks';
 
 interface ManagerCalculationsListProps {
     userId: string;
@@ -31,8 +32,9 @@ interface ManagerCalculationsListProps {
 const CalculationCard = React.memo<{
     vm: CalculationViewModel;
     index: number;
+    unreadCount: number;
     onSelect: (calc: Calculation) => void;
-}>(({ vm, index, onSelect }) => (
+}>(({ vm, index, unreadCount, onSelect }) => (
     <div
         onClick={() => onSelect(vm.rawData)}
         className="group bg-card border border-border-theme p-6 rounded-[2rem] hover:border-primary/40 hover:shadow-2xl transition-all cursor-pointer h-full"
@@ -69,9 +71,9 @@ const CalculationCard = React.memo<{
 
         <div className="mt-4 flex items-center justify-between py-2 px-3 bg-background rounded-xl border border-border-theme group-hover:border-primary/30 transition-all">
             <div className="flex items-center gap-2">
-                {vm.unreadCommentsCount > 0 && (
+                {unreadCount > 0 && (
                     <div className="flex items-center justify-center w-4 h-4 bg-orange-500 text-white rounded-full text-[8px] font-black animate-pulse">
-                        {vm.unreadCommentsCount}
+                        {unreadCount}
                     </div>
                 )}
                 <span className="text-[9px] font-black uppercase tracking-widest text-foreground/40 group-hover:text-primary transition-colors">Открыть</span>
@@ -85,8 +87,9 @@ const CalculationCard = React.memo<{
 const CalculationRow = React.memo<{
     vm: CalculationViewModel;
     index: number;
+    unreadCount: number;
     onSelect: (calc: Calculation) => void;
-}>(({ vm, index, onSelect }) => (
+}>(({ vm, index, unreadCount, onSelect }) => (
     <div
         onClick={() => onSelect(vm.rawData)}
         className="group bg-card border border-border-theme p-5 rounded-[1.5rem] hover:border-primary/40 hover:shadow-xl transition-all cursor-pointer flex items-center justify-between gap-6"
@@ -109,9 +112,9 @@ const CalculationRow = React.memo<{
         </div>
 
         <div className="flex items-center gap-8 text-right shrink-0">
-            {vm.unreadCommentsCount > 0 && (
+            {unreadCount > 0 && (
                 <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-500 rounded-lg text-[8px] font-black">
-                    <MessageSquare size={10} /> {vm.unreadCommentsCount}
+                    <MessageSquare size={10} /> {unreadCount}
                 </div>
             )}
             <ModernStatusBadge status={vm.status} />
@@ -133,6 +136,8 @@ export const ManagerCalculationsList = React.memo<ManagerCalculationsListProps>(
     const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
     const parentRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = React.useState(1200);
+
+    const { projectCounts } = useUnreadCount(userId);
 
     const {
         calculations,
@@ -340,6 +345,7 @@ export const ManagerCalculationsList = React.memo<ManagerCalculationsListProps>(
                                                     key={vm.id}
                                                     vm={vm}
                                                     index={(currentPage - 1) * pagination.pageSize + startIndex + colIndex}
+                                                    unreadCount={projectCounts[String(vm.id)] || 0}
                                                     onSelect={onSelect}
                                                 />
                                             ))}
@@ -365,6 +371,7 @@ export const ManagerCalculationsList = React.memo<ManagerCalculationsListProps>(
                                         <CalculationRow
                                             vm={vm}
                                             index={(currentPage - 1) * pagination.pageSize + virtualRow.index}
+                                            unreadCount={projectCounts[String(vm.id)] || 0}
                                             onSelect={onSelect}
                                         />
                                     </div>

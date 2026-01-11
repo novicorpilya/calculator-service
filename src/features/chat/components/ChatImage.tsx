@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, AlertCircle, RotateCcw } from 'lucide-react';
+import { logger } from '@/app/services';
 
 interface ChatImageProps {
     src: string;
@@ -53,7 +54,7 @@ export const ChatImage: React.FC<ChatImageProps> = ({
 
         // Performance Metric (can be sent to analytics)
         if (loadDuration > 3000) {
-            console.warn(`[ChatImage] Slow image load: ${loadDuration}ms`, src);
+            logger.warn(`[ChatImage] Slow image load: ${loadDuration}ms`, { src });
         }
 
         setLoadState('loaded');
@@ -67,7 +68,7 @@ export const ChatImage: React.FC<ChatImageProps> = ({
 
     const handleError = useCallback(() => {
         setLoadState('error');
-        console.error(`[ChatImage] Failed to load image:`, src);
+        logger.error(`[ChatImage] Failed to load image`, { src });
     }, [src]);
 
     const handleRetry = useCallback(() => {

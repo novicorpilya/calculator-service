@@ -1,7 +1,8 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { calculationsService } from '@/services/calculations.service';
+import { dashboardKeys } from './useCalculations';
 import type { CalculationStatus } from '../dashboard.types';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { calculationRepository } from '@/app/services';
 
 export interface PaginationState {
     page: number;
@@ -57,11 +58,11 @@ export function usePaginatedCalculations(userId?: string) {
         return undefined; // 'all' - no filter
     }, [pagination.tab, userId]);
 
-    const queryKey = ['calculations', 'paginated', { ...pagination, search: debouncedSearch }, managerId];
+    const queryKey = dashboardKeys.paginated({ ...pagination, search: debouncedSearch, managerId });
 
     const { data, isLoading, error, isFetching } = useQuery({
         queryKey,
-        queryFn: () => calculationsService.getPaginated({
+        queryFn: () => calculationRepository.getPaginated({
             page: pagination.page,
             pageSize: pagination.pageSize,
             search: debouncedSearch, // Use debounced value

@@ -1,4 +1,5 @@
 import { type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
+import { logger } from '@/app/services';
 
 export interface IPresenceService {
     trackUser(userId: string): Promise<void>;
@@ -67,7 +68,7 @@ export class PresenceService implements IPresenceService {
                     const delay = Math.min(1000 * Math.pow(2, this.retryCount), 30000);
                     this.retryCount++;
 
-                    console.warn(`[PresenceService] ${status}. Retrying in ${delay}ms...`);
+                    logger.warn(`[PresenceService] ${status}. Retrying in ${delay}ms...`);
 
                     this.teardown().then(() => {
                         if (this.userId) {
@@ -134,7 +135,7 @@ export class PresenceService implements IPresenceService {
             online_at: new Date().toISOString(),
             device_id: window.crypto.randomUUID()
         }).catch(err => {
-            console.error('[PresenceService] Track error:', err);
+            logger.error('[PresenceService] Track error', { err });
         });
     }
 

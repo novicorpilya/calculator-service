@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
     Send, MessageSquare, MoreVertical, Phone, Info,
-    CheckCircle2, ArrowLeft, Paperclip, X, Loader2,
-    Trash2, Smile, Mic
+    ArrowLeft, Paperclip, X, Loader2,
+    Trash2, Smile, Mic, Check, CheckCheck
 } from 'lucide-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
@@ -258,9 +258,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     />
                                 )}
                                 {msg.content && <p className="text-[13px] font-medium leading-relaxed">{msg.content}</p>}
-                                <div className="flex items-center gap-2 mt-3 justify-end opacity-40">
-                                    <span className="text-[8px] font-black uppercase tracking-widest">{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}</span>
-                                    {msg.sender_id === currentUser.id && <CheckCircle2 size={10} />}
+                                <div className="flex items-center gap-1.5 mt-2 justify-end">
+                                    <span className="text-[8px] font-black uppercase tracking-widest opacity-40">{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}</span>
+                                    {msg.sender_id === currentUser.id && (
+                                        <div className="flex items-center">
+                                            {msg.is_read ? (
+                                                <CheckCheck size={11} className="text-white" />
+                                            ) : (
+                                                <Check size={11} className="text-white/70" />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useServices } from '@/core/di/ServiceContainer';
+import { logger } from '@/app/services';
 import {
     ChevronLeft, Download, Send, Calendar,
     AlertCircle, CheckCircle, Trash2, AlertTriangle, Briefcase, FileText,
@@ -61,7 +62,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
     const totalUnits = entity.totalItems;
 
     // Custom Hooks
-    const { messages, loadingMessages, clearHistory, sendMessage } = useProjectChat(entity, user);
+    const { messages, loadingMessages, clearHistory, sendMessage, resendMessage } = useProjectChat(entity, user);
     const {
         isAuditMode,
         setIsAuditMode,
@@ -82,7 +83,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
             generateInvoicePDF(entity);
             toast.success('Счет сформирован (PDF)');
         } catch (error) {
-            console.error('PDF Error:', error);
+            logger.error('PDF Error', { error });
             toast.error('Ошибка генерации PDF');
         }
     };
@@ -168,7 +169,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             <Briefcase className="w-5 h-5" /> Принять проект
                         </button>
                     )}
-                    {user?.role === 'manager' && entity.isAssignedTo(user.id) && (
+                    {(user?.role === 'manager' || user?.role === 'admin') && (entity.isAssignedTo(user.id) || user?.role === 'admin') && (
                         <>
                             {entity.canRequestChanges() && (
                                 <button
@@ -238,117 +239,102 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 />
             )}
 
+            {/* Expertise Info Section */}
             {(entity.status === 'expert' || entity.status === 'revision') && (
-                <div className="space-y-8 animate-in zoom-in duration-500">
-                    <div className="glass-card !bg-indigo-500/5 border-indigo-500/30 p-10 space-y-8">
-                        <div className="flex items-center gap-6">
-                            <div className="w-16 h-16 bg-indigo-500 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-500/20">
-                                <Search size={32} />
-                            </div>
-                            <div className="space-y-1">
-                                <h3 className="text-2xl font-black tracking-tight">Проводится экспертиза</h3>
-                                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
-                                    Менеджер детально изучает проект и готовит финальное предложение.
-                                </p>
-                            </div>
+                <div className="glass-card !bg-indigo-500/5 border-indigo-500/30 p-10 space-y-8 animate-in fade-in zoom-in duration-500">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-indigo-500 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-500/20">
+                            <Search size={32} />
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {[
-                                {
-                                    icon: Search,
-                                    title: 'Аудит требований',
-                                    desc: 'Проверка корректности данных и анализ специфики объекта.'
-                                },
-                                {
-                                    icon: MessageSquare,
-                                    title: 'Коммуникация',
-                                    desc: 'Уточнение нюансов, обсуждение деталей в чате.'
-                                },
-                                {
-                                    icon: Calculator,
-                                    title: 'Корректировка',
-                                    desc: 'Ручная настройка коэффициентов и оптимизация бюджета.'
-                                },
-                                {
-                                    icon: CreditCard,
-                                    title: 'Формирование',
-                                    desc: 'Расчет итоговой стоимости и подготовка документов.'
-                                }
-                            ].map((item, i) => (
-                                <div key={i} className="bg-card/40 p-6 rounded-[1.5rem] border border-border-theme space-y-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                        <item.icon size={20} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h4 className="text-[11px] font-black uppercase tracking-wider">{item.title}</h4>
-                                        <p className="text-[10px] text-foreground/50 leading-relaxed">{item.desc}</p>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="space-y-1">
+                            <h3 className="text-2xl font-black tracking-tight">Проводится экспертиза</h3>
+                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest italic">
+                                Менеджер детально изучает проект и готовит финальное предложение.
+                            </p>
                         </div>
                     </div>
 
-                    {(entity.status === 'expert' || entity.status === 'revision') && user?.role === 'manager' && (
-                        <div className="glass-card !bg-card p-10 border-primary/20 space-y-8 shadow-2xl">
-                            <div className="flex items-center gap-4 mb-2">
-                                <div className="p-3 bg-primary/10 text-primary rounded-2xl">
-                                    <Settings size={24} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[
+                            { icon: Search, title: 'Аудит требований', desc: 'Проверка данных и анализ специфики объекта.' },
+                            { icon: MessageSquare, title: 'Коммуникация', desc: 'Уточнение нюансов в рабочем чате.' },
+                            { icon: Calculator, title: 'Корректировка', desc: 'Ручная настройка коэффициентов и оптимизация.' },
+                            { icon: CreditCard, title: 'Формирование', desc: 'Подготовка финальных документов и счета.' }
+                        ].map((item, i) => (
+                            <div key={i} className="bg-card/40 p-6 rounded-[1.5rem] border border-border-theme space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                    <item.icon size={20} />
                                 </div>
-                                <h3 className="text-xl font-black uppercase tracking-tight">Панель управления ценообразованием</h3>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Глобальная наценка (коэф.)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        defaultValue={entity.managerAdjustments?.global_margin || 1.0}
-                                        onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, global_margin: parseFloat(e.target.value) })}
-                                        className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
-                                    />
-                                    <p className="text-[9px] text-foreground/30 italic">Пример: 1.1 = +10% к сумме товаров</p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Доставка (₽)</label>
-                                    <input
-                                        type="number"
-                                        defaultValue={entity.managerAdjustments?.delivery_cost || 0}
-                                        onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, delivery_cost: parseFloat(e.target.value) })}
-                                        className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
-                                    />
-                                    <p className="text-[9px] text-foreground/30 italic">Фиксированная стоимость логистики</p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Доп. услуги / Сборка (₽)</label>
-                                    <input
-                                        type="number"
-                                        defaultValue={entity.managerAdjustments?.service_cost || 0}
-                                        onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, service_cost: parseFloat(e.target.value) })}
-                                        className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
-                                    />
-                                    <p className="text-[9px] text-foreground/30 italic">Монтаж, занос или другие услуги</p>
+                                <div className="space-y-1">
+                                    <h4 className="text-[11px] font-black uppercase tracking-wider">{item.title}</h4>
+                                    <p className="text-[10px] text-foreground/50 leading-relaxed">{item.desc}</p>
                                 </div>
                             </div>
-
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Специальные требования и примечания</label>
-                                <textarea
-                                    defaultValue={entity.managerAdjustments?.notes || ''}
-                                    onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, notes: e.target.value })}
-                                    className="w-full bg-background border border-border-theme p-6 rounded-[2rem] text-sm focus:border-primary outline-none transition-all min-h-[120px] resize-none"
-                                    placeholder="Особенности объекта, температурные режимы, требования HACCP..."
-                                />
-                            </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
             )}
 
+            {/* Pricing Management Panel - Visible only in Audit Mode for Managers */}
+            {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
+                <div className="glass-card !bg-card p-10 border-primary/20 space-y-8 shadow-2xl animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="p-3 bg-primary/10 text-primary rounded-2xl">
+                            <Settings size={24} />
+                        </div>
+                        <h3 className="text-xl font-black uppercase tracking-tight">Панель управления ценообразованием</h3>
+                    </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Глобальная наценка (коэф.)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                defaultValue={entity.managerAdjustments?.global_margin || 1.0}
+                                onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, global_margin: parseFloat(e.target.value) || 1.0 })}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                                className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
+                            />
+                            <p className="text-[9px] text-foreground/30 italic">Пример: 1.1 = +10% к сумме товаров</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Доставка (₽)</label>
+                            <input
+                                type="number"
+                                defaultValue={entity.managerAdjustments?.delivery_cost || 0}
+                                onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, delivery_cost: parseFloat(e.target.value) || 0 })}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                                className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
+                            />
+                            <p className="text-[9px] text-foreground/30 italic">Фиксированная стоимость логистики</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Доп. услуги / Сборка (₽)</label>
+                            <input
+                                type="number"
+                                defaultValue={entity.managerAdjustments?.service_cost || 0}
+                                onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, service_cost: parseFloat(e.target.value) || 0 })}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                                className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
+                            />
+                            <p className="text-[9px] text-foreground/30 italic">Монтаж, занос или другие услуги</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 pl-1">Специальные требования и примечания</label>
+                        <textarea
+                            defaultValue={entity.managerAdjustments?.notes || ''}
+                            onBlur={(e) => handleUpdateAdjustments({ ...entity.managerAdjustments, notes: e.target.value })}
+                            className="w-full bg-background border border-border-theme p-6 rounded-[2rem] text-sm focus:border-primary outline-none transition-all min-h-[120px] resize-none"
+                            placeholder="Особенности объекта, температурные режимы, требования HACCP..."
+                        />
+                    </div>
+                </div>
+            )}
 
             {entity.isPaymentSent() && user?.role !== 'manager' && (
                 <div className="glass-card !bg-yellow-500/5 border-yellow-500/30 p-10 mb-8 space-y-4 animate-in fade-in duration-500">
@@ -411,17 +397,14 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             <div className="space-y-6">
                                 {entity.results.summary.map((item, i) => (
                                     <div key={i} className="relative group/audit">
-                                        <CalculationBreakdown
-                                            item={item}
-                                            hidePrices={!canSeePrices}
-                                        />
-                                        {isAuditMode && user?.role === 'manager' && (entity.status !== 'completed' && entity.status !== 'closed') && (
-                                            <div className="absolute top-8 right-8 z-20 flex gap-2">
+                                        <CalculationBreakdown item={item} hidePrices={!canSeePrices} />
+                                        {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (entity.status !== 'completed' && entity.status !== 'closed') && (
+                                            <div className="absolute top-8 right-8 z-[60] flex gap-2 pointer-events-auto">
                                                 <button
                                                     onClick={() => setAuditItemIndex(i)}
                                                     className="px-4 py-2 bg-primary text-white text-[9px] font-black uppercase rounded-lg shadow-xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                                                 >
-                                                    <Calculator size={12} /> Заменить
+                                                    <RefreshCcw size={12} /> Заменить
                                                 </button>
                                                 <button
                                                     onClick={() => handleRemoveItem(i)}
@@ -434,7 +417,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                     </div>
                                 ))}
 
-                                {isAuditMode && user?.role === 'manager' && (
+                                {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
                                     <button
                                         onClick={() => setAuditItemIndex(-1)}
                                         className="w-full py-8 border-2 border-dashed border-primary/20 rounded-[2rem] text-primary/40 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group/add"
@@ -488,6 +471,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         user={user}
                         onSendMessage={sendMessage}
                         onClearHistory={clearHistory}
+                        onResendMessage={resendMessage}
                     />
                 </div>
             </div>

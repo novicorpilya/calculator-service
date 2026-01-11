@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Square, X } from 'lucide-react';
+import { logger } from '@/app/services';
+import { toast } from 'sonner';
 
 export interface VoiceRecorderProps {
     onRecordingComplete: (audioBlob: Blob, duration: number) => void;
@@ -51,8 +53,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
             }, 100); // Update every 100ms for smooth display, but show only full seconds
 
         } catch (error) {
-            console.error('Error accessing microphone:', error);
-            alert('Не удалось получить доступ к микрофону. Проверьте разрешения.');
+            logger.error('Error accessing microphone', { error });
+            toast.error('Не удалось получить доступ к микрофону. Проверьте разрешения.');
         }
     }, [onRecordingComplete]);
 

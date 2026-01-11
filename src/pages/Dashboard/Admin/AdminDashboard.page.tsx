@@ -6,6 +6,7 @@ import type { Invitation, AdminCalculation, SystemStats } from '@/services/admin
 import type { AuditLog } from '@/services/audit.service';
 import type { User } from '@/features/auth/auth.types';
 import { toast } from 'sonner';
+import { logger } from '@/app/services';
 import {
     UserPlus, Users, Mail, Copy, Check, Trash2,
     User as UserIcon, History, Clock, ArrowRightLeft,
@@ -45,7 +46,7 @@ export const AdminDashboard: React.FC = () => {
             setAllCalculations(calcsData);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            console.error('Ошибка при загрузке данных:', message);
+            logger.error('Ошибка при загрузке данных', { message });
         } finally {
             setLoading(false);
         }

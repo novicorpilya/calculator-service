@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/app/services';
 
 export interface EmailResponse {
     success: boolean;
@@ -48,19 +49,14 @@ export class EmailService implements IEmailService {
                 return { success: true, mode: 'development-mock' };
             }
 
-            console.error('[Email Service Error]', error);
+            logger.error('[Email Service Error]', { error });
             throw error;
         }
     }
 
     private logDevEmail(email: string, role: string, inviteLink: string) {
-        console.log('%c------------------------------------------', 'color: #3b82f6; font-weight: bold;');
-        console.log('%c📧 [DEV MODE] ПИСЬМО БЫЛО БЫ ОТПРАВЛЕНО:', 'color: #3b82f6; font-size: 14px; font-weight: bold;');
-        console.log(`Кому: ${email}`);
-        console.log(`Роль: ${role}`);
-        console.log(`Ссылка: ${inviteLink}`);
-        console.log('%c------------------------------------------', 'color: #3b82f6; font-weight: bold;');
-
+        logger.info('📧 [DEV MODE] ПИСЬМО БЫЛО БЫ ОТПРАВЛЕНО', { email, role, inviteLink });
+        
         toast.info('Режим разработки: Письмо в консоли', {
             description: 'На localhost реальные письма не уходят. Скопируйте ссылку из консоли (F12) или по кнопке ниже.',
             duration: 15000,

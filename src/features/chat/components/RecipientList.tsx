@@ -142,17 +142,23 @@ export const RecipientList: React.FC<RecipientListProps> = React.memo(({
                                             ) : (() => {
                                                 const lm = recipient.lastMessage;
                                                 const isMine = lm?.sender_id === currentUserId;
-                                                const content = lm?.content?.trim();
+                                                const content = lm?.content?.trim() || '';
 
+                                                // Defensive Check: If we have a lastMessage object but all relevant fields are empty
                                                 if (!content && !lm?.image_url && !lm?.voice_url) {
                                                     return <span className="opacity-40 italic">Сообщение...</span>;
                                                 }
 
+                                                // Emoji-only detection regex
+                                                const isEmojiOnly = content && /^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])+\s*$/.test(content);
+
                                                 return (
-                                                    <>
-                                                        {isMine && <span className="mr-1 opacity-50">Вы:</span>}
-                                                        {content || (lm?.image_url ? '📷 Фото' : lm?.voice_url ? '🎤 Голос' : '')}
-                                                    </>
+                                                    <span className="flex items-center gap-1">
+                                                        {isMine && <span className="opacity-50">Вы:</span>}
+                                                        <span className="truncate">
+                                                            {isEmojiOnly ? '😊 Смайлик' : (content || (lm?.image_url ? '📷 Изображение' : lm?.voice_url ? '🎤 Голосовое сообщение' : ''))}
+                                                        </span>
+                                                    </span>
                                                 );
                                             })()}
                                         </p>

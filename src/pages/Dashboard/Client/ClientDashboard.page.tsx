@@ -14,6 +14,7 @@ import { useServices } from '@/core/di/ServiceContainer';
 import type { Venue } from '@/services/venue.service';
 import { useAuth } from '@/features/auth';
 import { toast } from 'sonner';
+import { logger } from '@/app/services';
 
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 
@@ -97,7 +98,7 @@ export const ClientDashboard: React.FC = () => {
 
             toast.info('Информация обновлена', { duration: 2500 });
         } catch {
-            console.warn('[Sync:Client:Retry]', sid);
+            logger.warn('[Sync:Client:Retry]', { sid });
             loadData(true);
         } finally {
             state.current.inFlightSyncs.delete(sid);
@@ -111,7 +112,7 @@ export const ClientDashboard: React.FC = () => {
 
         const unsubscribe = chatService.subscribeToProjects((payload: { id: string | number, isSignal?: boolean }) => {
             if (import.meta.env.DEV) {
-                console.debug(`[Sync:Pulse:Client] ${payload.id} via ${payload.isSignal ? 'Signal' : 'DB'}`);
+                logger.debug(`[Sync:Pulse:Client] ${payload.id} via ${payload.isSignal ? 'Signal' : 'DB'}`);
             }
             syncProject(payload.id);
         });

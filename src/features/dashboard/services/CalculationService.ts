@@ -1,10 +1,9 @@
 import type { ICalculationRepository } from '../repositories/CalculationRepository';
-import type { Calculation } from '../dashboard.types';
+import type { Calculation, CalculationResults } from '../dashboard.types';
 import { ApplicationError } from '@/core/errors/AppErrors';
-import { supabase } from '@/services/supabase';
-import type { IChatService } from '@/features/chat/services/ChatService';
 import { CALCULATION_STATUS, CALCULATION_ACTION } from '@/core/constants/calculation.constants';
-import { CHAT_TEMPLATES } from '@/features/chat/constants/templates';
+import { calculateTotalCost } from '@/core/domain/calculator.utils';
+import { logger } from '@/app/services';
 
 export interface ICalculationService {
     getMyCalculations(userId: string): Promise<Calculation[]>;
@@ -15,18 +14,18 @@ export interface ICalculationService {
     update(id: string | number, updates: Partial<Calculation>): Promise<Calculation>;
     delete(id: string | number): Promise<void>;
     assignToMe(id: string | number, managerId: string): Promise<Calculation>;
-    adjustExpert(id: string | number, results: any, adjustments: any, version: number): Promise<Calculation>;
+    adjustExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation>;
     uploadReceipt(id: string | number, file: File, userId: string): Promise<string>;
     getSignedReceiptUrl(path: string): Promise<string>;
+    acquireLock(id: string | number): Promise<Calculation>;
+    releaseLock(id: string | number): Promise<Calculation>;
 }
 
 export class CalculationService implements ICalculationService {
     private repository: ICalculationRepository;
-    private chatService: IChatService;
 
-    constructor(repository: ICalculationRepository, chatService: IChatService) {
+    constructor(repository: ICalculationRepository) {
         this.repository = repository;
-        this.chatService = chatService;
     }
 
     async getMyCalculations(userId: string): Promise<Calculation[]> {
@@ -48,17 +47,32 @@ export class CalculationService implements ICalculationService {
 
 
 
-    // ATOMIC CREATE
+    // IMPLEMENTATION: Atomic Operations & Event Sourcing
+    // We use a Repository pattern to abstract the data layer (Supabase RPC).
+    // All state mutations (Create, Update Status) are handled atomically in the DB
+    // to ensure consistency. Events are emitted by DB Triggers (CDC), not by this service,
+    // to guarantee reliability (Event-Driven Architecture).
+
     async create(calc: Partial<Calculation>, userId: string): Promise<Calculation> {
         if (!userId) throw new ApplicationError('USER_ID_REQUIRED', 'User ID is required');
 
-        // Use Repository AtomicRPC method
-        // No client-side audit logic needed anymore
+        // SECURITY: We delegate creation to a secure RPC ('create_calculation_atomic').
+        // This ensures:
+        // 1. user_id is forcibly taken from Auth Context (anti-spoofing).
+        // 2. Initial Status is validated.
+        // 3. 'calculation.created' or 'calculation.submitted' event is auto-emitted by the DB.
         return this.repository.create(calc, userId);
     }
 
     async update(id: string | number, updates: Partial<Calculation>): Promise<Calculation> {
         try {
+            const finalUpdates = { ...updates };
+
+            // If results are updated, recalculate total cost before saving
+            if (updates.results?.summary) {
+                finalUpdates.totalCost = calculateTotalCost(updates.results.summary);
+            }
+
             if (updates.status) {
                 // Determine action name
                 let action: string = updates.status;
@@ -70,7 +84,7 @@ export class CalculationService implements ICalculationService {
                     case CALCULATION_STATUS.PAID: action = CALCULATION_ACTION.ACCEPT_PAYMENT; break;
                 }
 
-                const contentUpdates: Partial<Calculation> = { ...updates };
+                const contentUpdates: Partial<Calculation> = { ...finalUpdates };
                 delete contentUpdates.status;
 
                 if (Object.keys(contentUpdates).length > 0) {
@@ -81,7 +95,7 @@ export class CalculationService implements ICalculationService {
             }
 
             // Non-status updates (only data changes)
-            return await this.repository.updateContent(id, updates);
+            return await this.repository.updateContent(id, finalUpdates);
         } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
             await this.recordError(id, `Update Error: ${errMsg}`);
@@ -93,7 +107,7 @@ export class CalculationService implements ICalculationService {
         try {
             await this.repository.executeAction(id, 'log_error', message);
         } catch (e) {
-            console.error('Failed to record error in audit trail', e);
+            logger.error('Failed to record error in audit trail', { error: e });
         }
     }
 
@@ -105,42 +119,6 @@ export class CalculationService implements ICalculationService {
         try {
             const result = await this.repository.executeAction(id, 'assign', 'Project assigned to expert', { manager_id: managerId });
 
-            // Send automated welcome message
-            try {
-                const projectNumber = result.project_number || '—';
-
-                // Fetch manager's profile directly for accurate name
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('first_name, last_name')
-                    .eq('id', managerId)
-                    .single();
-
-                let managerName = 'Ваш персональный менеджер';
-                if (profile) {
-                    const firstName = profile.first_name || '';
-                    const lastName = profile.last_name || '';
-                    const fullName = `${firstName} ${lastName}`.trim();
-                    if (fullName) {
-                        managerName = fullName;
-                    }
-                }
-
-                const welcomeMessage = CHAT_TEMPLATES.WELCOME(managerName, projectNumber);
-
-                if (result.user_id) {
-                    await this.chatService.sendMessage({
-                        calculation_id: String(id),
-                        sender_id: managerId,
-                        receiver_id: result.user_id,
-                        content: welcomeMessage,
-                    });
-                }
-            } catch (msgError) {
-                // Non-critical: don't fail the assignment if message fails
-                console.warn('[CalculationService] Failed to send welcome message:', msgError);
-            }
-
             return result;
         } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
@@ -149,7 +127,7 @@ export class CalculationService implements ICalculationService {
         }
     }
 
-    async adjustExpert(id: string | number, results: any, adjustments: any, version: number): Promise<Calculation> {
+    async adjustExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation> {
         try {
             return await this.repository.adjustCalculationExpert(id, results, adjustments, version);
         } catch (error: unknown) {
@@ -190,8 +168,16 @@ export class CalculationService implements ICalculationService {
             if (error) throw error;
             return data.signedUrl;
         } catch (error: unknown) {
-            console.error('[CalculationService] Failed to get signed URL', error);
+            logger.error('[CalculationService] Failed to get signed URL', { error });
             throw new ApplicationError('SIGNED_URL_FAILED', 'Could not retrieve file access');
         }
+    }
+
+    async acquireLock(id: string | number): Promise<Calculation> {
+        return this.repository.acquireLock(id);
+    }
+
+    async releaseLock(id: string | number): Promise<Calculation> {
+        return this.repository.releaseLock(id);
     }
 }

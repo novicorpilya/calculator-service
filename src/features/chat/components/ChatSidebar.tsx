@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { useRecipients } from '../hooks/useRecipients';
 import type { ChatRecipient } from '../types';
-import { MESSAGE_SNIPPETS } from '../types';
+
 
 interface ChatSidebarProps {
     currentUserId: string;
@@ -31,12 +31,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         });
     }, [recipients, searchQuery]);
 
-    const getMessageSnippet = (recipient: ChatRecipient) => {
-        if (!recipient.lastMessage) return null;
-        if (recipient.lastMessage.voice_url) return MESSAGE_SNIPPETS.VOICE;
-        if (recipient.lastMessage.image_url && !recipient.lastMessage.content) return MESSAGE_SNIPPETS.PHOTO;
-        return recipient.lastMessage.content;
-    };
+
 
     return (
         <div className={`flex flex-col border-r border-border-theme bg-background h-full ${className || ''}`}>
@@ -88,10 +83,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                 <div className="flex items-center justify-between gap-3">
                                     <p className={`text-[11px] truncate flex-1 ${selectedUserId === recipient.id ? 'text-white/70' : 'text-foreground/40'}`}>
                                         {recipient.lastMessage ? (
-                                            <>
-                                                {recipient.lastMessage.sender_id === currentUserId && <span className="mr-1 opacity-50">Вы:</span>}
-                                                {getMessageSnippet(recipient)}
-                                            </>
+                                            <span className="flex items-center gap-1">
+                                                {recipient.lastMessage.sender_id === currentUserId && <span className="opacity-50">Вы:</span>}
+                                                <span className="truncate">
+                                                    {(() => {
+                                                        const content = recipient.lastMessage.content?.trim();
+                                                        const isEmojiOnly = content && /^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])+\s*$/.test(content);
+                                                        if (isEmojiOnly) return '😊 Смайлик';
+                                                        return recipient.lastMessage.content || 
+                                                            (recipient.lastMessage.image_url ? '📷 Изображение' : 
+                                                            recipient.lastMessage.voice_url ? '🎤 Голосовое сообщение' : '');
+                                                    })()}
+                                                </span>
+                                            </span>
                                         ) : (
                                             <span className="opacity-40 italic">Нет сообщений</span>
                                         )}

@@ -11,7 +11,7 @@ interface UseProductSelectionProps {
     user: { role?: string } | null;
     entity: CalculationEntity;
     onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: { results?: CalculationResults }) => void;
-    onAdjustExpert?: (id: string | number, results: CalculationResults, adjustments: any, version: number) => Promise<void>;
+    onAdjustExpert?: (id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number) => Promise<void>;
 }
 
 export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpert }: UseProductSelectionProps) {
@@ -25,8 +25,8 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
     // Fetch catalog for managers/admins
     useEffect(() => {
         if (user?.role === 'manager' || user?.role === 'admin') {
-            inventoryService.getGlobalItems()
-                .then(setCatalog)
+            inventoryService.getGlobalItems({ pageSize: 100 })
+                .then(res => setCatalog(res.data))
                 .catch(error => {
                     logger.error('Failed to load inventory catalog', {
                         role: user.role,
@@ -40,7 +40,7 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
         if (auditItemIndex === null || !entity.results) return;
 
         try {
-            const newResults = JSON.parse(JSON.stringify(entity.results));
+            const newResults = structuredClone(entity.results);
             const oldItem = newResults.summary[auditItemIndex];
 
             // Use core engine to calculate correct demand for the replacement product
@@ -86,8 +86,9 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
     };
 
     const handleRemoveItem = async (index: number) => {
+        if (!entity.results) return;
         try {
-            const newResults = JSON.parse(JSON.stringify(entity.results));
+            const newResults = structuredClone(entity.results);
             const removedItem = newResults.summary[index];
             newResults.summary.splice(index, 1);
 
@@ -118,7 +119,7 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
             }
         );
 
-        const newResults = JSON.parse(JSON.stringify(entity.results));
+        const newResults = structuredClone(entity.results);
         newResults.summary.push(newItem);
 
         try {
@@ -134,7 +135,7 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
         }
     };
 
-    const handleUpdateAdjustments = async (adjustments: any) => {
+    const handleUpdateAdjustments = async (adjustments: Record<string, any>) => {
         if (!entity.results) return;
         try {
             if (onAdjustExpert) {

@@ -1,157 +1,232 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Search,
     RefreshCw,
     Package,
-    Tag,
-    DollarSign
+    ChevronLeft,
+    ChevronRight,
+    Building2,
+    Layers
 } from 'lucide-react';
-import { type InventoryItemMaster } from '@/services/inventory.service';
-import { ZONE_TYPES } from '../../dashboard.types';
+import { type InventoryItemMaster, type Supplier } from '@/services/inventory.service';
 import { toast } from 'sonner';
 import { useServices } from '@/core/di/ServiceContainer';
 
 /**
- * Product Catalog View for Managers.
- * Displays the current global assortment synchronized with the supplier database.
+ * Product Catalog View for Managers (Registry).
+ * Optimized with server-side pagination, supplier breakdown, and advanced filters.
  */
 export const MasterInventoryManager = React.memo(() => {
     const { inventoryService } = useServices();
-    const [items, setItems] = useState<InventoryItemMaster[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
 
-    const fetchItems = React.useCallback(async () => {
+    // Data State
+    const [items, setItems] = useState<InventoryItemMaster[]>([]);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+
+    // Control State
+    const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(12);
+
+    // Filter State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedSupplier, setSelectedSupplier] = useState<string>('all');
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+    // Derived Categories from items (simplified, ideally from DB)
+    const categories = ['Кухонная химия', 'Общая химия', 'Санитария', 'Оборудование', 'Инвентарь', 'Расходные материалы', 'Системы', 'Бумага', 'Гигиена'];
+
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await inventoryService.getGlobalItems();
-            setItems(data);
+
+            // 1. Fetch Items with current filters
+            const result = await inventoryService.getGlobalItems({
+                page,
+                pageSize,
+                search: searchQuery,
+                supplierId: selectedSupplier === 'all' ? undefined : selectedSupplier,
+                category: selectedCategory === 'all' ? undefined : selectedCategory
+            });
+
+            setItems(result.data);
+            setTotalCount(result.count);
+            setTotalPages(result.totalPages);
+
+            // 2. Fetch Suppliers if not already loaded
+            if (suppliers.length === 0) {
+                const sData = await inventoryService.getSuppliers();
+                setSuppliers(sData);
+            }
         } catch {
-            toast.error('Ошибка при загрузке ассортимента');
+            toast.error('Ошибка при загрузке реестра товаров');
         } finally {
             setLoading(false);
         }
-    }, [inventoryService]);
+    }, [inventoryService, page, pageSize, searchQuery, selectedSupplier, selectedCategory, suppliers.length]);
 
     useEffect(() => {
-        fetchItems();
-    }, [fetchItems]);
+        const timer = setTimeout(() => {
+            fetchData();
+        }, 300); // Debounce search
+        return () => clearTimeout(timer);
+    }, [fetchData]);
 
-    const filteredItems = items.filter(item =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.sku?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const handlePageChange = (p: number) => {
+        if (p >= 1 && p <= totalPages) {
+            setPage(p);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700">
+        <div className="space-y-8 animate-in fade-in duration-700 pb-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div className="space-y-1">
-                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Реестр товаров</h1>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary border-l-2 border-primary pl-4">
-                        Актуальный ассортимент и коммерческие цены поставщика
-                    </p>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
+                <div className="space-y-2">
+                    <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">Реестр товаров</h1>
+                    <div className="flex items-center gap-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary border-l-2 border-primary pl-4">
+                            Глобальный каталог и коммерческие спецификации
+                        </p>
+                        <div className="px-3 py-1 bg-primary/10 rounded-full text-[9px] font-black text-primary uppercase tracking-widest">
+                            {totalCount} позиций
+                        </div>
+                    </div>
                 </div>
-                <button
-                    onClick={fetchItems}
-                    className="flex items-center gap-3 px-6 py-4 bg-card border border-border-theme rounded-2xl hover:text-primary transition-all group"
-                >
-                    <RefreshCw size={18} className={`${loading ? 'animate-spin' : ''} transition-transform group-hover:rotate-180`} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Обновить данные</span>
-                </button>
+
+                <div className="flex flex-wrap items-center gap-4">
+                    <button
+                        onClick={() => { setPage(1); fetchData(); }}
+                        className="flex items-center gap-3 px-6 py-4 bg-card border border-border-theme rounded-2xl hover:text-primary transition-all group shadow-sm"
+                    >
+                        <RefreshCw size={18} className={`${loading ? 'animate-spin' : ''} transition-transform group-hover:rotate-180`} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Синхронизировать</span>
+                    </button>
+                </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="glass-card p-6 flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest mb-4">Всего в базе</p>
-                    <h4 className="text-3xl font-black">{items.length}</h4>
-                </div>
-                <div className="glass-card p-6 flex items-center gap-4 bg-primary/5 border-primary/10 md:col-span-2">
-                    <div className="p-3 bg-primary text-white rounded-xl">
-                        <Tag size={20} />
+            {/* Filters Bar */}
+            <div className="glass-card !p-8 border-primary/10 shadow-xl space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Search */}
+                    <div className="lg:col-span-6 relative">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/20" />
+                        <input
+                            type="text"
+                            placeholder="Поиск по названию или SKU..."
+                            value={searchQuery}
+                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            className="w-full bg-background/50 border border-border-theme rounded-2xl pl-16 pr-8 py-5 text-[13px] font-black outline-none focus:border-primary transition-all shadow-inner"
+                        />
                     </div>
-                    <p className="text-[10px] font-bold text-foreground/60 leading-relaxed uppercase tracking-wider">
-                        Данный список синхронизируется напрямую с базой поставщика. Для изменения спецификаций или цен обратитесь в отдел закупок.
-                    </p>
+
+                    {/* Supplier Filter */}
+                    <div className="lg:col-span-3 relative">
+                        <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
+                        <select
+                            value={selectedSupplier}
+                            onChange={e => { setSelectedSupplier(e.target.value); setPage(1); }}
+                            className="w-full bg-background/50 border border-border-theme rounded-2xl pl-12 pr-4 py-5 text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all cursor-pointer"
+                        >
+                            <option value="all">Все поставщики</option>
+                            {suppliers.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Category Filter */}
+                    <div className="lg:col-span-3 relative">
+                        <Layers className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
+                        <select
+                            value={selectedCategory}
+                            onChange={e => { setSelectedCategory(e.target.value); setPage(1); }}
+                            className="w-full bg-background/50 border border-border-theme rounded-2xl pl-12 pr-4 py-5 text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all cursor-pointer"
+                        >
+                            <option value="all">Все категории</option>
+                            {categories.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
             {/* Product Table */}
-            <div className="bg-card border border-border-theme rounded-[2.5rem] overflow-hidden shadow-2xl">
-                <div className="p-8 border-b border-border-theme">
-                    <div className="relative">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/20" />
-                        <input
-                            type="text"
-                            placeholder="Поиск по названию или артикулу..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full bg-background/50 border border-border-theme rounded-2xl pl-16 pr-8 py-4 text-[13px] font-black outline-none focus:border-primary transition-all"
-                        />
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto">
+            <div className="bg-card border border-border-theme rounded-[2.5rem] overflow-hidden shadow-2xl min-h-[600px] flex flex-col">
+                <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-border-theme bg-primary/5">
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">Товар / Артикул</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">Сфера применения</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">Поставщик & Категория</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">Остаток</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">Текущая цена</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">Цена</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {loading && items.length === 0 ? (
-                                [1, 2, 3, 4, 5].map(i => (
+                        <tbody className="divide-y divide-border-theme">
+                            {loading ? (
+                                Array.from({ length: 8 }).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={3} className="h-24 px-8 border-b border-border-theme">
-                                            <div className="h-4 bg-foreground/5 rounded-full w-3/4 mb-3" />
-                                            <div className="h-3 bg-foreground/5 rounded-full w-1/4" />
-                                        </td>
+                                        <td className="px-8 py-8"><div className="h-12 bg-foreground/5 rounded-2xl w-full" /></td>
+                                        <td className="px-8 py-8"><div className="h-8 bg-foreground/5 rounded-xl w-3/4" /></td>
+                                        <td className="px-8 py-8"><div className="h-10 bg-foreground/5 rounded-xl w-24 mx-auto" /></td>
+                                        <td className="px-8 py-8"><div className="h-10 bg-foreground/5 rounded-xl w-24 mx-auto" /></td>
                                     </tr>
                                 ))
-                            ) : filteredItems.length === 0 ? (
+                            ) : items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={3} className="px-8 py-12 text-center text-foreground/20 text-[10px] font-black uppercase tracking-widest">
-                                        Товары не найдены
+                                    <td colSpan={4} className="px-8 py-40 text-center flex flex-col items-center justify-center gap-4">
+                                        <Package size={48} className="opacity-10" />
+                                        <p className="text-foreground/20 text-[10px] font-black uppercase tracking-[0.3em]">
+                                            Ничего не найдено в этой категории
+                                        </p>
                                     </td>
                                 </tr>
-                            ) : filteredItems.map((item) => (
-                                <tr key={item.id} className="border-b border-border-theme hover:bg-primary/5 transition-colors group">
+                            ) : items.map((item) => (
+                                <tr key={item.id} className="hover:bg-primary/5 transition-colors group">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-6">
-                                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-primary bg-primary/10 relative overflow-hidden shrink-0">
-                                                <Package size={20} />
-                                                <div className="absolute bottom-0 left-0 w-full h-1" style={{ backgroundColor: item.color }} />
+                                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-primary bg-primary/10 relative overflow-hidden shrink-0 shadow-sm border border-primary/5">
+                                                <Package size={22} className="group-hover:scale-110 transition-transform" />
+                                                <div className="absolute bottom-0 left-0 w-full h-1.5" style={{ backgroundColor: item.color }} />
                                             </div>
-                                            <div>
-                                                <p className="text-[15px] font-black tracking-tight mb-0.5">{item.name}</p>
-                                                <p className="text-[9px] font-bold text-foreground/40 uppercase tracking-widest">
-                                                    SKU: {item.sku || 'ART-NO-ID'}
-                                                </p>
+                                            <div className="min-w-0">
+                                                <p className="text-[15px] font-black tracking-tight mb-1 truncate">{item.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2 py-0.5 bg-background border border-border-theme rounded text-[8px] font-bold text-foreground/40 uppercase tracking-widest">
+                                                        {item.sku || 'N/A'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-background border border-border-theme rounded-lg">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                            <span className="text-[9px] font-black uppercase tracking-widest">
-                                                {ZONE_TYPES.find(z => z.color === item.color)?.label || 'Универсальный'}
-                                            </span>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] tracking-widest">
+                                                <Building2 size={12} />
+                                                {item.supplier?.name || 'Внешний поставщик'}
+                                            </div>
+                                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-background border border-border-theme rounded-lg">
+                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                                                    {item.category || 'Без категории'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-center">
-                                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${item.stock < 10 ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-background border-border-theme'}`}>
-                                            <span className="text-[13px] font-black tracking-tight">{item.stock.toLocaleString()}</span>
-                                            <span className="text-[8px] font-bold uppercase">шт</span>
+                                        <div className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border transition-all ${item.stock < 10 ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-background border-border-theme'}`}>
+                                            <span className="text-[14px] font-black tracking-tight">{item.stock.toLocaleString()}</span>
+                                            <span className="text-[8px] font-bold uppercase opacity-50">шт</span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-center">
-                                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-xl">
-                                            <DollarSign size={14} className="text-primary" />
-                                            <span className="text-[13px] font-black tracking-tight">{item.price.toLocaleString()} ₽</span>
+                                        <div className="inline-flex items-center gap-2 px-6 py-3 bg-foreground text-background rounded-2xl shadow-xl shadow-foreground/5 group-hover:bg-primary transition-colors">
+                                            <span className="text-[14px] font-black tracking-tight">{item.price.toLocaleString()} ₽</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -159,6 +234,56 @@ export const MasterInventoryManager = React.memo(() => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <div className="p-8 bg-primary/5 border-t border-border-theme flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-foreground/40">
+                            Страница <span className="text-primary">{page}</span> из {totalPages}
+                            <span className="mx-4 opacity-50">•</span>
+                            Показано {items.length} из {totalCount}
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => handlePageChange(page - 1)}
+                                disabled={page === 1 || loading}
+                                className="w-12 h-12 flex items-center justify-center bg-card border border-border-theme rounded-xl hover:text-primary disabled:opacity-30 disabled:hover:text-foreground transition-all active:scale-90"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+
+                            <div className="flex items-center gap-2 px-2">
+                                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                                    let pageNum = page;
+                                    if (page <= 3) pageNum = i + 1;
+                                    else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
+                                    else pageNum = page - 2 + i;
+
+                                    if (pageNum <= 0 || pageNum > totalPages) return null;
+
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => handlePageChange(pageNum)}
+                                            className={`w-12 h-12 rounded-xl text-[11px] font-black transition-all ${page === pageNum ? 'bg-primary text-white shadow-lg' : 'hover:bg-primary/10'}`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => handlePageChange(page + 1)}
+                                disabled={page === totalPages || loading}
+                                className="w-12 h-12 flex items-center justify-center bg-card border border-border-theme rounded-xl hover:text-primary disabled:opacity-30 disabled:hover:text-foreground transition-all active:scale-90"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

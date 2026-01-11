@@ -9,32 +9,33 @@
 
 export interface Message {
     id: string;
-    sender_id: string;
-    receiver_id: string;
+    sender_id: string | null;
+    receiver_id: string | null;
     calculation_id?: string | null;
     content: string | null;
     image_url?: string | null;
     voice_url?: string | null;
     voice_duration?: number | null;
+    is_edited?: boolean;
+    client_message_id?: string | null;
     created_at: string;
     is_read?: boolean;
-    reply_to_id?: string | null;
-    is_edited?: boolean;
-    client_id?: string;
+    status?: 'pending' | 'sent' | 'error';
 }
 
 export interface MessageCreatePayload {
     sender_id: string;
-    receiver_id: string;
+    receiver_id?: string | null;
     content: string;
-    calculation_id?: string;
-    image_url?: string;
-    voice_url?: string;
-    voice_duration?: number;
-    reply_to_id?: string;
+    calculation_id?: string | null;
+    image_url?: string | null;
+    voice_url?: string | null;
+    voice_duration?: number | null;
+    reply_to_id?: string | null;
+    client_message_id?: string | null;
 }
 
-export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE';
+export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE' | 'READ' | 'RECONNECT';
 
 export interface MessageEvent {
     type: MessageEventType;
@@ -62,7 +63,11 @@ export interface LastMessagePreview {
     voice_url?: string | null;
 }
 
-export type UnreadCounts = Record<string, number>;
+export interface UnreadCounts {
+    total: number;
+    perSender: Record<string, number>;
+    perProject: Record<string, number>;
+}
 
 // ============================================
 // UI STATE TYPES
@@ -91,6 +96,7 @@ export const CHAT_CHANNELS = {
 } as const;
 
 export const MESSAGE_SNIPPETS = {
-    PHOTO: '📷 Фотография',
+    PHOTO: '📷 Изображение',
     VOICE: '🎤 Голосовое сообщение',
+    EMOJI: '😊 Смайлик',
 } as const;

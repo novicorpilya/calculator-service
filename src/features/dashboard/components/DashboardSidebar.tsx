@@ -15,7 +15,8 @@ import {
     MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useServices } from '@/core/di/ServiceContainer';
+
+import { useUnreadCount } from '@/features/chat/hooks';
 
 interface DashboardSidebarProps {
     isOpen: boolean;
@@ -29,39 +30,8 @@ interface DashboardSidebarProps {
  */
 export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, currentPage, onNavigate }) => {
     const { user } = useAuth();
-    const { chatService } = useServices();
-    const [unreadCount, setUnreadCount] = React.useState(0);
 
-    // Fetch and subscribe to unread messages
-    React.useEffect(() => {
-        if (!user) return;
-
-        const updateCount = async () => {
-            try {
-                const counts = await chatService.getUnreadCounts(user.id);
-                const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
-                setUnreadCount(total);
-            } catch (error) {
-                console.error('Error fetching unread count:', error);
-            }
-        };
-
-        updateCount();
-
-        // Subscribe to NEW messages globally to catch notifications
-        const unsubscribe = chatService.subscribeToMessages(() => {
-            updateCount();
-        });
-
-        // Re-fetch on window focus (production best practice)
-        const handleFocus = () => updateCount();
-        window.addEventListener('focus', handleFocus);
-
-        return () => {
-            unsubscribe();
-            window.removeEventListener('focus', handleFocus);
-        };
-    }, [user, chatService]);
+    const { directUnread, projectUnread } = useUnreadCount(user?.id);
 
     const menuItems = React.useMemo(() => {
         const role = user?.role;
@@ -69,7 +39,7 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
         if (role === 'admin') {
             return [
                 { id: 'admin-overview', label: 'Админ-панель', icon: Shield },
-                { id: 'projects', label: 'Все проекты', icon: FolderSearch },
+                { id: 'projects', label: 'Все проекты', icon: FolderSearch, badge: projectUnread },
                 { id: 'team', label: 'Команда', icon: Users },
                 { id: 'history', label: 'Логи аудита', icon: HistoryIcon },
             ];
@@ -78,21 +48,21 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
         if (role === 'manager') {
             return [
                 { id: 'overview', label: 'Аналитика', icon: LayoutDashboard },
-                { id: 'pipeline', label: 'Проекты', icon: FolderSearch },
-                { id: 'chat', label: 'Сообщения', icon: MessageSquare },
-                { id: 'kb', label: 'База знаний', icon: Library },
+                { id: 'pipeline', label: 'Проекты', icon: FolderSearch, badge: projectUnread },
+                { id: 'chat', label: 'Сообщения', icon: MessageSquare, badge: directUnread },
+                { id: 'kb', label: 'Реестр товаров', icon: Library },
             ];
         }
 
         // По умолчанию для 'client'
         return [
             { id: 'overview', label: 'Обзор', icon: LayoutDashboard },
-            { id: 'calculations', label: 'Мои расчеты', icon: Calculator },
-            { id: 'chat', label: 'Сообщения', icon: MessageSquare },
+            { id: 'calculations', label: 'Мои расчеты', icon: Calculator, badge: projectUnread },
+            { id: 'chat', label: 'Сообщения', icon: MessageSquare, badge: directUnread },
             { id: 'inventory', label: 'Инвентарь', icon: ClipboardList },
             { id: 'venue', label: 'Заведение', icon: Building2 },
         ];
-    }, [user?.role]);
+    }, [user?.role, projectUnread, directUnread]);
 
     const isProfileActive = currentPage === 'profile';
 
@@ -164,6 +134,7 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
                         {menuItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = currentPage === item.id;
+                            const badgeCount = item.badge || 0;
                             return (
                                 <button
                                     key={item.id}
@@ -178,9 +149,9 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(({ isOpen, cur
                                 >
                                     <div className="relative">
                                         <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : ''}`} />
-                                        {item.id === 'chat' && unreadCount > 0 && (
+                                        {badgeCount > 0 && (
                                             <span className={`absolute -top-2.5 -right-2.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[9px] font-black rounded-full border-2 border-card animate-in zoom-in group-hover:scale-110 transition-transform ${isActive ? 'border-primary' : ''}`}>
-                                                {unreadCount > 99 ? '99+' : unreadCount}
+                                                {badgeCount > 99 ? '99+' : badgeCount}
                                             </span>
                                         )}
                                     </div>

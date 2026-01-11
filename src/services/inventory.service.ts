@@ -1,4 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/app/services';
+
+export interface Supplier {
+    id: string;
+    name: string;
+    description?: string;
+    logo?: string;
+    rating?: number;
+    status: string;
+}
 
 export interface InventoryItemMaster {
     id: string;
@@ -13,14 +23,36 @@ export interface InventoryItemMaster {
     replacement_cycle_days: number;
     supplier_id?: string;
     category?: string;
+    tier?: number;              // 1: Эконом, 2: Стандарт, 3: Премиум
+    durability?: number;        // Ресурс (циклы/дни)
+    series?: string;            // Для Bundle Logic
+    compliance_level?: string;  // Для Sanitary Level
     created_at?: string;
     updated_at?: string;
+    supplier?: Supplier;        // Joined supplier data
 }
 
 export type CreateInventoryItemData = Omit<InventoryItemMaster, 'id' | 'created_at' | 'updated_at'>;
 
+export interface PaginatedResult<T> {
+    data: T[];
+    count: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}
+
+export interface InventoryFilterOptions {
+    search?: string;
+    supplierId?: string;
+    category?: string;
+    page?: number;
+    pageSize?: number;
+}
+
 export interface IInventoryService {
-    getGlobalItems(): Promise<InventoryItemMaster[]>;
+    getGlobalItems(options?: InventoryFilterOptions): Promise<PaginatedResult<InventoryItemMaster>>;
+    getSuppliers(): Promise<Supplier[]>;
     upsertItem(item: Partial<InventoryItemMaster> & { name: string }): Promise<InventoryItemMaster>;
     deleteItem(id: string): Promise<void>;
 }
@@ -36,128 +68,70 @@ export class InventoryService implements IInventoryService {
     }
 
     /**
-     * Fetches all inventory items from the master catalog.
+     * Fetches paginated inventory items from the master catalog with optional filters.
      */
-    async getGlobalItems(): Promise<InventoryItemMaster[]> {
-        const { data, error } = await this.supabase
+    async getGlobalItems(options: InventoryFilterOptions = {}): Promise<PaginatedResult<InventoryItemMaster>> {
+        const {
+            page = 1,
+            pageSize = 10,
+            search = '',
+            supplierId,
+            category
+        } = options;
+
+        let query = this.supabase
             .from('inventory_items')
-            .select('*')
-            .order('name', { ascending: true });
+            .select('*, supplier:suppliers(*)', { count: 'exact' });
+
+        if (search) {
+            query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
+        }
+
+        if (supplierId) {
+            query = query.eq('supplier_id', supplierId);
+        }
+
+        if (category) {
+            query = query.eq('category', category);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error, count } = await query
+            .order('name', { ascending: true })
+            .range(from, to);
 
         if (error) {
-            console.warn('Inventory table might not exist or empty, returning specialized HoReCa mock data');
-            return [
-                // PRO-BRITE: Specialized Chemicals
-                {
-                    id: 'pb_1',
-                    name: 'Средство для гриля "GRILL-CLEANER" (5л)',
-                    sku: 'PB-GRIL-05',
-                    color: '#22c55e',
-                    price: 1850,
-                    stock: 120,
-                    supplier_id: '33333333-3333-3333-3333-333333333333',
-                    norm_area: 0.1,
-                    norm_personnel: 0,
-                    norm_intensity: 0.5,
-                    replacement_cycle_days: 30
-                },
-                {
-                    id: 'pb_2',
-                    name: 'Концентрат для полов "PRO-FLOOR" (5л)',
-                    sku: 'PB-FLOOR-01',
-                    color: '#3b82f6',
-                    price: 1540,
-                    stock: 300,
-                    supplier_id: '33333333-3333-3333-3333-333333333333',
-                    norm_area: 0.5,
-                    norm_personnel: 0,
-                    norm_intensity: 0.2,
-                    replacement_cycle_days: 30
-                },
-                {
-                    id: 'pb_3',
-                    name: 'Дезинфектант "CLIN-DES" (санузлы)',
-                    sku: 'PB-DES-02',
-                    color: '#ef4444',
-                    price: 1620,
-                    stock: 150,
-                    supplier_id: '33333333-3333-3333-3333-333333333333',
-                    norm_area: 0.8,
-                    norm_personnel: 0.5,
-                    norm_intensity: 0.4,
-                    replacement_cycle_days: 25
-                },
-
-                // VILEDA PROFESSIONAL: Expert Systems
-                {
-                    id: 'vp_1',
-                    name: 'Система UltraSpeed Pro (Ведро+Отжим)',
-                    sku: 'VP-USP-KIT',
-                    color: '#3b82f6',
-                    price: 12800,
-                    stock: 40,
-                    supplier_id: '44444444-4444-4444-4444-444444444444',
-                    norm_area: 1.0,
-                    norm_personnel: 0.5,
-                    norm_intensity: 0,
-                    replacement_cycle_days: 730
-                },
-                {
-                    id: 'vp_2',
-                    name: 'МОП МикроСпид Плюс (Blue)',
-                    sku: 'VP-MSP-B',
-                    color: '#3b82f6',
-                    price: 1450,
-                    stock: 400,
-                    supplier_id: '44444444-4444-4444-4444-444444444444',
-                    norm_area: 3.0,
-                    norm_personnel: 2.0,
-                    norm_intensity: 0.1,
-                    replacement_cycle_days: 90
-                },
-                {
-                    id: 'vp_3',
-                    name: 'Салфетка ПВАмикро (Green/Kitchen)',
-                    sku: 'VP-PVA-G',
-                    color: '#22c55e',
-                    price: 480,
-                    stock: 800,
-                    supplier_id: '44444444-4444-4444-4444-444444444444',
-                    norm_area: 0.5,
-                    norm_personnel: 3.0,
-                    norm_intensity: 1.0,
-                    replacement_cycle_days: 45
-                },
-
-                // TORK: Hygiene Systems
-                {
-                    id: 'tk_1',
-                    name: 'Диспенсер полотенец Tork Matic (H1)',
-                    sku: 'TK-H1-DISP',
-                    color: '#6b7280',
-                    price: 8500,
-                    stock: 60,
-                    supplier_id: '55555555-5555-5555-5555-555555555555',
-                    norm_area: 1.0,
-                    norm_personnel: 0.1,
-                    norm_intensity: 0.05,
-                    replacement_cycle_days: 3650
-                },
-                {
-                    id: 'tk_2',
-                    name: 'Полотенца в рулонах Tork Matic',
-                    sku: 'TK-H1-ROLL',
-                    color: '#6b7280',
-                    price: 1250,
-                    stock: 1000,
-                    supplier_id: '55555555-5555-5555-5555-555555555555',
-                    norm_area: 0,
-                    norm_personnel: 0.5,
-                    norm_intensity: 2.5,
-                    replacement_cycle_days: 7
-                }
-            ];
+            logger.error('[InventoryService:getGlobalItems] Error', { error });
+            throw error;
         }
+
+        const totalCount = count || 0;
+        return {
+            data: data || [],
+            count: totalCount,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalCount / pageSize)
+        };
+    }
+
+    /**
+     * Fetches all active suppliers.
+     */
+    async getSuppliers(): Promise<Supplier[]> {
+        const { data, error } = await this.supabase
+            .from('suppliers')
+            .select('*')
+            .eq('status', 'active')
+            .order('name');
+
+        if (error) {
+            logger.error('[InventoryService:getSuppliers] Error', { error });
+            throw error;
+        }
+
         return data || [];
     }
 

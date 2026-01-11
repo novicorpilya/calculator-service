@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/app/services';
 
 export interface AuditLog {
     id: string;
@@ -49,7 +50,7 @@ export class AuditLogService implements IAuditLogService {
                 details
             });
 
-        if (error) console.error('Failed to log action:', error);
+        if (error) logger.error('Failed to log action', { error });
     }
 
     async getLogs(limit = 50): Promise<AuditLog[]> {

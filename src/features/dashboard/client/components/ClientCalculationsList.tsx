@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
-    Plus, Search, MessageSquare, LayoutGrid,
+    Plus, Search, LayoutGrid,
     List as ListIcon, ArrowUpRight,
-    TrendingUp, FileCheck, Layers, Map, Clock, Briefcase
+    TrendingUp, FileCheck, Layers, Map, Clock, Briefcase, MessageSquare
 } from 'lucide-react';
+import { useAuth } from '@/features/auth';
+import { useUnreadCount } from '@/features/chat/hooks';
 import { type Calculation, OBJECT_TYPES } from '../../dashboard.types';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
@@ -41,6 +43,10 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    
+    // Auth context for unread count
+    const { user } = useAuth();
+    const { projectCounts } = useUnreadCount(user?.id);
 
     // Convert DTOs to VMs
     const viewModels = useMemo(() =>
@@ -188,6 +194,12 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
                                                 New
                                             </span>
                                         )}
+                                        {(projectCounts[String(vm.id)] || 0) > 0 && (
+                                            <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest animate-in zoom-in">
+                                                <MessageSquare className="w-3 h-3" />
+                                                {projectCounts[String(vm.id)]} новых
+                                            </span>
+                                        )}
                                     </div>
                                     <h3 className="text-2xl font-black tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-300">
                                         {vm.organizationName}
@@ -230,10 +242,10 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(({
                                             </div>
                                         )}
 
-                                        {vm.commentsCount > 0 && (
+                                        {(projectCounts[String(vm.id)] || 0) > 0 && (
                                             <div className="flex items-center gap-2 text-primary pl-4 border-l border-border-theme">
                                                 <MessageSquare className="w-4 h-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">{vm.commentsCount}</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{projectCounts[String(vm.id)]}</span>
                                             </div>
                                         )}
                                     </div>

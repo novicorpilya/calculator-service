@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-    ChevronLeft, Plus, Trash2, AlertCircle, Sparkles, Layout, Ruler, CheckCircle2, Building2, ArrowRight, FileText, Pencil, Loader2, Save
+    ChevronLeft, Plus, Trash2, AlertCircle, Sparkles, Layout, Ruler, CheckCircle2, Building2, ArrowRight, Pencil, Loader2, Save, ShieldCheck, X
 } from 'lucide-react';
 import {
     type Calculation,
@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { CalculationBreakdown } from './CalculationBreakdown';
 import { useAuth } from '@/features/auth';
 import { useServices } from '@/core/di/ServiceContainer';
+import { logger } from '@/app/services';
 
 interface NewCalculationWizardProps {
     onCancel: () => void;
@@ -58,6 +59,17 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
     const totalZonesStaff = useMemo(() => getTotalZonesStaff(zones), [zones]);
     const hasAreaWarning = useMemo(() => objectData.totalArea && totalZonesArea > parseFloat(objectData.totalArea), [objectData.totalArea, totalZonesArea]);
 
+    // Lock scroll when modal is open
+    useEffect(() => {
+        if (showModal) {
+            const originalStyle = window.getComputedStyle(document.body).overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = originalStyle;
+            };
+        }
+    }, [showModal]);
+
     // If initialData changes (e.g. edit mode started), update local states
     React.useEffect(() => {
         if (initialData) {
@@ -82,12 +94,12 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
             try {
                 const [vData, iData] = await Promise.all([
                     venueService.getVenues(),
-                    inventoryService.getGlobalItems()
+                    inventoryService.getGlobalItems({ pageSize: 1000 })
                 ]);
                 setVenues(vData);
-                setGlobalInventory(iData);
+                setGlobalInventory(iData.data);
             } catch (error) {
-                console.error('Failed to fetch data', error);
+                logger.error('Failed to fetch wizard data', { error });
             }
         };
         fetchVenues();
@@ -132,6 +144,11 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
 
     const calculateInventory = () => {
         const calculationResults = CalculationEngine.calculateInventory(zones, objectData, globalInventory);
+        // Round primary quantities for cleaner summary
+        calculationResults.summary = calculationResults.summary.map(item => ({
+            ...item,
+            quantity: Math.ceil(item.quantity)
+        }));
         setResults(calculationResults);
         setStep(3);
     };
@@ -198,7 +215,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
         }
     };
 
-    const totalItemsCount = useMemo(() => results?.summary.reduce((sum, item) => sum + item.total, 0) || 0, [results]);
+
 
     return (
         <div className="w-full max-w-[min(100%,1000px)] mx-auto space-y-[clamp(2rem,6vh,4rem)] animate-in fade-in duration-700">
@@ -521,8 +538,20 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
                     </div>
 
                     {showModal && (
-                        <div className="fixed inset-0 bg-background/80 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 z-[100] animate-in fade-in duration-500">
-                            <div className="glass-card max-w-md w-full scale-100 sm:scale-110 shadow-3xl animate-in zoom-in-95 duration-500 !p-6 sm:!p-10">
+                        <div 
+                            className="fixed inset-0 bg-background/80 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 z-[100] animate-in fade-in duration-500 cursor-pointer"
+                            onClick={() => { setShowModal(false); setCurrentZone({ type: '', area: '', staffCount: '', color: '' }); }}
+                        >
+                            <div 
+                                className="glass-card relative max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto scale-100 sm:scale-110 shadow-3xl animate-in zoom-in-95 duration-500 !p-6 sm:!p-10 cursor-auto"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <button
+                                    onClick={() => { setShowModal(false); setCurrentZone({ type: '', area: '', staffCount: '', color: '' }); }}
+                                    className="absolute top-4 left-4 p-2 rounded-xl text-foreground/20 hover:text-foreground hover:bg-foreground/5 transition-all z-10"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                                 <div className="text-center mb-10">
                                     <div className="w-16 h-16 bg-primary/10 text-primary rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
                                         <Layout size={28} />
@@ -595,189 +624,197 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(({ onC
             )}
 
             {step === 3 && results && (
-                <div className="animate-in fade-in slide-in-from-right-8 duration-700 space-y-12 pb-20">
-                    {/* Specification Status Header */}
-                    <div className="glass-card !p-12 text-center relative overflow-hidden">
-                        <div className="relative z-10 space-y-6">
-                            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-emerald-500/20 shadow-2xl shadow-emerald-500/10">
-                                <CheckCircle2 size={36} />
-                            </div>
-                            <h2 className="text-[clamp(1.5rem,5vw,4rem)] font-black tracking-tighter leading-none italic uppercase">Спецификация сформирована</h2>
-                            <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.5em] mt-4">Методология ISO 18406 + BICSc Standards</p>
-                        </div>
-                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-                    </div>
+                <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 pb-20">
+                    <div className="glass-card !p-0 overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] border-white/5">
+                        {/* 1. Refined Center-Aligned Header */}
+                        <div className="relative p-10 border-b border-white/5 bg-gradient-to-b from-primary/10 via-background to-transparent">
+                            <div className="relative z-10 flex flex-col items-center text-center max-w-3xl mx-auto space-y-6">
+                                {/* Compact Status Badge */}
+                                <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                                    <CheckCircle2 size={14} className="text-emerald-500" />
+                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-500">Документ готов</span>
+                                </div>
 
-                    {/* Operational Summary Benchmarks (Prices Hidden for Clients) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="glass-card p-10 space-y-4">
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Текущий запас (Stock)</p>
-                            <h4 className="text-4xl font-black tracking-tighter">{totalItemsCount.toLocaleString()} <span className="text-xs text-foreground/20">ЕД</span></h4>
-                        </div>
-                        <div className="glass-card p-10 space-y-4">
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Месячная потребность (Plan)</p>
-                            <h4 className="text-4xl font-black tracking-tighter">
-                                {results.summary.reduce((sum, item) => sum + (item.calculation?.monthlyOrder || 0), 0).toFixed(1)}
-                                <span className="text-xs text-foreground/20 ml-1">ЕД/МЕС</span>
-                            </h4>
-                        </div>
-                    </div>
+                                {/* Main Title */}
+                                <div className="space-y-2">
+                                    <h2 className="text-[clamp(1.5rem,4vw,3.5rem)] font-black tracking-tighter leading-tight uppercase">
+                                        Расчет снабжения
+                                    </h2>
+                                </div>
 
-                    {/* Detailed Product Breakdown Cards */}
-                    <div className="space-y-8">
-                        <div className="flex items-center gap-6 px-1">
-                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-primary">Технический аудит позиций</h3>
-                            <div className="h-px grow bg-primary/10" />
-                        </div>
-                        <div className="grid grid-cols-1 gap-12">
-                            {results.summary.map((item, i) => (
-                                <CalculationBreakdown key={i} item={item} hidePrices={user?.role !== 'admin' && user?.role !== 'manager'} />
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Global Summary Table for Export Preparation */}
-                    <div className="glass-card !bg-card !p-0 overflow-hidden shadow-3xl">
-                        <div className="p-8 border-b border-border-theme bg-primary/5 flex items-center justify-between">
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">Сводная ведомость по объекту</h3>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-background border border-border-theme rounded-xl">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-foreground/50">Валюта: RUB (₽)</span>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b border-border-theme">
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30">Наименование инвентаря</th>
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Зона</th>
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Количество</th>
-                                        <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">Цикл замены</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {results.summary.map((item, i) => (
-                                        <tr key={i} className="border-b border-border-theme hover:bg-primary/5 transition-colors group">
-                                            <td className="px-8 py-6">
-                                                <p className="text-sm font-black group-hover:text-primary transition-colors">{item.inventory}</p>
-                                                <p className="text-[8px] font-bold text-foreground/30 uppercase tracking-widest">{item.sku}</p>
-                                            </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="inline-block w-3 h-3 rounded-full border border-white/10" style={{ backgroundColor: item.color }} />
-                                            </td>
-                                            <td className="px-8 py-6 text-center font-black text-sm">{item.quantity} шт</td>
-                                            <td className="px-8 py-6 text-center text-[10px] font-black uppercase tracking-widest opacity-40">Раз в {item.norms?.replacementCycle} дн</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Final Action - Asymmetric Layout (RECOMMENDED) */}
-                    <div className="glass-card !bg-foreground !text-background relative overflow-hidden group/card p-8 sm:p-12 lg:p-16 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
-                        <div className="relative z-10">
-                            {/* Desktop View */}
-                            <div className="hidden lg:block">
-                                <div className="flex items-end justify-between gap-12">
-                                    {/* Left Column - Information */}
-                                    <div className="space-y-6 flex-1">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-full border border-primary/10">
-                                            <Sparkles className="w-4 h-4 text-primary" />
-                                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Рекомендуемое действие</span>
-                                        </div>
-
-                                        <h3 className="text-[clamp(2rem,3.5vw,3rem)] font-black leading-[1.1] tracking-tighter max-w-xl italic uppercase">
-                                            Передать спецификацию эксперту на аудит
-                                        </h3>
-
-                                        <p className="text-white/40 text-sm font-medium italic max-w-lg">
-                                            Менеджер проверит наличие на складе и сформирует коммерческое предложение за 15 минут
-                                        </p>
+                                {/* Meta Data Row - Compact & Highlighted */}
+                                <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 pt-6 pb-2 border-t border-white/5 w-full">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="text-[9px] font-black text-foreground/20 uppercase tracking-widest">Объект:</span>
+                                        <span className="text-[10px] font-black uppercase text-foreground/60">{objectData.name}</span>
                                     </div>
-
-                                    {/* Right Column - Actions */}
-                                    <div className="flex flex-col items-stretch gap-4 min-w-[320px]">
-                                        <button
-                                            onClick={saveAsDraft}
-                                            disabled={!!isSubmitting}
-                                            className="h-14 px-8 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group"
-                                        >
-                                            {isSubmitting === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform opacity-70 group-hover:opacity-100" />}
-                                            {isSubmitting === 'draft' ? 'Сохранение...' : 'Сохранить черновик'}
-                                        </button>
-
-                                        <button
-                                            onClick={sendToManager}
-                                            disabled={!!isSubmitting}
-                                            className="h-20 px-12 bg-white text-black font-black rounded-2xl hover:shadow-2xl transition-all flex items-center justify-center gap-4 disabled:opacity-50 group relative overflow-hidden"
-                                            style={{
-                                                boxShadow: isSubmitting === 'sent' ? 'none' : '0 30px 60px -15px rgba(255,255,255,0.4)'
-                                            }}
-                                        >
-                                            <span className="text-[11px] uppercase tracking-widest">
-                                                {isSubmitting === 'sent' ? 'Отправка...' : 'ОТПРАВИТЬ ЭКСПЕРТУ'}
-                                            </span>
-                                            {isSubmitting === 'sent' ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />}
-                                        </button>
+                                    <div className="w-1 h-1 rounded-full bg-foreground/10 hidden sm:block" />
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="text-[9px] font-black text-foreground/20 uppercase tracking-widest">Дата формирования:</span>
+                                        <span className="text-[10px] font-black uppercase text-foreground/60">{new Date().toLocaleDateString('ru-RU')}</span>
                                     </div>
                                 </div>
                             </div>
+                            
+                            {/* Visual Accent */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_50%_0%,rgba(var(--primary-rgb),0.15)_0%,transparent_70%)] pointer-events-none" />
+                        </div>
 
-                            {/* Mobile View */}
-                            <div className="lg:hidden space-y-10">
-                                <div className="space-y-4">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-full border border-primary/10">
-                                        <Sparkles className="w-4 h-4 text-primary" />
-                                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">Рекомендуемое действие</span>
+                        {/* 2. Content Body */}
+                        <div className="p-8 sm:p-12 lg:p-16 space-y-24">
+                            
+                            {/* Section 01: Product Audit */}
+                            <div className="space-y-16">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]" />
+                                        <h3 className="text-[12px] font-black uppercase tracking-[0.5em] text-primary">01. Технический аудит позиций</h3>
                                     </div>
+                                    <p className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest text-center max-w-lg">
+                                        Детальный расчет по каждой позиции на основе норм расхода и специфики зон
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-12">
+                                    {results.summary.map((item, i) => (
+                                        <CalculationBreakdown 
+                                            key={i} 
+                                            item={item} 
+                                            hidePrices={user?.role !== 'admin' && user?.role !== 'manager'} 
+                                        />
+                                    ))}
+                                </div>
+                            </div>
 
-                                    <h3 className="text-3xl font-black text-white leading-tight italic uppercase tracking-tighter">
-                                        Передать спецификацию эксперту на аудит
-                                    </h3>
-
-                                    <p className="text-white/40 text-sm font-medium italic">
-                                        Менеджер проверит наличие и сформирует КП за 15 минут
+                            {/* Section 02: Human-Readable Executive Summary */}
+                            <div className="space-y-16">
+                                <div className="flex flex-col items-center gap-4 text-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]" />
+                                        <h3 className="text-[12px] font-black uppercase tracking-[0.5em] text-primary">02. Итоговые цифры по объекту</h3>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest max-w-lg">
+                                        Краткое резюме всего расчета для планирования бюджета
                                     </p>
                                 </div>
 
-                                <div className="flex flex-col gap-4">
-                                    <button
-                                        onClick={sendToManager}
-                                        disabled={!!isSubmitting}
-                                        className="h-16 px-8 bg-white text-black font-black rounded-2xl hover:shadow-lg transition-all flex items-center justify-center gap-4 disabled:opacity-50"
-                                    >
-                                        <span className="text-[10px] uppercase tracking-widest">
-                                            {isSubmitting === 'sent' ? 'Отправка...' : 'ОТПРАВИТЬ ЭКСПЕРТУ'}
-                                        </span>
-                                        {isSubmitting === 'sent' ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-6 h-6" />}
-                                    </button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {/* 1. SKU Count */}
+                                    <div className="glass-card !bg-white/[0.02] border-white/5 p-8 space-y-4 hover:border-primary/20 transition-colors">
+                                        <p className="text-[9px] font-black text-foreground/30 uppercase tracking-[0.2em]">Всего позиций</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black tracking-tighter">{results.summary.length}</span>
+                                            <span className="text-[10px] font-bold text-foreground/20 uppercase tracking-widest">в списке</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                            <div className="h-full bg-primary/40 w-[60%]" />
+                                        </div>
+                                    </div>
 
-                                    <button
+                                    {/* 2. Total Units In Work */}
+                                    <div className="glass-card !bg-white/[0.02] border-white/5 p-8 space-y-4 hover:border-primary/20 transition-colors">
+                                        <p className="text-[9px] font-black text-foreground/30 uppercase tracking-[0.2em]">Основной инвентарь</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black tracking-tighter">
+                                                {results.summary.reduce((acc, item) => acc + Math.ceil(item.quantity), 0)}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-foreground/20 uppercase tracking-widest">единиц</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                            <div className="h-full bg-emerald-500/40 w-[80%]" />
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Total Monthly Supply */}
+                                    <div className="glass-card !bg-white/[0.02] border-white/5 p-8 space-y-4 hover:border-primary/20 transition-colors">
+                                        <p className="text-[9px] font-black text-primary/40 uppercase tracking-[0.2em]">Докупать каждый месяц</p>
+                                        <div className="flex items-baseline gap-2 text-primary">
+                                            <span className="text-4xl font-black tracking-tighter">
+                                                {results.summary.reduce((acc, item) => acc + (item.calculation ? Math.ceil(item.calculation.monthlyOrder) : 0), 0)}
+                                            </span>
+                                            <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">для обновления</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-primary/10 rounded-full overflow-hidden">
+                                            <div className="h-full bg-primary/60 w-[45%]" />
+                                        </div>
+                                    </div>
+
+                                    {/* 4. Total Annual Volume */}
+                                    <div className="glass-card !bg-white/[0.02] border-white/5 p-8 space-y-4 hover:border-primary/20 transition-colors">
+                                        <p className="text-[9px] font-black text-foreground/30 uppercase tracking-[0.2em]">Расход за 12 месяцев</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black tracking-tighter">
+                                                {results.summary.reduce((acc, item) => acc + (item.calculation ? Math.ceil(item.calculation.annualConsumption) : 0), 0)}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-foreground/20 uppercase tracking-widest">планово</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                            <div className="h-full bg-white/20 w-full" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Supply Health Insight */}
+                                <div className="p-10 rounded-[2.5rem] bg-gradient-to-r from-primary/5 via-transparent to-transparent border border-white/5 flex items-center gap-8 shadow-2xl">
+                                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
+                                        <ShieldCheck size={32} className="text-primary" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h4 className="text-lg font-black uppercase tracking-tight italic">Ваш объект полностью укомплектован</h4>
+                                        <p className="text-xs font-medium text-foreground/50 leading-relaxed max-w-2xl">
+                                            Мы рассчитали оптимальное количество инвентаря, чтобы у вас всегда был запас для работы персонала, но не было «лишних» трат. 
+                                            Расчет учитывает <span className="text-foreground">площадь зон, проходимость</span> и реальные <span className="text-foreground">нормы износа</span> каждого инструмента.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Report Footer / CTA */}
+                        <div className="p-12 sm:p-16 lg:p-20 bg-foreground text-background relative overflow-hidden">
+                            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12">
+                                <div className="space-y-6 flex-1 text-center lg:text-left">
+                                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 rounded-full border border-primary/10">
+                                        <Sparkles className="w-4 h-4 text-primary" />
+                                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">Следующий шаг</span>
+                                    </div>
+                                    <h3 className="text-[clamp(1.5rem,4vw,3rem)] font-black leading-tight tracking-tighter italic uppercase">
+                                        Передать на аудит <br />
+                                        <span className="text-white/40">экспертному отделу</span>
+                                    </h3>
+                                    <p className="text-white/30 text-base font-medium italic max-w-xl mx-auto lg:mx-0">
+                                        Наш менеджер проверит спецификацию на соответствие нормам и подготовит финальное коммерческое предложение в течение 15 минут.
+                                    </p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row lg:flex-col gap-4 w-full md:w-auto min-w-[320px]">
+                                    <button 
                                         onClick={saveAsDraft}
                                         disabled={!!isSubmitting}
-                                        className="h-14 px-8 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-white bg-white/5 border border-white/15 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                        className="h-16 px-8 text-[11px] font-black uppercase tracking-widest text-white/50 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group"
                                     >
-                                        {isSubmitting === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 opacity-70" />}
-                                        {isSubmitting === 'draft' ? 'Сохранение...' : 'Сохранить черновик'}
+                                        {isSubmitting === 'draft' ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                                        {isSubmitting === 'draft' ? 'Сохранение...' : 'В черновики'}
+                                    </button>
+                                    <button 
+                                        onClick={sendToManager}
+                                        disabled={!!isSubmitting}
+                                        className="h-24 px-12 bg-white text-black font-black rounded-2xl hover:bg-primary/10 hover:text-white hover:border-primary transition-all flex items-center justify-center gap-4 group disabled:opacity-50 shadow-[0_30px_60px_-15px_rgba(255,255,255,0.3)]"
+                                    >
+                                        <span className="text-[11px] uppercase tracking-[0.2em]">{isSubmitting === 'sent' ? 'ОТПРАВЛЯЕМ...' : 'ОТПРАВИТЬ ЭКСПЕРТУ'}</span>
+                                        {isSubmitting === 'sent' ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />}
                                     </button>
                                 </div>
                             </div>
-
-                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] flex items-center gap-2 mt-12 border-t border-white/10 pt-8 transition-colors hover:text-white/60">
-                                <FileText className="w-3.5 h-3.5 text-primary/60" />
-                                Спецификация будет доступна в личном кабинете
-                            </p>
+                            <div className="absolute top-0 right-0 w-[70%] h-full bg-primary/20 blur-[150px] rounded-full translate-x-1/3 -translate-y-1/2 pointer-events-none" />
                         </div>
-                        {/* Interactive Design Element */}
-                        <div className="absolute top-0 right-0 w-[60%] h-full bg-primary/20 blur-[130px] rounded-full translate-x-1/2 -translate-y-1/2 group-hover:bg-primary/30 transition-colors duration-1000" />
                     </div>
 
-                    <div className="flex justify-center pt-10">
-                        <button
+                    <div className="flex justify-center pt-12">
+                        <button 
                             onClick={() => setStep(2)}
                             className="group flex items-center gap-4 text-[11px] font-black text-foreground/20 uppercase tracking-[0.5em] hover:text-primary transition-all"
                         >
-                            <ChevronLeft className="w-6 h-6 transition-transform group-hover:-translate-x-2" /> РЕДАКТИРОВАТЬ ПАРАМЕТРЫ ОБЪЕКТА
+                            <ChevronLeft className="w-6 h-6 transition-transform group-hover:-translate-x-2" /> 
+                            Редактировать параметры
                         </button>
                     </div>
                 </div>

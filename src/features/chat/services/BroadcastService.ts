@@ -1,15 +1,14 @@
 import { type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
-import { CHAT_CHANNELS, type Message } from '../types';
+import { CHAT_CHANNELS, type Message, type MessageEventType } from '../types';
 
 export interface IBroadcastService {
-    broadcastNewMessage(message: unknown, calculationId?: string): Promise<boolean>;
-    broadcastMessageUpdate(message: unknown): Promise<boolean>;
-    broadcastMessageDelete(messageId: string): Promise<boolean>;
-    broadcastMessagesRead(receiverId: string): Promise<boolean>;
+
+    broadcastMessagesRead(receiverId: string, calculationId?: string): Promise<boolean>;
     broadcastClearHistory(userId: string, contactId: string): Promise<boolean>;
     subscribeToMessages(
-        callback: (payload: Message, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void,
-        calculationId?: string
+        callback: (payload: Message, eventType: MessageEventType) => void,
+        calculationId?: string,
+        userId?: string
     ): () => void;
 
     // Sync Signals (Master Projects Stream)
@@ -101,47 +100,43 @@ export class BroadcastService implements IBroadcastService {
         }
     }
 
-    async broadcastNewMessage(message: unknown, calculationId?: string): Promise<boolean> {
+
+
+    async broadcastMessagesRead(receiverId: string, calculationId?: string): Promise<boolean> {
         const channelName = calculationId
             ? `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`
-            : CHAT_CHANNELS.GLOBAL_SYNC;
-        return this.sendBroadcast(channelName, 'new_message', message);
-    }
-
-    async broadcastMessageUpdate(message: unknown): Promise<boolean> {
-        return this.sendBroadcast(CHAT_CHANNELS.GLOBAL_SYNC, 'message_updated', message);
-    }
-
-    async broadcastMessageDelete(messageId: string): Promise<boolean> {
-        return this.sendBroadcast(CHAT_CHANNELS.GLOBAL_SYNC, 'message_deleted', { messageId });
-    }
-
-    async broadcastMessagesRead(receiverId: string): Promise<boolean> {
-        return this.sendBroadcast(CHAT_CHANNELS.GLOBAL_SYNC, 'messages_read', { receiverId });
+            : `user_updates_${receiverId}`;
+        return this.sendBroadcast(channelName, 'messages_read', { receiverId, calculationId });
     }
 
     async broadcastClearHistory(userId: string, contactId: string): Promise<boolean> {
-        return this.sendBroadcast(CHAT_CHANNELS.GLOBAL_SYNC, 'history_cleared', {
+        // Notify the OTHER participant that history was cleared
+        return this.sendBroadcast(`user_updates_${contactId}`, 'history_cleared', {
             sender_id: userId,
             receiver_id: contactId
         });
     }
 
     subscribeToMessages(
-        callback: (payload: Message, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void,
-        calculationId?: string
+        callback: (payload: Message, eventType: MessageEventType) => void,
+        calculationId?: string,
+        userId?: string
     ): () => void {
-        const channelName = calculationId
-            ? `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`
-            : CHAT_CHANNELS.GLOBAL_SYNC;
+        let channelName: string = CHAT_CHANNELS.GLOBAL_SYNC;
+
+        if (calculationId) {
+            channelName = `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`;
+        } else if (userId) {
+            channelName = `user_updates_${userId}`;
+        }
 
         // Note: For subscriptions we use a separate channel instance to avoid sharing state with generic broadcast channel
         // but we still benefit from using the library's channel management
+        let isInitialJoin = true;
         const subscriptionChannel = this.client.channel(`sub_${channelName}_${Date.now()}`)
-            .on('broadcast', { event: 'new_message' }, ({ payload }) => callback(payload, 'INSERT'))
             .on('broadcast', { event: 'message_updated' }, ({ payload }) => callback(payload, 'UPDATE'))
             .on('broadcast', { event: 'message_deleted' }, ({ payload }) => callback(payload, 'DELETE'))
-            .on('broadcast', { event: 'messages_read' }, ({ payload }) => callback(payload, 'UPDATE'))
+            .on('broadcast', { event: 'messages_read' }, ({ payload }) => callback(payload as any as Message, 'READ'))
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
@@ -150,12 +145,34 @@ export class BroadcastService implements IBroadcastService {
             }, (payload) => {
                 const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
                 if (eventType === 'INSERT' || eventType === 'UPDATE') {
+                    // For Direct Messages (legacy), marking as read is an UPDATE on 'is_read'.
+                    // We must pass this through so useUnreadCount invalidates queries.
                     callback(payload.new as Message, eventType);
                 } else if (eventType === 'DELETE') {
                     callback(payload.old as Message, 'DELETE');
                 }
             })
-            .subscribe();
+            // CRITICAL FIX: Listen for READ MARKER updates to refresh Unread Counts
+            // When a user reads a chat in another tab, this triggers an UPDATE event here
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'chat_read_markers'
+            }, (payload) => {
+                // We send a dummy 'UPDATE' event to force the subscriber (useUnreadCount) to invalidate cache
+                const dummyMsg = { id: 'marker-update', ...payload.new } as unknown as Message;
+                callback(dummyMsg, 'UPDATE');
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    if (!isInitialJoin) {
+                        // This is a reconnection gap. Signal to consumer to refetch.
+                        // We use a dummy message with a custom event type or specialized handler.
+                        callback({ id: 'reconnect-signal' } as any, 'RECONNECT');
+                    }
+                    isInitialJoin = false;
+                }
+            });
 
         return () => {
             this.client.removeChannel(subscriptionChannel);

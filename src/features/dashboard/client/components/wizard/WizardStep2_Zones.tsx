@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Pencil, Ruler, Plus, Layout, Trash2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Pencil, Ruler, Plus, Layout, Trash2, AlertCircle, X } from 'lucide-react';
 import { ZONE_TYPES } from '@/features/dashboard/dashboard.types';
 import { getTotalZonesArea } from '@/core/domain/calculator.utils';
 import type { ObjectData } from './useCalculationWizard';
@@ -24,6 +24,17 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
 
     // Local state for the modal form
     const [currentZone, setCurrentZone] = useState({ type: '', area: '', staffCount: '', color: '' });
+
+    // Lock scroll when modal is open
+    useEffect(() => {
+        if (showModal) {
+            const originalStyle = window.getComputedStyle(document.body).overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = originalStyle;
+            };
+        }
+    }, [showModal]);
 
     const handleAddClick = () => {
         if (currentZone.type && currentZone.area) {
@@ -148,8 +159,20 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
             </div>
 
             {showModal && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 z-[100] animate-in fade-in duration-500">
-                    <div className="glass-card max-w-md w-full scale-100 sm:scale-110 shadow-3xl animate-in zoom-in-95 duration-500 !p-6 sm:!p-10">
+                <div 
+                    className="fixed inset-0 bg-background/80 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 z-[100] animate-in fade-in duration-500 cursor-pointer"
+                    onClick={() => { setShowModal(false); setCurrentZone({ type: '', area: '', staffCount: '', color: '' }); }}
+                >
+                    <div 
+                        className="glass-card relative max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto scale-100 sm:scale-110 shadow-3xl animate-in zoom-in-95 duration-500 !p-6 sm:!p-10 cursor-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => { setShowModal(false); setCurrentZone({ type: '', area: '', staffCount: '', color: '' }); }}
+                            className="absolute top-4 left-4 p-2 rounded-xl text-foreground/20 hover:text-foreground hover:bg-foreground/5 transition-all z-10"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                         <div className="text-center mb-10">
                             <div className="w-16 h-16 bg-primary/10 text-primary rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
                                 <Layout size={28} />

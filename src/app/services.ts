@@ -30,7 +30,7 @@ export const chatService = new ChatService(chatRepository, broadcastService);
 
 // Domain Services
 export const calculationRepository = new CalculationRepository(supabase, logger);
-export const calculationService = new CalculationService(calculationRepository, chatService);
+export const calculationService = new CalculationService(calculationRepository);
 
 export const venueService = new VenueService(supabase);
 export const inventoryService = new InventoryService(supabase);

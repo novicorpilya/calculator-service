@@ -140,3 +140,8 @@ temp/
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# Test artifacts
+playwright-report/
+test-results/
+lint_output.txt

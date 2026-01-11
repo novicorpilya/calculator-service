@@ -122,12 +122,19 @@ export interface InventoryItem {
     supplier_id?: string;
     norm_area: number;
     total: number;
+    // Selection Criteria Data
+    category?: string;
+    tier?: number;
+    durability?: number;
+    series?: string;
+    compliance_level?: string;
     // Calculation Breakdown
     calculation?: {
         qArea: number;
         qStaff: number;
         qVisitors: number;
         qBase: number;
+        qBaseSelected?: number; // Chosen factor (area, staff, or visitors)
         kZone: number;
         kIntensity: number;
         kReserve: number;
@@ -189,6 +196,8 @@ export interface Calculation {
     version_number?: number;
     manager_adjustments?: Record<string, any>;
     locked_at?: string;
+    locked_by?: string;
+    lock_expires_at?: string;
     final_snapshot?: CalculationResults;
     receipt_path?: string;
     client_name?: string;

@@ -53,11 +53,13 @@ export interface ICalculationRepository {
 
     executeAction(id: string | number, action: string, message?: string, payload?: Record<string, unknown>): Promise<Calculation>;
     adjustCalculationExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation>;
+    acquireLock(id: string | number): Promise<Calculation>;
+    releaseLock(id: string | number): Promise<Calculation>;
 }
 
 // Internal DB Interface (Strictly Typed)
 interface CalculationDB {
-    id: number;
+    id: string | number;
     user_id: string;
     manager_id?: string | null;
     organization_name: string;
@@ -69,6 +71,7 @@ interface CalculationDB {
     staff_count: number;
     daily_visitors: number;
     sanitary_level: string;
+    intensity_level?: string;
     replacement_cycle: string;
     results: CalculationResults | null;
     history: Interaction[];
@@ -79,6 +82,8 @@ interface CalculationDB {
     version_number?: number;
     manager_adjustments?: Record<string, any>;
     locked_at?: string;
+    locked_by?: string;
+    lock_expires_at?: string;
     final_snapshot?: CalculationResults;
     receipt_path?: string;
     manager_info?: {
@@ -102,22 +107,24 @@ export class CalculationRepository implements ICalculationRepository {
         this.logger = logger;
     }
 
+    private readonly PROJECT_SELECT = '*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)';
+
     private mapToEntity(db: CalculationDB): Calculation {
         const results = db.results;
         const totalCost = db.total_cost_value || 0;
 
         const mInfo = db.manager_info;
-        const managerData = Array.isArray(mInfo) ? mInfo[0] : mInfo;
+        const managerData = Array.isArray(mInfo) ? mInfo[0] : (mInfo || null);
         const cInfo = db.client_info;
-        const clientData = Array.isArray(cInfo) ? cInfo[0] : cInfo;
+        const clientData = Array.isArray(cInfo) ? cInfo[0] : (cInfo || null);
 
         let managerName = 'Назначается';
         if (managerData) {
             const fullName = `${managerData.first_name || ''} ${managerData.last_name || ''}`.trim();
-            managerName = fullName || 'Специалист';
+            managerName = fullName || managerData.organization_name || 'Специалист';
         }
 
-        const clientName = clientData ? clientData.first_name || 'Клиент' : 'Клиент';
+        const clientName = clientData ? (clientData.first_name || 'Клиент') : 'Клиент';
 
         // 10/10 Validation: Ensure JSONB fields are valid
         const zonesParse = z.array(ZoneSchema).safeParse(db.zone_details || []);
@@ -140,6 +147,7 @@ export class CalculationRepository implements ICalculationRepository {
             staffCount: db.staff_count,
             dailyVisitors: db.daily_visitors, // Fixed mapping key
             sanitaryLevel: db.sanitary_level,
+            intensityLevel: db.intensity_level,
             replacementCycle: db.replacement_cycle,
             createdDate: db.created_at, // Return ISO string, let UI format it to avoid TZ issues
             manager: managerName,
@@ -151,6 +159,8 @@ export class CalculationRepository implements ICalculationRepository {
             version_number: db.version_number || 1,
             manager_adjustments: db.manager_adjustments || {},
             locked_at: db.locked_at,
+            locked_by: db.locked_by,
+            lock_expires_at: db.lock_expires_at,
             final_snapshot: db.final_snapshot,
             receipt_path: db.receipt_path,
             client_name: clientName,
@@ -161,7 +171,7 @@ export class CalculationRepository implements ICalculationRepository {
     async getById(id: string | number): Promise<Calculation> {
         const { data, error } = await this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(first_name, last_name, organization_name), client_info:profiles!user_id(first_name, last_name)')
+            .select(this.PROJECT_SELECT)
             .eq('id', id)
             .single();
 
@@ -175,7 +185,7 @@ export class CalculationRepository implements ICalculationRepository {
     async getByUserId(userId: string): Promise<Calculation[]> {
         const { data, error } = await this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)')
+            .select(this.PROJECT_SELECT)
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
@@ -189,7 +199,7 @@ export class CalculationRepository implements ICalculationRepository {
     async getUnassigned(): Promise<Calculation[]> {
         const { data, error } = await this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
+            .select(this.PROJECT_SELECT)
             .is('manager_id', null)
             .neq('status', 'draft')
             .order('created_at', { ascending: false });
@@ -204,7 +214,7 @@ export class CalculationRepository implements ICalculationRepository {
     async getManagerWorkload(managerId: string): Promise<Calculation[]> {
         const { data, error } = await this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
+            .select(this.PROJECT_SELECT)
             .eq('manager_id', managerId)
             .order('updated_at', { ascending: false });
 
@@ -225,9 +235,13 @@ export class CalculationRepository implements ICalculationRepository {
         const to = from + pageSize - 1;
 
         // Build query
+        // Architecture Decision: Lazy Load Client Info
+        // We do NOT join 'client_info' here to ensure the list is performant and reliable.
+        // If a client profile is missing or locked by RLS, we don't want the entire project hidden.
+        // Detailed client info is fetched in 'getById' (Project Card).
         let query = this.client
             .from('calculations')
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)', { count: 'exact' });
+            .select(this.PROJECT_SELECT, { count: 'exact' });
 
         // Filter by manager
         if (managerId === null) {
@@ -284,12 +298,8 @@ export class CalculationRepository implements ICalculationRepository {
             throw new InfrastructureError('CREATE_CALCULATION_FAILED', error);
         }
 
-        // RPC returns the created row
-        // We might need to fetch manager info if RPC doesn't return joined data
-        // For efficiency, map what we have, and UI can refetch if needed, or we fetch here.
-        // Given 'create', manager is usually null/system.
-
-        return this.mapToEntity(data as CalculationDB);
+        // RPC returns the created row, but we need full joined data (manager info etc)
+        return this.getById(data.id);
     }
 
     async updateContent(id: string | number, updates: Partial<Calculation>): Promise<Calculation> {
@@ -304,13 +314,11 @@ export class CalculationRepository implements ICalculationRepository {
         if (updates.staffCount !== undefined) dbUpdates.staff_count = updates.staffCount;
         if (updates.dailyVisitors !== undefined) dbUpdates.daily_visitors = updates.dailyVisitors;
         if (updates.sanitaryLevel !== undefined) dbUpdates.sanitary_level = updates.sanitaryLevel;
+        if (updates.intensityLevel !== undefined) dbUpdates.intensity_level = updates.intensityLevel;
         if (updates.replacementCycle !== undefined) dbUpdates.replacement_cycle = updates.replacementCycle;
         if (updates.results !== undefined) {
             dbUpdates.results = updates.results;
-            // Pre-calculate metrics for analytics columns
-            const summary = updates.results?.summary || [];
-            dbUpdates.total_cost_value = summary.reduce((acc, item) => acc + (Number(item.total) || (Number(item.price) * Number(item.quantity) || 0)), 0);
-            dbUpdates.total_items_count = summary.length;
+            if (updates.totalCost !== undefined) dbUpdates.total_cost_value = updates.totalCost;
         }
         if (updates.receipt_path !== undefined) {
             dbUpdates.receipt_path = updates.receipt_path;
@@ -322,7 +330,7 @@ export class CalculationRepository implements ICalculationRepository {
             .from('calculations')
             .update(dbUpdates)
             .eq('id', id)
-            .select('*, manager_info:profiles!manager_id(organization_name, first_name, last_name)')
+            .select(this.PROJECT_SELECT)
             .single();
 
         if (error) {
@@ -344,7 +352,8 @@ export class CalculationRepository implements ICalculationRepository {
             this.logger.error('Failed to execute calculation action', { id, action }, error);
             throw new InfrastructureError('EXECUTE_ACTION_FAILED', error);
         }
-        return this.mapToEntity(data as CalculationDB);
+        // Action might change manager or status - always refetch full joined object
+        return this.getById(data.id);
     }
 
 
@@ -362,11 +371,11 @@ export class CalculationRepository implements ICalculationRepository {
             p_calculation_id: id,
             p_results: results,
             p_adjustments: adjustments,
-            p_current_version: version
+            p_current_version: Math.floor(version)
         });
 
         if (error) {
-            console.error('❌ Supabase RPC Error Details:', {
+            this.logger.error('Supabase RPC Error Details', {
                 message: error.message,
                 code: error.code,
                 details: error.details,
@@ -375,6 +384,22 @@ export class CalculationRepository implements ICalculationRepository {
             throw new InfrastructureError('EXECUTE_ACTION_FAILED', error);
         }
 
-        return this.mapToEntity(data as CalculationDB);
+        return this.getById(data.id);
+    }
+
+    async acquireLock(id: string | number): Promise<Calculation> {
+        const { data, error } = await this.client.rpc('acquire_calculation_lock', {
+            p_calculation_id: id
+        });
+        if (error) throw new InfrastructureError('ACQUIRE_LOCK_FAILED', error);
+        return this.getById(data.id);
+    }
+
+    async releaseLock(id: string | number): Promise<Calculation> {
+        const { data, error } = await this.client.rpc('release_calculation_lock', {
+            p_calculation_id: id
+        });
+        if (error) throw new InfrastructureError('RELEASE_LOCK_FAILED', error);
+        return this.getById(data.id);
     }
 }

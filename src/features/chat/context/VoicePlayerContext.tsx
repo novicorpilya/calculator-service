@@ -30,41 +30,36 @@ export const VoicePlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, [currentPlayingId]);
 
     const register = useCallback((id: string, stopFn: () => void) => {
-        console.log('[AudioContext] Registering:', id);
+
         stopFns.current.set(id, stopFn);
     }, []);
 
     const unregister = useCallback((id: string) => {
-        console.log('[AudioContext] Unregistering:', id);
         stopFns.current.delete(id);
-        // Use ref to avoid dependency on state
         if (currentPlayingIdRef.current === id) {
             setCurrentPlayingId(null);
         }
-    }, []); // Stable callback!
+    }, [setCurrentPlayingId]);
 
     const play = useCallback((id: string, audio: HTMLAudioElement) => {
-        console.log('[AudioContext] Play request:', id, 'Current:', currentPlayingIdRef.current);
-
+        if (!audio) return;
         // If another audio is playing, stop it
         if (currentPlayingIdRef.current && currentPlayingIdRef.current !== id) {
-            console.log('[AudioContext] Stopping previous:', currentPlayingIdRef.current);
             const stopFn = stopFns.current.get(currentPlayingIdRef.current);
             if (stopFn) stopFn();
         }
 
         setCurrentPlayingId(id);
-        audio.play()
-            .then(() => console.log('[AudioContext] Audio started:', id))
-            .catch(e => console.error("[AudioContext] Playback failed:", e));
-    }, []); // Stable callback!
+        audio.play().catch(() => {
+            // Silently catch or handle via UI state
+        });
+    }, [setCurrentPlayingId]);
 
     const pause = useCallback((id: string) => {
-        console.log('[AudioContext] Pause request:', id);
         if (currentPlayingIdRef.current === id) {
             setCurrentPlayingId(null);
         }
-    }, []); // Stable callback!
+    }, [setCurrentPlayingId]);
 
     return (
         <VoicePlayerContext.Provider value={{ currentPlayingId, play, pause, register, unregister }}>

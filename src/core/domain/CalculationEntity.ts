@@ -108,19 +108,6 @@ export class CalculationEntity {
      * Can the MANAGER take action on this calculation?
      * True for: sent, revision, expert, suppliers, invoice
      */
-    isActionableByManager(): boolean {
-        const statuses: CalculationStatus[] = [
-            CALCULATION_STATUS.SENT,
-            CALCULATION_STATUS.REVISION,
-            CALCULATION_STATUS.EXPERT,
-            CALCULATION_STATUS.INVOICE,
-            CALCULATION_STATUS.PAYMENT_REVIEW
-        ];
-
-        if (this.isLocked() && this.data.status !== CALCULATION_STATUS.INVOICE) return false;
-        return statuses.includes(this.data.status);
-    }
-
     canRequestChanges(): boolean {
         const statuses: CalculationStatus[] = [CALCULATION_STATUS.SENT, CALCULATION_STATUS.REVISION, CALCULATION_STATUS.EXPERT];
         return statuses.includes(this.data.status);
@@ -215,18 +202,6 @@ export class CalculationEntity {
      */
     isAssignedTo(managerId: string): boolean {
         return String(this.data.manager_id) === String(managerId);
-    }
-
-    // ===== CATEGORY HELPERS =====
-
-    /**
-     * Get status category for grouping
-     */
-    getStatusCategory(): 'active' | 'pending' | 'completed' | 'draft' {
-        if (this.isDraft()) return 'draft';
-        if (this.isCompleted()) return 'completed';
-        if (this.isPendingReview() || this.isPendingClientChanges()) return 'pending';
-        return 'active';
     }
 
     /**

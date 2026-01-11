@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculationService, chatService } from '@/app/services';
 import type { Calculation, CalculationStatus } from '../dashboard.types';
-import { CALCULATION_STATUS } from '@/core/constants/calculation.constants';
-import { CHAT_TEMPLATES } from '@/features/chat/constants/templates';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { toast } from 'sonner';
 
@@ -14,6 +12,7 @@ export const dashboardKeys = {
     manager: (userId: string) => [...dashboardKeys.all, 'manager', userId] as const,
     unassigned: () => [...dashboardKeys.all, 'unassigned'] as const,
     detail: (id: string | number) => [...dashboardKeys.all, 'detail', id] as const,
+    paginated: (params: Record<string, any>) => [...dashboardKeys.all, 'paginated', params] as const,
 };
 
 /**
@@ -69,24 +68,7 @@ export function useCalculationActions() {
             const result = await calculationService.update(id, { status, ...updates });
 
             // Side Effects
-            // Side Effects
             await chatService.sendSyncSignal(id, 'UPDATE');
-
-            // Send automated confirmation message if confirmed by manager
-            if (status === CALCULATION_STATUS.PAID) {
-                const clientName = result.client_name || 'клиент';
-                const managerName = result.manager || 'Ваш менеджер';
-                const orderId = String(id).slice(0, 8).toUpperCase();
-
-                const messageText = CHAT_TEMPLATES.ROADMAP(clientName, orderId, managerName);
-
-                await chatService.sendMessage({
-                    content: messageText,
-                    calculation_id: String(id),
-                    sender_id: result.manager_id || '',
-                    receiver_id: result.user_id || ''
-                });
-            }
 
             return { result, id, status };
         },

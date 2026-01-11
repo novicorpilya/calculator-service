@@ -1,10 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
     Trash2, MoreVertical, Loader2, MessageCircle,
-    Paperclip, Smile, ArrowRight, X
+    Paperclip, Smile, ArrowRight, X,
+    Check, CheckCheck, Clock, AlertCircle
 } from 'lucide-react';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
+import { logger } from '@/app/services';
 import type { Message } from '@/features/chat/types';
 
 interface ProjectChatSectionProps {
@@ -13,6 +15,7 @@ interface ProjectChatSectionProps {
     user: { id: string; role?: string } | null;
     onSendMessage: (text: string, attachments: { file: File, preview: string }[]) => Promise<void>;
     onClearHistory: () => void;
+    onResendMessage?: (msg: Message) => void;
 }
 
 export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
@@ -20,7 +23,8 @@ export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
     loadingMessages,
     user,
     onSendMessage,
-    onClearHistory
+    onClearHistory,
+    onResendMessage
 }) => {
     const [newComment, setNewComment] = useState('');
     const [pendingAttachments, setPendingAttachments] = useState<{ file: File, preview: string }[]>([]);
@@ -30,6 +34,25 @@ export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const moreMenuRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to bottom
+    const scrollToBottom = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    // Cleanup URLs on unmount
+    useEffect(() => {
+        return () => {
+            pendingAttachments.forEach(att => URL.revokeObjectURL(att.preview));
+        };
+    }, [pendingAttachments]);
 
     // Close menus on outside click
     useEffect(() => {
@@ -58,11 +81,28 @@ export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
         setShowEmojiPicker(false);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        await onSendMessage(newComment, pendingAttachments);
+        if (!newComment.trim() && pendingAttachments.length === 0) return;
+
+        const attachmentsToKeep = [...pendingAttachments];
+        const textToSend = newComment;
+
+        // Reset UI immediately (Instant feel)
         setNewComment('');
         setPendingAttachments([]);
+
+        // Trigger send in background
+        onSendMessage(textToSend, attachmentsToKeep).catch(err => {
+            logger.error('Failed to send project message', { err });
+            // Optionally restore text if failed, but usually Chat Hook handles errors with 'error' status
+        });
+
+        // Revoke after a short delay to ensure they were used if needed 
+        // (but ideally hook handles this or we revoke in cleanup)
+        setTimeout(() => {
+            attachmentsToKeep.forEach(att => URL.revokeObjectURL(att.preview));
+        }, 3000);
     };
 
     return (
@@ -99,7 +139,7 @@ export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
                 </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 mb-6">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 mb-6">
                 {loadingMessages ? (
                     <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
                 ) : messages.length === 0 ? (
@@ -107,8 +147,8 @@ export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
                         <MessageCircle size={48} className="opacity-20" /> Диалог не начат
                     </div>
                 ) : (
-                    messages.map((msg, idx) => (
-                        <div key={idx} className={`flex flex-col ${msg.sender_id === user?.id ? 'items-end' : 'items-start'}`}>
+                    messages.map((msg) => (
+                        <div key={msg.id} className={`flex flex-col ${msg.sender_id === user?.id ? 'items-end' : 'items-start'}`}>
                             <div className={`
                                 max-w-[90%] rounded-[1.5rem] relative
                                 ${msg.image_url && !msg.content ? 'p-1 bg-[#1a1a1a]' : 'p-4 sm:p-5'}
@@ -141,10 +181,28 @@ export const ProjectChatSection: React.FC<ProjectChatSectionProps> = ({
                                         {msg.content}
                                     </p>
                                 )}
-                                <div className="flex items-center gap-2 mt-2 justify-end opacity-40">
-                                    <span className="text-[8px] font-black uppercase tracking-widest">
+                                <div className="flex items-center gap-1.5 mt-2 justify-end">
+                                    <span className="text-[8px] font-black uppercase tracking-widest opacity-40">
                                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
+                                    {msg.sender_id === user?.id && (
+                                        <div className="flex items-center">
+                                            {msg.status === 'pending' ? (
+                                                <Clock size={10} className="text-white/50 animate-pulse" />
+                                            ) : msg.status === 'error' ? (
+                                                <button 
+                                                    onClick={() => onResendMessage?.(msg)}
+                                                    className="p-0 bg-transparent border-none cursor-pointer hover:scale-110 transition-transform"
+                                                >
+                                                    <AlertCircle size={10} className="text-red-400" />
+                                                </button>
+                                            ) : msg.is_read ? (
+                                                <CheckCheck size={11} className="text-white" />
+                                            ) : (
+                                                <Check size={11} className="text-white/70" />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

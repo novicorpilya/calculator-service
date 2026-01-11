@@ -103,16 +103,6 @@ describe('CalculationEntity', () => {
             expect(new CalculationEntity(mockCalculation('invoice')).isEditableByClient()).toBe(false);
         });
 
-        test('isActionableByManager should be true for workflow states', () => {
-            expect(new CalculationEntity(mockCalculation('sent')).isActionableByManager()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('revision')).isActionableByManager()).toBe(true);
-        });
-
-        test('isActionableByManager should be false for final states or draft', () => {
-            expect(new CalculationEntity(mockCalculation('draft')).isActionableByManager()).toBe(false);
-            expect(new CalculationEntity(mockCalculation('completed')).isActionableByManager()).toBe(false);
-        });
-
         test('canRequestChanges should be true for SENT and REVISION', () => {
             expect(new CalculationEntity(mockCalculation('sent')).canRequestChanges()).toBe(true);
             expect(new CalculationEntity(mockCalculation('revision')).canRequestChanges()).toBe(true);
@@ -147,12 +137,5 @@ describe('CalculationEntity', () => {
             expect(new CalculationEntity(mockCalculation('paid')).isPaid()).toBe(true);
         });
 
-        test('getStatusCategory should return correct grouping', () => {
-            expect(new CalculationEntity(mockCalculation('draft')).getStatusCategory()).toBe('draft');
-            expect(new CalculationEntity(mockCalculation('completed')).getStatusCategory()).toBe('completed');
-            expect(new CalculationEntity(mockCalculation('sent')).getStatusCategory()).toBe('pending');
-            expect(new CalculationEntity(mockCalculation('changes')).getStatusCategory()).toBe('pending');
-            expect(new CalculationEntity(mockCalculation('expert')).getStatusCategory()).toBe('active');
-        });
     });
 });

@@ -14,11 +14,13 @@ describe('ChatService', () => {
         mockRepository = {
             getMessages: vi.fn(),
             getCalculationMessages: vi.fn(),
-            getMessagesPaginated: vi.fn(),
-            sendMessage: vi.fn(),
+            getCalculationMessagesPaginated: vi.fn(),
+            sendDirectMessage: vi.fn(),
+            sendProjectMessage: vi.fn(),
             deleteMessage: vi.fn(),
             editMessage: vi.fn(),
-            markAsRead: vi.fn(),
+            markDirectAsRead: vi.fn(),
+            markProjectAsRead: vi.fn(),
             getRecipients: vi.fn(),
             getUnreadCounts: vi.fn(),
             uploadFile: vi.fn(),
@@ -27,70 +29,73 @@ describe('ChatService', () => {
         } as unknown as IChatRepository;
 
         mockBroadcast = {
-            broadcastNewMessage: vi.fn().mockResolvedValue(true),
-            broadcastMessageUpdate: vi.fn().mockResolvedValue(true),
-            broadcastMessageDelete: vi.fn().mockResolvedValue(true),
             broadcastMessagesRead: vi.fn().mockResolvedValue(true),
             broadcastClearHistory: vi.fn().mockResolvedValue(true),
             subscribeToMessages: vi.fn(),
+            broadcastProjectPulse: vi.fn().mockResolvedValue(true),
         } as unknown as IBroadcastService;
 
         chatService = new ChatService(mockRepository, mockBroadcast);
     });
 
     describe('sendMessage', () => {
-        it('should call repository and then broadcast', async () => {
+        it('should call sendDirectMessage when calculation_id is missing', async () => {
             const payload = {
                 sender_id: 'user-1',
                 receiver_id: 'user-2',
                 content: 'Hello',
             };
             const mockMessage = createMockMessage(payload);
-            vi.mocked(mockRepository.sendMessage).mockResolvedValue(mockMessage as any);
+            vi.mocked(mockRepository.sendDirectMessage).mockResolvedValue(mockMessage as any);
 
             const result = await chatService.sendMessage(payload);
 
-            expect(mockRepository.sendMessage).toHaveBeenCalledWith(payload);
-            expect(mockBroadcast.broadcastNewMessage).toHaveBeenCalledWith(mockMessage, undefined);
+            expect(mockRepository.sendDirectMessage).toHaveBeenCalledWith('user-1', 'user-2', 'Hello');
             expect(result).toBe(mockMessage);
         });
 
-        it('should pass calculationId to broadcast if present', async () => {
+        it('should call sendProjectMessage when calculation_id is present', async () => {
             const payload = {
                 sender_id: 'user-1',
-                receiver_id: 'user-2',
-                content: 'Hello',
                 calculation_id: 'calc-123',
+                content: 'Project Update',
             };
             const mockMessage = createMockMessage(payload);
-            vi.mocked(mockRepository.sendMessage).mockResolvedValue(mockMessage as any);
+            vi.mocked(mockRepository.sendProjectMessage).mockResolvedValue(mockMessage as any);
 
-            await chatService.sendMessage(payload);
+            const result = await chatService.sendMessage(payload);
 
-            expect(mockBroadcast.broadcastNewMessage).toHaveBeenCalledWith(mockMessage, 'calc-123');
+            expect(mockRepository.sendProjectMessage).toHaveBeenCalledWith('user-1', 'calc-123', 'Project Update');
+            expect(result).toBe(mockMessage);
+        });
+
+        it('should throw error if both are missing', async () => {
+            const payload = { sender_id: 'user-1', content: 'Loose message' } as any;
+            await expect(chatService.sendMessage(payload)).rejects.toThrow();
         });
     });
 
     describe('deleteMessage', () => {
-        it('should call repository delete and broadcast delete', async () => {
+        it('should call repository delete', async () => {
             const messageId = 'msg-1';
 
             await chatService.deleteMessage(messageId);
 
             expect(mockRepository.deleteMessage).toHaveBeenCalledWith(messageId);
-            expect(mockBroadcast.broadcastMessageDelete).toHaveBeenCalledWith(messageId);
         });
     });
 
-    describe('markAsRead', () => {
-        it('should mark as read and broadcast read status', async () => {
-            const contactId = 'user-2';
-            const userId = 'user-1';
+    describe('read status', () => {
+        it('should mark direct as read', async () => {
+            await chatService.markDirectAsRead('user-2', 'user-1');
+            expect(mockRepository.markDirectAsRead).toHaveBeenCalledWith('user-2', 'user-1');
+            expect(mockBroadcast.broadcastMessagesRead).toHaveBeenCalledWith('user-1');
+        });
 
-            await chatService.markAsRead(contactId, userId);
-
-            expect(mockRepository.markAsRead).toHaveBeenCalledWith(contactId, userId, undefined);
-            expect(mockBroadcast.broadcastMessagesRead).toHaveBeenCalledWith(userId);
+        it('should mark project as read', async () => {
+            await chatService.markProjectAsRead('calc-123', 'user-1');
+            expect(mockRepository.markProjectAsRead).toHaveBeenCalledWith('calc-123', 'user-1');
+            expect(mockBroadcast.broadcastMessagesRead).toHaveBeenCalledWith('user-1', 'calc-123');
         });
     });
 });

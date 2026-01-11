@@ -17,6 +17,7 @@ import {
 import { type Venue, type CreateVenueData } from '@/services/venue.service';
 import { toast } from 'sonner';
 import { useServices } from '@/core/di/ServiceContainer';
+import { logger } from '@/app/services';
 
 const VENUE_TYPE_CONFIG = {
     restaurant: { label: 'Ресторан', icon: UtensilsCrossed, color: 'text-orange-500' },
@@ -85,7 +86,7 @@ export const VenuePage: React.FC = () => {
                 error: 'Ошибка при сохранении заведения'
             });
         } catch (error) {
-            console.error(error);
+            logger.error('Failed to submit venue form', { error });
         }
     };
 
