@@ -55,8 +55,9 @@ export function useProfileSync({
                         }
 
                         // For UPDATE/INSERT, re-fetch profile to ensure safe mapping and validation
-                        authService.getUserProfile(userId).then((profile) => {
+                        authService.getUserProfile(userId).then((res) => {
                             if (!isMounted) return;
+                            const profile = res.success ? res.data : null;
                             if (!profile || profile.status === 'blocked') {
                                 onSyncError();
                             } else {

@@ -8,6 +8,8 @@ import {
     calculateOffset,
     createPaginatedResult,
 } from '@/core/types/pagination';
+
+export type { PaginationParams, PaginatedResult };
 import type { ActionResult, VoidResult } from '@/core/types/results';
 
 export interface ICalculationRepository {

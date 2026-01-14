@@ -1,8 +1,5 @@
-import type {
-    ICalculationRepository,
-    PaginationParams,
-    PaginatedResult,
-} from '../repositories/CalculationRepository';
+import type { ICalculationRepository } from '../repositories/CalculationRepository';
+import { type PaginationParams, type PaginatedResult } from '@/core/types/pagination';
 import type { Calculation, CalculationResults } from '../dashboard.types';
 import { CALCULATION_STATUS, CALCULATION_ACTION } from '@/core/constants/calculation.constants';
 import { calculateTotalCost } from '@/core/domain/calculator.utils';
@@ -14,7 +11,15 @@ export interface ICalculationService {
     getCalculation(id: string | number): Promise<ActionResult<Calculation>>;
     getUnassigned(): Promise<ActionResult<Calculation[]>>;
     getManagerWorkload(managerId: string): Promise<ActionResult<Calculation[]>>;
-    getPaginated(params: PaginationParams): Promise<ActionResult<PaginatedResult<Calculation>>>;
+    getPaginated(
+        params: PaginationParams & {
+            status?: string;
+            search?: string;
+            managerId?: string | null;
+            sortBy?: string;
+            sortOrder?: 'asc' | 'desc';
+        }
+    ): Promise<ActionResult<PaginatedResult<Calculation>>>;
     create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>>;
     update(id: string | number, updates: Partial<Calculation>): Promise<ActionResult<Calculation>>;
     delete(id: string | number): Promise<VoidResult>;
@@ -60,7 +65,13 @@ export class CalculationService implements ICalculationService {
     }
 
     async getPaginated(
-        params: PaginationParams
+        params: PaginationParams & {
+            status?: string;
+            search?: string;
+            managerId?: string | null;
+            sortBy?: string;
+            sortOrder?: 'asc' | 'desc';
+        }
     ): Promise<ActionResult<PaginatedResult<Calculation>>> {
         return this.repository.getPaginated(params);
     }

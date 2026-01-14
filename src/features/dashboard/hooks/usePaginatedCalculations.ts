@@ -116,8 +116,8 @@ export function usePaginatedCalculations(userId?: string) {
     return {
         // Data
         calculations: data?.data || [],
-        total: data?.total || 0,
-        totalPages: data?.totalPages || 0,
+        total: data?.pagination?.total || 0,
+        totalPages: data?.pagination?.totalPages || 0,
         currentPage: pagination.page,
         pageSize: pagination.pageSize,
 

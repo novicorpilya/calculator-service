@@ -52,7 +52,7 @@ export const ClientProfile = React.memo(() => {
         if (result.success) {
             toast.success('Профиль успешно обновлен');
         } else {
-            toast.error(result.error.message || 'Ошибка при обновлении профиля');
+            toast.error(result.error?.message || 'Ошибка при обновлении профиля');
         }
     };
 

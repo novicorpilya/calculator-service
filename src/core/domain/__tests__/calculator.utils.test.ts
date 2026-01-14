@@ -26,7 +26,7 @@ describe('calculator.utils', () => {
 
     describe('calculateTotalItems', () => {
         test('should return array length', () => {
-            expect(calculateTotalItems([1, 2, 3] as unknown as number[])).toBe(3);
+            expect(calculateTotalItems([{}, {}, {}] as unknown as InventoryItem[])).toBe(3);
         });
     });
 
