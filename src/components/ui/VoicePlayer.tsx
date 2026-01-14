@@ -1,74 +1,100 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Loader2 } from 'lucide-react';
+import { Play, Pause, Loader2, AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
 
 interface VoicePlayerProps {
     voiceUrl: string;
     duration?: number;
     className?: string;
+    showLoading?: boolean;
+    isOwn?: boolean;
+    isRead?: boolean;
+    isTemp?: boolean;
 }
 
-export const VoicePlayer: React.FC<VoicePlayerProps> = ({ voiceUrl, duration, className = '' }) => {
+export const VoicePlayer: React.FC<VoicePlayerProps> = ({
+    voiceUrl,
+    duration,
+    className = '',
+    showLoading = false,
+    isOwn = false,
+    isRead = false,
+    isTemp = false,
+}) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(showLoading);
+    const [hasError, setHasError] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const requestRef = useRef<number | null>(null);
-
-    const animateRef = useRef<(() => void) | null>(null);
-    const animate = React.useCallback(() => {
-        if (audioRef.current && !audioRef.current.paused) {
-            setCurrentTime(audioRef.current.currentTime);
-            if (animateRef.current) {
-                requestRef.current = requestAnimationFrame(animateRef.current);
-            }
-        }
-    }, []);
-    useEffect(() => {
-        animateRef.current = animate;
-    }, [animate]);
 
     useEffect(() => {
-        const audio = new Audio(voiceUrl);
+        const audio = new Audio();
         audioRef.current = audio;
 
-        audio.addEventListener('loadstart', () => setIsLoading(true));
-        audio.addEventListener('canplay', () => setIsLoading(false));
-        audio.addEventListener('ended', () => {
+        const handleLoadStart = () => {
+            if (showLoading) setIsLoading(true);
+        };
+        const handleCanPlay = () => {
+            setIsLoading(false);
+        };
+        const handleError = () => {
+            setIsLoading(false);
+            setHasError(true);
+        };
+        const handleEnded = () => {
             setIsPlaying(false);
             setCurrentTime(0);
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
-        });
+        };
 
-        // Coarse fallback
-        audio.addEventListener('timeupdate', () => {
-            if (!requestRef.current) setCurrentTime(audio.currentTime);
-        });
+        audio.addEventListener('loadstart', handleLoadStart);
+        audio.addEventListener('canplaythrough', handleCanPlay);
+        audio.addEventListener('canplay', handleCanPlay);
+        audio.addEventListener('error', handleError);
+        audio.addEventListener('ended', handleEnded);
+
+        audio.src = voiceUrl;
+        audio.load();
+
+        if (audio.readyState >= 3) {
+            requestAnimationFrame(() => setIsLoading(false));
+        }
 
         return () => {
             audio.pause();
+            audio.removeEventListener('loadstart', handleLoadStart);
+            audio.removeEventListener('canplaythrough', handleCanPlay);
+            audio.removeEventListener('canplay', handleCanPlay);
+            audio.removeEventListener('error', handleError);
+            audio.removeEventListener('ended', handleEnded);
             audio.src = '';
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
         };
-    }, [voiceUrl]);
+    }, [voiceUrl, showLoading]);
 
     useEffect(() => {
-        if (isPlaying) {
-            requestRef.current = requestAnimationFrame(animate);
-        } else {
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
-        }
-        return () => {
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        let frameId: number;
+
+        const animate = () => {
+            if (audioRef.current && !audioRef.current.paused) {
+                setCurrentTime(audioRef.current.currentTime);
+                frameId = requestAnimationFrame(animate);
+            }
         };
-    }, [isPlaying, animate]);
+
+        if (isPlaying) {
+            frameId = requestAnimationFrame(animate);
+        }
+
+        return () => {
+            if (frameId) cancelAnimationFrame(frameId);
+        };
+    }, [isPlaying]);
 
     const togglePlay = () => {
-        if (!audioRef.current) return;
+        if (!audioRef.current || hasError) return;
 
         if (isPlaying) {
             audioRef.current.pause();
         } else {
-            audioRef.current.play();
+            audioRef.current.play().catch(() => setHasError(true));
         }
         setIsPlaying(!isPlaying);
     };
@@ -82,14 +108,18 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ voiceUrl, duration, cl
     const progress = duration ? (currentTime / duration) * 100 : 0;
 
     return (
-        <div className={`flex items-center gap-3 p-2.5 bg-primary rounded-2xl border border-primary/20 shadow-lg shadow-primary/10 ${className}`}>
+        <div
+            className={`flex items-center gap-3 p-2.5 bg-primary rounded-2xl border border-primary/20 shadow-lg shadow-primary/10 ${className}`}
+        >
             <button
                 onClick={togglePlay}
-                disabled={isLoading}
+                disabled={isLoading || hasError}
                 className="w-10 h-10 rounded-full bg-white text-primary hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0 disabled:opacity-50 shadow-md"
             >
                 {isLoading ? (
                     <Loader2 size={16} className="animate-spin" />
+                ) : hasError ? (
+                    <AlertCircle size={16} className="text-red-500" />
                 ) : isPlaying ? (
                     <Pause size={16} fill="currentColor" />
                 ) : (
@@ -105,9 +135,29 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ voiceUrl, duration, cl
                     />
                 </div>
                 <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-white">
-                    <span>{formatTime(currentTime)}</span>
+                    <div className="flex items-center gap-2">
+                        <span>{formatTime(currentTime)}</span>
+                        {isOwn && (
+                            <div className="flex items-center opacity-70">
+                                {isTemp ? (
+                                    <Clock size={10} />
+                                ) : isRead ? (
+                                    <CheckCheck size={11} className="text-white" />
+                                ) : (
+                                    <Check size={11} />
+                                )}
+                            </div>
+                        )}
+                    </div>
                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-full border border-white/5">
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+                        <svg
+                            width="8"
+                            height="8"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                        >
                             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                         </svg>

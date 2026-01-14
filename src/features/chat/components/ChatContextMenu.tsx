@@ -83,10 +83,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
     return (
         <>
             {/* Backdrop */}
-            <div
-                className="fixed inset-0 z-40"
-                onClick={onClose}
-            />
+            <div className="fixed inset-0 z-40" onClick={onClose} />
 
             {/* Menu */}
             <div
@@ -95,28 +92,16 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
                 style={pos}
             >
                 {/* Reply */}
-                <MenuItem
-                    icon={Reply}
-                    label="Ответить"
-                    onClick={() => handleAction(onReply)}
-                />
+                <MenuItem icon={Reply} label="Ответить" onClick={() => handleAction(onReply)} />
 
                 {/* Copy (only for text) */}
                 {hasContent && (
-                    <MenuItem
-                        icon={Copy}
-                        label="Копировать"
-                        onClick={() => handleAction(onCopy)}
-                    />
+                    <MenuItem icon={Copy} label="Копировать" onClick={() => handleAction(onCopy)} />
                 )}
 
                 {/* Edit (only own text messages) */}
                 {isOwnMessage && hasContent && (
-                    <MenuItem
-                        icon={Pencil}
-                        label="Изменить"
-                        onClick={() => handleAction(onEdit)}
-                    />
+                    <MenuItem icon={Pencil} label="Изменить" onClick={() => handleAction(onEdit)} />
                 )}
 
                 {/* Divider before delete */}
@@ -151,9 +136,10 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon: Icon, label, onClick, danger 
         onClick={onClick}
         className={`
             w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors
-            ${danger
-                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10'
-                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5'
+            ${
+                danger
+                    ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5'
             }
         `}
     >

@@ -1,11 +1,11 @@
-import React from 'react'
-import { AuthHeader } from './AuthHeader'
-import { AuthFooter } from './AuthFooter'
+import React from 'react';
+import { AuthHeader } from './AuthHeader';
+import { AuthFooter } from './AuthFooter';
 
 interface AuthLayoutProps {
-    children: React.ReactNode
-    title: string
-    subtitle?: string
+    children: React.ReactNode;
+    title: string;
+    subtitle?: string;
 }
 
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) => {
@@ -19,8 +19,14 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
 
                 <div className="glass-card mb-8">
                     <div className="mb-10">
-                        <h2 className="text-3xl font-black text-foreground mb-4 tracking-tight leading-tight">{title}</h2>
-                        {subtitle && <p className="text-foreground/70 text-sm font-bold tracking-wide uppercase">{subtitle}</p>}
+                        <h2 className="text-3xl font-black text-foreground mb-4 tracking-tight leading-tight">
+                            {title}
+                        </h2>
+                        {subtitle && (
+                            <p className="text-foreground/70 text-sm font-bold tracking-wide uppercase">
+                                {subtitle}
+                            </p>
+                        )}
                     </div>
                     {children}
                 </div>
@@ -28,5 +34,5 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
                 <AuthFooter />
             </div>
         </div>
-    )
-}
+    );
+};

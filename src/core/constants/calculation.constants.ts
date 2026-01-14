@@ -16,7 +16,7 @@ export const CALCULATION_STATUS = {
     READY: 'ready',
     SHIPPING: 'shipping',
     COMPLETED: 'completed',
-    CLOSED: 'closed'
+    CLOSED: 'closed',
 } as const;
 
 export const CALCULATION_ACTION = {
@@ -26,5 +26,7 @@ export const CALCULATION_ACTION = {
     RESOLVE: 'resolve',
     ASSIGN: 'assign',
     ACCEPT_PAYMENT: 'accept_payment',
-    LOG_ERROR: 'log_error'
+    SUBMIT_PAYMENT: 'submit_payment',
+    REJECT_PAYMENT: 'reject_payment',
+    LOG_ERROR: 'log_error',
 } as const;

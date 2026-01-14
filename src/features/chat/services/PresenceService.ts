@@ -1,5 +1,5 @@
 import { type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
-import { logger } from '@/app/services';
+import { logger } from '@/core/logging';
 
 export interface IPresenceService {
     trackUser(userId: string): Promise<void>;
@@ -87,10 +87,12 @@ export class PresenceService implements IPresenceService {
         if (this.heartbeatInterval) window.clearInterval(this.heartbeatInterval);
         this.heartbeatInterval = window.setInterval(async () => {
             if (this.channel?.state === 'joined' && this.userId) {
-                await this.channel.track({
-                    user_id: this.userId,
-                    online_at: new Date().toISOString(),
-                }).catch(() => { });
+                await this.channel
+                    .track({
+                        user_id: this.userId,
+                        online_at: new Date().toISOString(),
+                    })
+                    .catch(() => {});
             } else if (this.userId) {
                 this.initChannel();
             }
@@ -116,7 +118,7 @@ export class PresenceService implements IPresenceService {
     }
 
     private notifyListeners() {
-        this.listeners.forEach(listener => listener(new Set(this.onlineUsers)));
+        this.listeners.forEach((listener) => listener(new Set(this.onlineUsers)));
     }
 
     /**
@@ -130,13 +132,15 @@ export class PresenceService implements IPresenceService {
             return;
         }
 
-        await this.channel.track({
-            user_id: userId,
-            online_at: new Date().toISOString(),
-            device_id: window.crypto.randomUUID()
-        }).catch(err => {
-            logger.error('[PresenceService] Track error', { err });
-        });
+        await this.channel
+            .track({
+                user_id: userId,
+                online_at: new Date().toISOString(),
+                device_id: window.crypto.randomUUID(),
+            })
+            .catch((err) => {
+                logger.error('[PresenceService] Track error', { err });
+            });
     }
 
     /**
@@ -144,7 +148,7 @@ export class PresenceService implements IPresenceService {
      */
     async untrackUser(): Promise<void> {
         if (this.channel) {
-            await this.channel.untrack().catch(() => { });
+            await this.channel.untrack().catch(() => {});
         }
         if (this.heartbeatInterval) {
             window.clearInterval(this.heartbeatInterval);
@@ -159,7 +163,7 @@ export class PresenceService implements IPresenceService {
             this.heartbeatInterval = null;
         }
         if (this.channel) {
-            await this.channel.unsubscribe().catch(() => { });
+            await this.channel.unsubscribe().catch(() => {});
             this.channel = null;
         }
         this.onlineUsers.clear();

@@ -1,188 +1,190 @@
 import { type IChatRepository } from '../repositories/ChatRepository';
 import { type IBroadcastService } from './BroadcastService';
-import { type Message, type ChatRecipient, type UnreadCounts, type MessageCreatePayload, type MessageEventType } from '../types';
-import { type PaginationParams, type PaginatedResult, DEFAULT_PAGE_SIZE } from '@/core/types/pagination';
+import {
+    type Message,
+    type ChatRecipient,
+    type UnreadCounts,
+    type MessageCreatePayload,
+    type MessageEventType,
+    type ChatEventPayload,
+} from '../types';
+import type { ActionResult, VoidResult } from '@/core/types/results';
+import type { PaginationParams, PaginatedResult } from '@/core/types/pagination';
 
 export interface IChatService {
-    getMessages(userId: string, contactId: string): Promise<Message[]>;
-    getCalculationMessages(calculationId: string): Promise<Message[]>;
-    getCalculationMessagesPaginated(calculationId: string, pagination?: PaginationParams): Promise<PaginatedResult<Message>>;
-    getMessagesPaginated(userId: string, contactId: string, pagination?: PaginationParams): Promise<PaginatedResult<Message>>;
-    sendMessage(params: MessageCreatePayload): Promise<Message>;
-    deleteMessage(messageId: string): Promise<void>;
-    editMessage(messageId: string, content: string): Promise<void>;
-    markDirectAsRead(contactId: string, userId: string): Promise<void>;
-    markProjectAsRead(projectId: string, userId: string): Promise<void>;
-    syncReadStatus(calculation: { id: string | number; managerId?: string; userId?: string }, currentUser: { id: string }): Promise<boolean>;
-    getRecipients(userId: string): Promise<ChatRecipient[]>;
-    getUnreadCounts(userId: string): Promise<UnreadCounts>;
-    uploadAttachment(file: File): Promise<string>;
-    uploadVoiceMessage(blob: Blob): Promise<string>;
-    clearHistory(userId: string, contactId: string): Promise<void>;
-    clearProjectHistory(calculationId: string): Promise<void>;
-    subscribeToMessages(callback: (msg: Message, eventType: MessageEventType) => void, calculationId?: string, userId?: string): () => void;
-    subscribeToProjects(callback: (payload: { id: string; type: string; ts: number; isSignal?: boolean }) => void): () => void;
-    sendSyncSignal(calcId: string | number, type: string): Promise<void>;
+    getMessages(userId: string, contactId: string): Promise<ActionResult<Message[]>>;
+    getMessagesPaginated(
+        userId: string,
+        contactId: string,
+        pagination?: PaginationParams
+    ): Promise<ActionResult<PaginatedResult<Message>>>;
+    getCalculationMessages(calculationId: string): Promise<ActionResult<Message[]>>;
+    getCalculationMessagesPaginated(
+        calculationId: string,
+        pagination?: PaginationParams
+    ): Promise<ActionResult<PaginatedResult<Message>>>;
+    sendMessage(payload: MessageCreatePayload): Promise<ActionResult<Message>>;
+    deleteMessage(messageId: string): Promise<VoidResult>;
+    editMessage(messageId: string, content: string): Promise<VoidResult>;
+    markDirectAsRead(senderId: string, receiverId: string): Promise<VoidResult>;
+    markProjectAsRead(calculationId: string, userId: string): Promise<VoidResult>;
+    getRecipients(userId: string): Promise<ActionResult<ChatRecipient[]>>;
+    getUnreadCounts(userId: string): Promise<ActionResult<UnreadCounts>>;
+    clearHistory(userId: string, contactId: string): Promise<VoidResult>;
+    uploadAttachment(file: File): Promise<ActionResult<string>>;
+    uploadVoiceMessage(blob: Blob): Promise<ActionResult<string>>;
+    syncReadStatus(
+        calculation: { id: string | number },
+        currentUser: { id: string }
+    ): Promise<boolean>;
+    sendSyncSignal(calcId: string | number, type: string): Promise<ActionResult<void>>;
+    subscribeToMessages(
+        callback: (payload: ChatEventPayload, eventType: MessageEventType) => void,
+        calculationId?: string,
+        userId?: string
+    ): () => void;
+    subscribeToProjects(
+        callback: (payload: { id: string | number; isSignal?: boolean }) => void
+    ): () => void;
 }
 
 export class ChatService implements IChatService {
     private repository: IChatRepository;
     private broadcast: IBroadcastService;
 
-    constructor(
-        repository: IChatRepository,
-        broadcast: IBroadcastService
-    ) {
+    constructor(repository: IChatRepository, broadcast: IBroadcastService) {
         this.repository = repository;
         this.broadcast = broadcast;
     }
 
-    async getMessages(userId: string, contactId: string): Promise<Message[]> {
-        if (!userId || !contactId) return [];
+    async getMessages(userId: string, contactId: string): Promise<ActionResult<Message[]>> {
         return this.repository.getMessages(userId, contactId);
     }
 
-    async getCalculationMessages(calculationId: string): Promise<Message[]> {
-        if (!calculationId) return [];
+    async getMessagesPaginated(
+        userId: string,
+        contactId: string,
+        pagination?: PaginationParams
+    ): Promise<ActionResult<PaginatedResult<Message>>> {
+        return this.repository.getMessagesPaginated(userId, contactId, pagination);
+    }
+
+    async getCalculationMessages(calculationId: string): Promise<ActionResult<Message[]>> {
         return this.repository.getCalculationMessages(calculationId);
     }
 
     async getCalculationMessagesPaginated(
         calculationId: string,
-        pagination: PaginationParams = { page: 1, pageSize: DEFAULT_PAGE_SIZE }
-    ): Promise<PaginatedResult<Message>> {
-        if (!calculationId) {
-            return {
-                data: [],
-                pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0, hasMore: false, hasPrevious: false }
-            };
-        }
+        pagination?: PaginationParams
+    ): Promise<ActionResult<PaginatedResult<Message>>> {
         return this.repository.getCalculationMessagesPaginated(calculationId, pagination);
     }
 
-    /**
-     * Get messages with pagination support.
-     * Used for infinite scroll in chat UI.
-     */
-    async getMessagesPaginated(
-        userId: string,
-        contactId: string,
-        pagination: PaginationParams = { page: 1, pageSize: DEFAULT_PAGE_SIZE }
-    ): Promise<PaginatedResult<Message>> {
-        if (!userId || !contactId) {
+    async sendMessage(payload: MessageCreatePayload): Promise<ActionResult<Message>> {
+        const { calculation_id, receiver_id, sender_id, content, ...metadata } = payload;
+
+        if (!calculation_id && !receiver_id) {
             return {
-                data: [],
-                pagination: {
-                    page: pagination.page,
-                    pageSize: pagination.pageSize,
-                    total: 0,
-                    totalPages: 0,
-                    hasMore: false,
-                    hasPrevious: false,
-                },
+                success: false,
+                error: { message: 'Either calculation_id or receiver_id must be provided' },
             };
         }
-        return this.repository.getMessagesPaginated(userId, contactId, pagination);
-    }
 
-    async sendMessage(params: MessageCreatePayload): Promise<Message> {
-        const { sender_id, content, calculation_id, receiver_id, ...metadata } = params;
+        const res = calculation_id
+            ? await this.repository.sendProjectMessage(sender_id, calculation_id, content, metadata)
+            : await this.repository.sendDirectMessage(sender_id, receiver_id!, content, metadata);
 
-        if (calculation_id) {
-            return this.repository.sendProjectMessage(sender_id, calculation_id, content || '', metadata);
+        if (res.success && res.data) {
+            // ACTIVE PUSH: Notify others immediately via broadcast (Fast Path)
+            await this.broadcast.broadcastNewMessage(res.data);
         }
-        if (receiver_id) {
-            return this.repository.sendDirectMessage(sender_id, receiver_id, content || '', metadata);
+
+        return res;
+    }
+
+    async deleteMessage(messageId: string): Promise<VoidResult> {
+        return this.repository.deleteMessage(messageId);
+    }
+
+    async editMessage(messageId: string, content: string): Promise<VoidResult> {
+        return this.repository.editMessage(messageId, content);
+    }
+
+    async markDirectAsRead(senderId: string, receiverId: string): Promise<VoidResult> {
+        const res = await this.repository.markDirectAsRead(senderId, receiverId);
+        if (res?.success) {
+            await this.broadcast.broadcastMessagesRead(receiverId, undefined, receiverId);
         }
-        throw new Error('Message must have either calculation_id or receiver_id');
+        return res || { success: false, error: { message: 'Failed to mark as read' } };
     }
 
-    async deleteMessage(messageId: string): Promise<void> {
-        await this.repository.deleteMessage(messageId);
+    async markProjectAsRead(calculationId: string, userId: string): Promise<VoidResult> {
+        const res = await this.repository.markProjectAsRead(calculationId, userId);
+        if (res?.success) {
+            await this.broadcast.broadcastMessagesRead(userId, calculationId, userId);
+        }
+        return res || { success: false, error: { message: 'Failed to mark as read' } };
     }
 
-    async editMessage(messageId: string, content: string): Promise<void> {
-        await this.repository.editMessage(messageId, content);
-    }
+    async syncReadStatus(
+        calculation: { id: string | number },
+        currentUser: { id: string }
+    ): Promise<boolean> {
+        if (!calculation?.id || !currentUser?.id) return false;
 
-    async markDirectAsRead(contactId: string, userId: string): Promise<void> {
-        await this.repository.markDirectAsRead(contactId, userId);
-        await this.broadcast.broadcastMessagesRead(userId);
-    }
-
-    async markProjectAsRead(projectId: string, userId: string): Promise<void> {
-        await this.repository.markProjectAsRead(projectId, userId);
-        await this.broadcast.broadcastMessagesRead(userId, projectId);
-    }
-
-    async syncReadStatus(calculation: { id: string | number; managerId?: string; userId?: string }, currentUser: { id: string }): Promise<boolean> {
-        let shouldInvalidate = false;
         const calcIdStr = String(calculation.id);
-
-        if (calculation.managerId) {
-            try {
-                await this.markProjectAsRead(calcIdStr, currentUser.id);
-                shouldInvalidate = true;
-            } catch (error) {
-                // Silently log
-            }
-        }
-
-        if (calculation.userId && currentUser.id !== calculation.userId) {
-            try {
-                await this.markProjectAsRead(calcIdStr, currentUser.id);
-                shouldInvalidate = true;
-            } catch (error) {
-                // Silently log
-            }
-        }
-
-        return shouldInvalidate;
+        const res = await this.markProjectAsRead(calcIdStr, currentUser.id);
+        return res.success;
     }
 
-    async getRecipients(userId: string): Promise<ChatRecipient[]> {
+    async getRecipients(userId: string): Promise<ActionResult<ChatRecipient[]>> {
         return this.repository.getRecipients(userId);
     }
 
-    async getUnreadCounts(userId: string): Promise<UnreadCounts> {
+    async getUnreadCounts(userId: string): Promise<ActionResult<UnreadCounts>> {
         return this.repository.getUnreadCounts(userId);
     }
 
-    async uploadAttachment(file: File): Promise<string> {
+    async clearHistory(userId: string, contactId: string): Promise<VoidResult> {
+        const res = await this.repository.clearHistory(userId, contactId);
+        if (res.success) {
+            await this.broadcast.broadcastClearHistory(userId, contactId);
+        }
+        return res;
+    }
+
+    async uploadAttachment(file: File): Promise<ActionResult<string>> {
         return this.repository.uploadFile(file, 'attachments');
     }
 
-    async uploadVoiceMessage(blob: Blob): Promise<string> {
+    async uploadVoiceMessage(blob: Blob): Promise<ActionResult<string>> {
         return this.repository.uploadFile(blob, 'voice-messages');
     }
 
-    async clearHistory(userId: string, contactId: string): Promise<void> {
-        await this.repository.clearHistory(userId, contactId);
-        await this.broadcast.broadcastClearHistory(userId, contactId);
+    async sendSyncSignal(
+        calcId: string | number,
+        type: string = 'UPDATE'
+    ): Promise<ActionResult<void>> {
+        try {
+            await this.broadcast.broadcastProjectPulse(calcId, type);
+            return { success: true };
+        } catch {
+            return { success: false, error: { message: 'Failed to broadcast project pulse' } };
+        }
     }
 
-    async clearProjectHistory(calculationId: string): Promise<void> {
-        await this.repository.clearProjectHistory(calculationId);
-        // Note: Storage cleanup logic is currently in the old service. 
-        // In a real production app, we would handle this via a dedicated MediaService or here.
-    }
-
-    /**
-     * Subscribe to real-time message updates
-     */
     subscribeToMessages(
-        callback: (msg: Message, eventType: MessageEventType) => void,
+        callback: (payload: ChatEventPayload, eventType: MessageEventType) => void,
         calculationId?: string,
         userId?: string
     ): () => void {
         return this.broadcast.subscribeToMessages(callback, calculationId, userId);
     }
-
-    subscribeToProjects(callback: (payload: { id: string; type: string; ts: number; isSignal?: boolean }) => void): () => void {
-        return this.broadcast.subscribeToProjects(callback);
-    }
-
-    async sendSyncSignal(calcId: string | number, type: string = 'UPDATE'): Promise<void> {
-        await this.broadcast.broadcastProjectPulse(calcId, type);
+    subscribeToProjects(
+        callback: (payload: { id: string | number; isSignal?: boolean }) => void
+    ): () => void {
+        return this.broadcast.subscribeToProjects((p) => {
+            callback({ id: p.id, isSignal: p.isSignal });
+        });
     }
 }

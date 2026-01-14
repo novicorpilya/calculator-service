@@ -1,26 +1,30 @@
-import React from 'react'
-import { LogOut, User } from 'lucide-react'
-import { useAuth } from '@/features/auth'
-import { logger } from '@/app/services';
+import React from 'react';
+import { LogOut, User } from 'lucide-react';
+import { useAuth } from '@/features/auth';
+import { logger } from '@/core/logging';
 
 export const Header: React.FC = () => {
-    const { user, logout } = useAuth()
+    const { user, logout } = useAuth();
 
     const handleLogout = async () => {
         try {
-            await logout()
+            await logout();
         } catch (error) {
             logger.error('Logout failed', { error });
         }
-    }
+    };
 
     return (
         <header className="header px-6 py-4 flex items-center justify-between bg-white border-b border-gray-200 shadow-sm">
             <h1 className="text-2xl font-bold text-gray-900">Calculator Service</h1>
             <div className="flex items-center gap-6">
                 <nav className="flex gap-4">
-                    <a href="#" className="text-gray-600 hover:text-gray-900 transition">Home</a>
-                    <a href="#" className="text-gray-600 hover:text-gray-900 transition">About</a>
+                    <a href="#" className="text-gray-600 hover:text-gray-900 transition">
+                        Home
+                    </a>
+                    <a href="#" className="text-gray-600 hover:text-gray-900 transition">
+                        About
+                    </a>
                 </nav>
 
                 {/* User info and logout */}
@@ -40,5 +44,5 @@ export const Header: React.FC = () => {
                 </div>
             </div>
         </header>
-    )
-}
+    );
+};

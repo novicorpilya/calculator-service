@@ -1,92 +1,103 @@
+import { z } from 'zod';
+
 /**
  * Chat Feature Types - Single Source of Truth
- * All chat-related types must be imported from here.
  */
 
 // ============================================
-// MESSAGE TYPES
+// ZOD SCHEMAS (Database & Validation)
 // ============================================
 
-export interface Message {
+export const MessageSchema = z.object({
+    id: z.string(),
+    sender_id: z.string().nullable(),
+    receiver_id: z.string().nullable(),
+    calculation_id: z.string().nullable().optional(),
+    content: z.string().nullable(),
+    image_url: z.string().nullable().optional(),
+    voice_url: z.string().nullable().optional(),
+    voice_duration: z.number().nullable().optional(),
+    is_edited: z.boolean().default(false),
+    is_read: z.boolean().default(false),
+    client_message_id: z.string().nullable().optional(),
+    created_at: z.string(),
+    message_type: z.string().nullable().optional(),
+    metadata: z.any().optional(),
+    event_reference_id: z.string().nullable().optional(),
+    reply_to_id: z.string().nullable().optional(),
+    // UI-only status
+    status: z.enum(['pending', 'sent', 'error']).optional(),
+});
+
+export type Message = z.infer<typeof MessageSchema>;
+
+export const MessageCreatePayloadSchema = z.object({
+    sender_id: z.string(),
+    receiver_id: z.string().nullable().optional(),
+    content: z.string(),
+    calculation_id: z.string().nullable().optional(),
+    image_url: z.string().nullable().optional(),
+    voice_url: z.string().nullable().optional(),
+    voice_duration: z.number().nullable().optional(),
+    reply_to_id: z.string().nullable().optional(),
+    client_message_id: z.string().nullable().optional(),
+});
+
+export type MessageCreatePayload = z.infer<typeof MessageCreatePayloadSchema>;
+
+export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE' | 'READ' | 'RECONNECT' | 'TYPING';
+
+export interface BroadcastSignal {
     id: string;
-    sender_id: string | null;
-    receiver_id: string | null;
-    calculation_id?: string | null;
-    content: string | null;
-    image_url?: string | null;
-    voice_url?: string | null;
-    voice_duration?: number | null;
-    is_edited?: boolean;
-    client_message_id?: string | null;
-    created_at: string;
-    is_read?: boolean;
-    status?: 'pending' | 'sent' | 'error';
 }
 
-export interface MessageCreatePayload {
-    sender_id: string;
-    receiver_id?: string | null;
-    content: string;
-    calculation_id?: string | null;
-    image_url?: string | null;
-    voice_url?: string | null;
-    voice_duration?: number | null;
-    reply_to_id?: string | null;
-    client_message_id?: string | null;
-}
-
-export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE' | 'READ' | 'RECONNECT';
+export type ChatEventPayload =
+    | Message
+    | ReadEventPayload
+    | TypingEventPayload
+    | HistoryClearedPayload
+    | BroadcastSignal;
 
 export interface MessageEvent {
     type: MessageEventType;
-    message: Message;
+    payload: ChatEventPayload;
 }
 
 // ============================================
 // RECIPIENT TYPES
 // ============================================
 
-export interface ChatRecipient {
-    id: string;
-    organization_name: string | null;
-    role: string;
-    first_name?: string | null;
-    last_name?: string | null;
-    lastMessage?: LastMessagePreview | null;
-}
+export const RecipientSchema = z.object({
+    id: z.string(),
+    organization_name: z.string().nullable(),
+    role: z.string(),
+    first_name: z.string().nullable().optional(),
+    last_name: z.string().nullable().optional(),
+    lastMessage: z
+        .object({
+            id: z.string().nullable().optional(),
+            content: z.string().nullable(),
+            created_at: z.string().nullable(),
+            sender_id: z.string().nullable(),
+            image_url: z.string().nullable().optional(),
+            voice_url: z.string().nullable().optional(),
+        })
+        .nullable()
+        .optional(),
+});
 
-export interface LastMessagePreview {
-    content: string | null;
-    created_at: string | null;
-    sender_id: string | null;
-    image_url?: string | null;
-    voice_url?: string | null;
-}
+export type ChatRecipient = z.infer<typeof RecipientSchema>;
 
-export interface UnreadCounts {
-    total: number;
-    perSender: Record<string, number>;
-    perProject: Record<string, number>;
-}
+export const UnreadCountsSchema = z.object({
+    total: z.number(),
+    perSender: z.record(z.string(), z.number()),
+    perProject: z.record(z.string(), z.number()),
+});
 
-// ============================================
-// UI STATE TYPES
-// ============================================
-
-export interface ContextMenuState {
-    x: number;
-    y: number;
-    message: Message;
-}
-
-export interface PendingAttachment {
-    file: File;
-    preview: string;
-    isUploading?: boolean;
-}
+export type UnreadCounts = z.infer<typeof UnreadCountsSchema>;
 
 // ============================================
-// CONSTANTS
+// CONSTANTS & UI
 // ============================================
 
 export const CHAT_CHANNELS = {
@@ -100,3 +111,33 @@ export const MESSAGE_SNIPPETS = {
     VOICE: '🎤 Голосовое сообщение',
     EMOJI: '😊 Смайлик',
 } as const;
+
+// ============================================
+// UI STATE TYPES
+// ============================================
+
+// ============================================
+// REALTIME PAYLOADS
+// ============================================
+
+export interface ReadEventPayload {
+    readerId: string;
+    calculationId?: string;
+    receiverId?: string;
+}
+
+export interface TypingEventPayload {
+    sender_id: string;
+    receiver_id?: string;
+}
+
+export interface HistoryClearedPayload {
+    sender_id: string;
+    receiver_id: string;
+}
+
+export interface ContextMenuState {
+    message: Message;
+    x: number;
+    y: number;
+}

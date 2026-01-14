@@ -1,18 +1,28 @@
-import React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Building2, MapPin, Phone, Mail, Lock, Eye, EyeOff, ArrowRight, User as UserIcon } from 'lucide-react'
-import { IconInput } from '@/components/ui/IconInput'
-import { registerSchema } from '@/features/auth/auth.validation'
-import type { RegisterFormValues } from '@/features/auth/auth.form.types'
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+    Building2,
+    MapPin,
+    Phone,
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    ArrowRight,
+    User as UserIcon,
+} from 'lucide-react';
+import { IconInput } from '@/components/ui/IconInput';
+import { registerSchema } from '@/features/auth/auth.validation';
+import type { RegisterFormValues } from '@/features/auth/auth.form.types';
 
 interface RegisterFormProps {
-    onSubmit: (values: RegisterFormValues) => void
-    onSwitchToLogin: () => void
-    loading: boolean
-    serverError?: string | null
-    initialData?: Partial<RegisterFormValues>
-    role?: 'client' | 'manager' | 'admin'
+    onSubmit: (values: RegisterFormValues) => void;
+    onSwitchToLogin: () => void;
+    loading: boolean;
+    serverError?: string | null;
+    initialData?: Partial<RegisterFormValues>;
+    role?: 'client' | 'manager' | 'admin';
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({
@@ -21,45 +31,47 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     loading,
     serverError,
     initialData,
-    role = 'client'
+    role = 'client',
 }) => {
-    const [showPassword, setShowPassword] = React.useState(false)
+    const [showPassword, setShowPassword] = React.useState(false);
 
     const {
         register,
         handleSubmit,
         setValue,
         reset,
-        formState: { errors, isValid }
+        formState: { errors, isValid },
     } = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         mode: 'onBlur',
         defaultValues: {
             agreeToTerms: true,
-            ...initialData
-        }
-    })
+            ...initialData,
+        },
+    });
 
     // Middle+ UX: Сбрасываем форму, когда прилетают данные инвайта
     React.useEffect(() => {
         if (initialData) {
             reset({
                 ...initialData,
-                agreeToTerms: true
-            })
+                agreeToTerms: true,
+            });
         }
-    }, [initialData, reset])
+    }, [initialData, reset]);
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value.replace(/\D/g, '')
-        setValue('phone', value, { shouldValidate: true })
-    }
+        const value = e.target.value.replace(/\D/g, '');
+        setValue('phone', value, { shouldValidate: true });
+    };
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {serverError && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">{serverError}</p>
+                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">
+                        {serverError}
+                    </p>
                 </div>
             )}
 
@@ -67,7 +79,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 {role === 'client' ? (
                     <>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Организация</label>
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                Организация
+                            </label>
                             <IconInput
                                 {...register('organizationName')}
                                 placeholder="ООО Ромашка"
@@ -77,7 +91,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Адрес</label>
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                Адрес
+                            </label>
                             <IconInput
                                 {...register('address')}
                                 placeholder="г. Москва, ул. Примерная, д. 1"
@@ -89,7 +105,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 ) : (
                     <>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Имя</label>
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                Имя
+                            </label>
                             <IconInput
                                 {...register('firstName')}
                                 placeholder="Иван"
@@ -99,7 +117,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Фамилия</label>
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                Фамилия
+                            </label>
                             <IconInput
                                 {...register('lastName')}
                                 placeholder="Иванов"
@@ -111,7 +131,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 )}
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Телефон</label>
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                        Телефон
+                    </label>
                     <IconInput
                         {...register('phone')}
                         placeholder="79991234567"
@@ -122,7 +144,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Email</label>
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                        Email
+                    </label>
                     <IconInput
                         {...register('email')}
                         type="email"
@@ -134,7 +158,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Пароль</label>
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                        Пароль
+                    </label>
                     <IconInput
                         {...register('password')}
                         type={showPassword ? 'text' : 'password'}
@@ -147,7 +173,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Повтор</label>
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                        Повтор
+                    </label>
                     <IconInput
                         {...register('confirmPassword')}
                         type={showPassword ? 'text' : 'password'}
@@ -161,7 +189,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="py-2 px-1">
                 <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest leading-loose">
                     Нажимая кнопку, вы соглашаетесь с{' '}
-                    <a href="#" className="text-primary hover:opacity-80 transition-opacity font-black">
+                    <a
+                        href="#"
+                        className="text-primary hover:opacity-80 transition-opacity font-black"
+                    >
                         политикой конфиденциальности
                     </a>
                 </p>
@@ -172,8 +203,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 disabled={loading || !isValid}
                 className="btn-premium w-full py-5 text-[11px] sm:text-[12px]"
             >
-                <span className="relative z-10">{loading ? 'Создание...' : 'Зарегистрироваться'}</span>
-                {!loading && <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1 shrink-0" />}
+                <span className="relative z-10">
+                    {loading ? 'Создание...' : 'Зарегистрироваться'}
+                </span>
+                {!loading && (
+                    <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1 shrink-0" />
+                )}
             </button>
 
             <div className="pt-2 text-center border-t border-border-theme pt-6">
@@ -189,5 +224,5 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 </p>
             </div>
         </form>
-    )
-}
+    );
+};

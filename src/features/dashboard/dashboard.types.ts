@@ -2,19 +2,19 @@
  * Current lifecycle stage of a calculation project.
  */
 export type CalculationStatus =
-    | 'draft'           // Черновик
-    | 'sent'            // Ожидает проверки менеджера
-    | 'expert'          // На экспертизе (Аудит менеджером)
-    | 'changes'         // Требуют правок (Возврат клиенту)
-    | 'revision'        // Правки внесены (Клиент исправил)
-    | 'invoice'         // Ожидает оплаты (Счет сформирован)
-    | 'payment_review'  // Оплата отправлена (Клиент нажал кнопку "Оплачено")
-    | 'paid'            // Оплата подтверждена (Менеджер подтвердил)
-    | 'processing'      // Комплектация заказа (Подготовка к отгрузке)
-    | 'ready'           // Готово к отгрузке
-    | 'shipping'        // Поставка в работе
-    | 'completed'       // Поставка завершена
-    | 'closed';         // Закрыт
+    | 'draft' // Черновик
+    | 'sent' // Ожидает проверки менеджера
+    | 'expert' // На экспертизе (Аудит менеджером)
+    | 'changes' // Требуют правок (Возврат клиенту)
+    | 'revision' // Правки внесены (Клиент исправил)
+    | 'invoice' // Ожидает оплаты (Счет сформирован)
+    | 'payment_review' // Оплата отправлена (Клиент нажал кнопку "Оплачено")
+    | 'paid' // Оплата подтверждена (Менеджер подтвердил)
+    | 'processing' // Комплектация заказа (Подготовка к отгрузке)
+    | 'ready' // Готово к отгрузке
+    | 'shipping' // Поставка в работе
+    | 'completed' // Поставка завершена
+    | 'closed'; // Закрыт
 
 export type SyncEventType = 'UPDATE' | 'INSERT' | 'DELETE';
 
@@ -46,7 +46,13 @@ export interface Comment {
     date: string;
 }
 
-export type InteractionType = 'created' | 'submitted' | 'comment' | 'revision' | 'invoice' | 'error';
+export type InteractionType =
+    | 'created'
+    | 'submitted'
+    | 'comment'
+    | 'revision'
+    | 'invoice'
+    | 'error';
 
 /**
  * Represents a single interaction/event in the project history trail.
@@ -68,20 +74,20 @@ export const OBJECT_TYPES = [
     { value: 'production_nonfood', label: '⚙️ Производство (непищевое)' },
     { value: 'beauty', label: '💅 Салон красоты' },
     { value: 'mall', label: '🏬 ТЦ/Общественное пространство' },
-    { value: 'other', label: '📍 Другое' }
+    { value: 'other', label: '📍 Другое' },
 ];
 
 export const SANITARY_LEVELS = [
     { value: 'low', label: 'Низкий (офис, магазин)', coeff: 1.0 },
     { value: 'medium', label: 'Средний (кафе, ресторан)', coeff: 1.3 },
     { value: 'high', label: 'Высокий (пищевое производство)', coeff: 1.8 },
-    { value: 'sterile', label: 'Стерильный (клиника, аптека)', coeff: 2.5 }
+    { value: 'sterile', label: 'Стерильный (клиника, аптека)', coeff: 2.5 },
 ];
 
 export const REPLACEMENT_CYCLES = [
     { value: 'daily', label: 'Ежедневно', coeff: 1.0 },
     { value: 'weekly', label: 'Еженедельно', coeff: 0.3 },
-    { value: 'monthly', label: 'Ежемесячно', coeff: 0.1 }
+    { value: 'monthly', label: 'Ежемесячно', coeff: 0.1 },
 ];
 
 export const INTENSITY_LEVELS = [
@@ -89,26 +95,26 @@ export const INTENSITY_LEVELS = [
     { value: 'medium', label: 'Средняя', coeff: 1.0 },
     { value: 'high', label: 'Высокая', coeff: 1.2 },
     { value: 'very_high', label: 'Очень высокая', coeff: 1.3 },
-    { value: 'critical', label: 'Критическая', coeff: 1.5 }
+    { value: 'critical', label: 'Критическая', coeff: 1.5 },
 ];
 
 export const RESERVE_COEFFS = {
     medium: 0.15,
-    high: 0.20,
-    very_high: 0.20,
+    high: 0.2,
+    very_high: 0.2,
     critical: 0.25,
-    default: 0.10
+    default: 0.1,
 };
 
 export const ZONE_COEFFS: Record<string, number> = {
     '#ef4444': 1.25, // RED
     '#facc15': 1.15, // YELLOW
-    '#22c55e': 1.00, // GREEN
+    '#22c55e': 1.0, // GREEN
     '#3b82f6': 0.85, // BLUE
-    '#ec4899': 1.30, // PINK
-    '#f97316': 1.40, // ORANGE
+    '#ec4899': 1.3, // PINK
+    '#f97316': 1.4, // ORANGE
     '#78350f': 1.05, // BROWN
-    '#f8fafc': 0.95  // WHITE
+    '#f8fafc': 0.95, // WHITE
 };
 
 export interface InventoryItem {
@@ -194,7 +200,7 @@ export interface Calculation {
     results: CalculationResults | null;
     history?: Interaction[];
     version_number?: number;
-    manager_adjustments?: Record<string, any>;
+    manager_adjustments?: Record<string, unknown>;
     locked_at?: string;
     locked_by?: string;
     lock_expires_at?: string;
@@ -202,6 +208,7 @@ export interface Calculation {
     receipt_path?: string;
     client_name?: string;
     project_number?: number;
+    updated_at?: string;
 }
 
 export interface Zone {
@@ -221,7 +228,7 @@ export const ZONE_TYPES = [
     { value: 'pink_zone', label: '💗 PINK — Спец. санузлы', color: '#ec4899' },
     { value: 'orange_zone', label: '🟠 ORANGE — Аллергены', color: '#f97316' },
     { value: 'brown_zone', label: '🟤 BROWN — Готовое мясо', color: '#78350f' },
-    { value: 'white_zone', label: '⚪ WHITE — Молочные продукты', color: '#f8fafc' }
+    { value: 'white_zone', label: '⚪ WHITE — Молочные продукты', color: '#f8fafc' },
 ];
 
 export const COMPANY_REQUISITES = {
@@ -232,5 +239,5 @@ export const COMPANY_REQUISITES = {
     bank: 'АО "ТИНЬКОФФ БАНК"',
     bik: '044525974',
     corrAccount: '30101810300000000974',
-    address: 'г. Москва, ул. Примерная, д. 10, оф. 5'
+    address: 'г. Москва, ул. Примерная, д. 10, оф. 5',
 };

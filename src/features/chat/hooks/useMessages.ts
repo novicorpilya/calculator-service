@@ -1,43 +1,18 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/core/di/ServiceContainer';
-import type { Message, MessageCreatePayload, MessageEventType } from '../types';
+import type {
+    Message,
+    MessageCreatePayload,
+    MessageEventType,
+    ChatEventPayload,
+    ReadEventPayload,
+} from '../types';
+import { preloadImage, sortMessages } from '../utils/chatUtils';
 
 interface UseMessagesOptions {
     currentUserId: string;
     selectedUserId: string;
-}
-
-/**
- * Preload image with exponential backoff retry.
- * @param url - Image URL to preload
- * @param maxRetries - Maximum retry attempts (default: 3)
- * @returns Promise that resolves when image is loaded or all retries exhausted
- */
-async function preloadImageWithRetry(url: string, maxRetries = 3): Promise<boolean> {
-    let attempt = 0;
-
-    while (attempt < maxRetries) {
-        try {
-            await new Promise<void>((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve();
-                img.onerror = () => reject(new Error('Image load failed'));
-                img.src = url;
-            });
-            return true; // Success
-        } catch {
-            attempt++;
-            if (attempt < maxRetries) {
-                // Exponential backoff: 100ms, 200ms, 400ms...
-                const delay = 100 * Math.pow(2, attempt - 1);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        }
-    }
-
-    console.warn(`[useMessages] Image preload failed after ${maxRetries} attempts:`, url);
-    return false; // All retries exhausted
 }
 
 interface SendImageParams extends Partial<MessageCreatePayload> {
@@ -52,30 +27,42 @@ interface SendVoiceParams extends Partial<MessageCreatePayload> {
 }
 
 export function useMessages({ currentUserId, selectedUserId }: UseMessagesOptions) {
-    const queryClient = useQueryClient();
     const { chatService } = useServices();
-
-    const queryKey = useMemo(() => ['messages', currentUserId, selectedUserId], [currentUserId, selectedUserId]);
+    const queryClient = useQueryClient();
+    const queryKey = useMemo(
+        () => ['messages', currentUserId, selectedUserId],
+        [currentUserId, selectedUserId]
+    );
 
     // 1. Fetching
-    const { data: messages = [], isLoading, error } = useQuery({
+    const {
+        data: messages = [],
+        isLoading,
+        error,
+    } = useQuery({
         queryKey,
-        queryFn: () => chatService.getMessages(currentUserId, selectedUserId),
+        queryFn: async () => {
+            const res = await chatService.getMessages(currentUserId, selectedUserId);
+            if (!res.success) throw new Error(res.error?.message || 'Failed to fetch messages');
+            return res.data || [];
+        },
         enabled: !!currentUserId && !!selectedUserId,
     });
 
     // 2. Mutations
     const sendMutation = useMutation({
-        mutationFn: (params: MessageCreatePayload) => chatService.sendMessage(params),
+        mutationFn: async (params: MessageCreatePayload) => {
+            const res = await chatService.sendMessage(params);
+            if (!res.success || !res.data) throw new Error(res.error?.message || 'Send failed');
+            return res.data;
+        },
         onMutate: async (newMessage: MessageCreatePayload) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
 
             const clientMessageId = crypto.randomUUID();
-            // Inject the ID into params for the mutationFn to pick up
             newMessage.client_message_id = clientMessageId;
 
-            // Optimistic update
             const tempMessage: Message = {
                 id: `temp-${clientMessageId}`,
                 client_message_id: clientMessageId,
@@ -87,26 +74,45 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 voice_duration: newMessage.voice_duration,
                 created_at: new Date().toISOString(),
                 is_edited: false,
+                is_read: false,
                 calculation_id: null,
-                status: 'pending' as any,
+                status: 'pending',
             };
 
-            queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, tempMessage]);
-
+            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                sortMessages([...old, tempMessage])
+            );
             return { previousMessages };
         },
-        onError: (_err: Error, _newMsg: MessageCreatePayload, context?: { previousMessages?: Message[] }) => {
-            queryClient.setQueryData(queryKey, context?.previousMessages);
+        onSuccess: (data: Message) => {
+            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                old.map((m) =>
+                    m.client_message_id === data.client_message_id ||
+                    m.id === `temp-${data.client_message_id}`
+                        ? { ...data, status: 'sent' as const }
+                        : m
+                )
+            );
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey });
+        onError: (_err, _newMessage, context) => {
+            if (context?.previousMessages) {
+                queryClient.setQueryData(queryKey, context.previousMessages);
+            }
         },
     });
 
-    const sendImageMutation = useMutation<Message, Error, SendImageParams, { previousMessages?: Message[] }>({
+    const sendImageMutation = useMutation<
+        Message,
+        Error,
+        SendImageParams,
+        { previousMessages?: Message[] }
+    >({
         mutationFn: async (params) => {
-            const publicUrl = await chatService.uploadAttachment(params.file);
-            return chatService.sendMessage({
+            const uploadRes = await chatService.uploadAttachment(params.file);
+            if (!uploadRes.success) throw new Error(uploadRes.error?.message || 'Upload failed');
+            const publicUrl = uploadRes.data || '';
+
+            const res = await chatService.sendMessage({
                 sender_id: params.sender_id || currentUserId,
                 receiver_id: params.receiver_id || selectedUserId,
                 content: params.content || '',
@@ -115,13 +121,16 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 calculation_id: null,
                 client_message_id: params.client_message_id,
             });
+
+            if (!res.success || !res.data) throw new Error(res.error?.message || 'Send failed');
+            return res.data;
         },
         onMutate: async (params) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
 
             const clientMessageId = crypto.randomUUID();
-            params.client_message_id = clientMessageId; // Inject for mutationFn
+            params.client_message_id = clientMessageId;
 
             const tempMessage: Message = {
                 id: `temp-${clientMessageId}`,
@@ -132,26 +141,44 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 image_url: params.previewUrl,
                 created_at: new Date().toISOString(),
                 is_edited: false,
+                is_read: false,
                 calculation_id: null,
+                status: 'pending',
             };
 
-            queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, tempMessage]);
-
+            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                sortMessages([...old, tempMessage])
+            );
             return { previousMessages, tempId: tempMessage.id, clientMessageId };
         },
-        onError: (_err: Error, _variables: unknown, context?: { previousMessages?: Message[] }) => {
-            queryClient.setQueryData(queryKey, context?.previousMessages);
+        onSuccess: (data: Message) => {
+            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                old.map((m) =>
+                    m.client_message_id === data.client_message_id ||
+                    m.id === `temp-${data.client_message_id}`
+                        ? { ...data, status: 'sent' as const }
+                        : m
+                )
+            );
         },
-        onSettled: () => {
-            // Realtime handles the atomic swap
+        onError: (_err, _vars, context) => {
+            queryClient.setQueryData(queryKey, context?.previousMessages);
         },
     });
 
-    // Voice Message Mutation with Optimistic UI
-    const sendVoiceMutation = useMutation<Message, Error, SendVoiceParams, { previousMessages?: Message[] }>({
+    const sendVoiceMutation = useMutation<
+        Message,
+        Error,
+        SendVoiceParams,
+        { previousMessages?: Message[] }
+    >({
         mutationFn: async (params) => {
-            const publicUrl = await chatService.uploadVoiceMessage(params.blob);
-            return chatService.sendMessage({
+            const uploadRes = await chatService.uploadVoiceMessage(params.blob);
+            if (!uploadRes.success)
+                throw new Error(uploadRes.error?.message || 'Voice upload failed');
+            const publicUrl = uploadRes.data || '';
+
+            const res = await chatService.sendMessage({
                 sender_id: params.sender_id || currentUserId,
                 receiver_id: params.receiver_id || selectedUserId,
                 content: '',
@@ -160,13 +187,16 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 calculation_id: null,
                 client_message_id: params.client_message_id,
             });
+
+            if (!res.success || !res.data) throw new Error(res.error?.message || 'Send failed');
+            return res.data;
         },
         onMutate: async (params) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
 
             const clientMessageId = crypto.randomUUID();
-            params.client_message_id = clientMessageId; // Inject for mutationFn
+            params.client_message_id = clientMessageId;
 
             const tempMessage: Message = {
                 id: `temp-${clientMessageId}`,
@@ -174,166 +204,207 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
                 sender_id: params.sender_id || currentUserId,
                 receiver_id: params.receiver_id || selectedUserId,
                 content: '',
-                voice_url: params.previewUrl, // Optimistic blob URL
+                voice_url: params.previewUrl,
                 voice_duration: params.duration,
                 created_at: new Date().toISOString(),
                 is_edited: false,
+                is_read: false,
                 calculation_id: null,
+                status: 'pending',
             };
 
-            queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, tempMessage]);
-
+            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                sortMessages([...old, tempMessage])
+            );
             return { previousMessages, tempId: tempMessage.id, clientMessageId };
         },
-        onError: (_err: Error, _variables: unknown, context?: { previousMessages?: Message[] }) => {
-            queryClient.setQueryData(queryKey, context?.previousMessages);
+        onSuccess: (data: Message) => {
+            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                old.map((m) =>
+                    m.client_message_id === data.client_message_id ||
+                    m.id === `temp-${data.client_message_id}`
+                        ? { ...data, status: 'sent' as const }
+                        : m
+                )
+            );
         },
-        onSettled: () => {
-            // Realtime handles the atomic swap
+        onError: (_err, _vars, context) => {
+            queryClient.setQueryData(queryKey, context?.previousMessages);
         },
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id: string) => chatService.deleteMessage(id),
+        mutationFn: async (id: string) => {
+            const res = await chatService.deleteMessage(id);
+            if (!res.success) throw new Error(res.error?.message || 'Delete failed');
+            return id;
+        },
         onMutate: async (id: string) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
-
             queryClient.setQueryData(queryKey, (old: Message[] = []) =>
-                old.filter(m => m.id !== id)
+                old.filter((m) => m.id !== id)
             );
-
             return { previousMessages };
         },
-        onError: (_err: Error, _id: string, context?: { previousMessages?: Message[] }) => {
+        onError: (_err, _id, context) => {
             queryClient.setQueryData(queryKey, context?.previousMessages);
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey });
         },
     });
 
     const clearHistoryMutation = useMutation({
-        mutationFn: () => chatService.clearHistory(currentUserId, selectedUserId),
+        mutationFn: async () => {
+            const res = await chatService.clearHistory(currentUserId, selectedUserId);
+            if (!res.success) throw new Error(res.error?.message || 'Clear history failed');
+            return true;
+        },
         onMutate: async () => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
-
-            // Optimistic clear
             queryClient.setQueryData(queryKey, []);
-
             return { previousMessages };
         },
-        onError: (_err: Error, _vars: unknown, context?: { previousMessages?: Message[] }) => {
+        onError: (_err, _vars, context) => {
             queryClient.setQueryData(queryKey, context?.previousMessages);
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey });
-            queryClient.invalidateQueries({ queryKey: ['recipients', currentUserId] });
         },
     });
 
     const editMutation = useMutation({
-        mutationFn: ({ id, content }: { id: string, content: string }) =>
-            chatService.editMessage(id, content),
-        onMutate: async ({ id, content }: { id: string, content: string }) => {
+        mutationFn: async ({ id, content }: { id: string; content: string }) => {
+            const res = await chatService.editMessage(id, content);
+            if (!res.success) throw new Error(res.error?.message || 'Edit failed');
+            return { id, content };
+        },
+        onMutate: async ({ id, content }) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
-
             queryClient.setQueryData(queryKey, (old: Message[] = []) =>
-                old.map(m => m.id === id ? { ...m, content, is_edited: true } : m)
+                old.map((m) => (m.id === id ? { ...m, content, is_edited: true } : m))
             );
-
             return { previousMessages };
         },
-        onError: (_err: Error, _vars: { id: string, content: string }, context?: { previousMessages?: Message[] }) => {
+        onError: (_err, _vars, context) => {
             queryClient.setQueryData(queryKey, context?.previousMessages);
-        },
-        onSettled: () => {
-            // No need to invalidate, optimistic update + Realtime handle it smoothly
         },
     });
 
     // 3. Realtime Handler
-    const handleIncomingMessage = useCallback(async (message: Message, event: MessageEventType) => {
-        if (event === 'INSERT') {
-            if (message.image_url) {
-                await preloadImageWithRetry(message.image_url);
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
+    const handleIncomingMessage = useCallback(
+        (payload: ChatEventPayload, event: MessageEventType) => {
+            // Guard: For INSERT/UPDATE/DELETE events, payload should be a Message
+            const message = 'id' in payload ? (payload as Message) : null;
 
-            // Atomic Update with Exact Identity Matching
-            queryClient.setQueryData(queryKey, (old: Message[] = []) => {
-                if (old.some(m => m.id === message.id)) return old;
+            // 0. Safety check: does this message belong to the active chat?
+            const isRelevant =
+                message &&
+                ((message.sender_id === selectedUserId && message.receiver_id === currentUserId) ||
+                    (message.sender_id === currentUserId &&
+                        message.receiver_id === selectedUserId));
 
-                let replaced = false;
-                const nextMessages = old.map(m => {
-                    if (replaced) return m;
+            if (event === 'INSERT' && message) {
+                if (!isRelevant) return; // Ignore messages from other chats
 
-                    // 1. Primary Match: client_message_id
-                    if (message.client_message_id && m.client_message_id === message.client_message_id) {
-                        replaced = true;
-                        return { ...message, status: 'sent' };
-                    }
-
-                    // 2. Secondary Match: Fallback for media/voice (empty content)
-                    // Match by sender + absence of real ID + matching media properties
-                    const isMediaFallback = m.id.startsWith('temp-') &&
-                        m.sender_id === message.sender_id &&
-                        !m.content && !message.content &&
-                        ((m.voice_duration && m.voice_duration === message.voice_duration) ||
-                            (m.image_url && message.image_url));
-
-                    if (isMediaFallback) {
-                        replaced = true;
-                        return { ...message, status: 'sent' };
-                    }
-
-                    // 3. Tertiary Match: Fallback for text messages
-                    if (m.id.startsWith('temp-') && m.sender_id === message.sender_id && m.content === message.content && m.content !== '') {
-                        replaced = true;
-                        return { ...message, status: 'sent' };
-                    }
-
-                    return m;
-                });
-
-                if (replaced) return nextMessages;
-                return [...old, { ...message, status: 'sent' }];
-            });
-        } else {
-            // Processing UPDATE and DELETE
-            queryClient.setQueryData(queryKey, (old: Message[] = []) => {
-                switch (event) {
-                    case 'UPDATE':
-                        return old.map(m => m.id === message.id ? message : m);
-                    case 'DELETE':
-                        return old.filter(m => m.id !== message.id);
-                    case 'RECONNECT':
-                        queryClient.invalidateQueries({ queryKey });
-                        return old;
-                    case 'READ':
-                        // If selected friend read my messages
-                        if (message.receiver_id === selectedUserId) {
-                            return old.map(m => m.sender_id === currentUserId ? { ...m, is_read: true } : m);
-                        }
-                        return old;
-                    default:
-                        return old;
+                if (message.image_url) {
+                    preloadImage(message.image_url).catch(() => {});
                 }
-            });
-        }
-    }, [queryClient, queryKey]);
 
-    const handleHistoryCleared = useCallback((userId: string, contactId: string) => {
-        // Check if cleared history is relevant to the current view
-        const isRelevant = (userId === currentUserId && contactId === selectedUserId) ||
-            (userId === selectedUserId && contactId === currentUserId);
+                queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+                    // If it already exists (from optimistic update or server success), skip
+                    if (old.some((m) => m.id === message.id)) return old;
 
-        if (isRelevant) {
-            queryClient.setQueryData(queryKey, []);
-        }
-    }, [queryClient, queryKey, currentUserId, selectedUserId]);
+                    let replaced = false;
+                    const nextMessages = old.map((m) => {
+                        if (replaced) return m;
+
+                        // Match by client_message_id
+                        if (
+                            message.client_message_id &&
+                            m.client_message_id === message.client_message_id
+                        ) {
+                            replaced = true;
+                            return { ...message, status: 'sent' as const };
+                        }
+
+                        // Match by temporary ID logic (fallback for media/content)
+                        if (m.id.startsWith('temp-') && m.sender_id === message.sender_id) {
+                            const contentMatch = m.content === message.content && m.content !== '';
+                            const mediaMatch =
+                                (m.image_url && message.image_url) ||
+                                (m.voice_url && message.voice_url);
+
+                            if (contentMatch || mediaMatch) {
+                                replaced = true;
+                                return { ...message, status: 'sent' as const };
+                            }
+                        }
+
+                        return m;
+                    });
+
+                    if (replaced) return sortMessages(nextMessages);
+                    return sortMessages([...old, { ...message, status: 'sent' as const }]);
+                });
+            } else if (event === 'READ') {
+                const readPayload = payload as ReadEventPayload;
+                if (!readPayload.readerId) return;
+
+                // 1. If person I chat with read my messages (shows 2 ticks)
+                const isTargetRead =
+                    readPayload.readerId === selectedUserId &&
+                    readPayload.receiverId === currentUserId;
+
+                // 2. OR if I read this chat elsewhere (marks all as read for me)
+                const isMeRead =
+                    readPayload.readerId === currentUserId &&
+                    readPayload.receiverId === currentUserId;
+
+                if (isTargetRead || isMeRead) {
+                    queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                        old.map((m) => {
+                            // Mark our own messages as read if target read them
+                            if (isTargetRead && m.sender_id === currentUserId)
+                                return { ...m, is_read: true };
+                            // Mark their messages as read if we read them elsewhere
+                            if (isMeRead && m.sender_id === selectedUserId)
+                                return { ...m, is_read: true };
+                            return m;
+                        })
+                    );
+                }
+            } else if (message) {
+                if (!isRelevant && event !== 'RECONNECT') return;
+
+                queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+                    switch (event) {
+                        case 'UPDATE':
+                            // If it's a read receipt update (is_read changed) or content update
+                            return old.map((m) => (m.id === message.id ? { ...m, ...message } : m));
+                        case 'DELETE':
+                            return old.filter((m) => m.id !== message.id);
+                        case 'RECONNECT':
+                            // Only case where we refetch to ensure consistency after network gap
+                            queryClient.invalidateQueries({ queryKey });
+                            return old;
+                        default:
+                            return old;
+                    }
+                });
+            }
+        },
+        [queryClient, queryKey, currentUserId, selectedUserId]
+    );
+
+    const handleHistoryCleared = useCallback(
+        (userId: string, contactId: string) => {
+            const isRelevant =
+                (userId === currentUserId && contactId === selectedUserId) ||
+                (userId === selectedUserId && contactId === currentUserId);
+            if (isRelevant) {
+                queryClient.setQueryData(queryKey, []);
+            }
+        },
+        [queryClient, queryKey, currentUserId, selectedUserId]
+    );
 
     return {
         messages,
@@ -344,8 +415,6 @@ export function useMessages({ currentUserId, selectedUserId }: UseMessagesOption
         sendImageMessage: sendImageMutation.mutateAsync,
         sendVoiceMessage: sendVoiceMutation.mutateAsync,
         deleteMessage: deleteMutation.mutateAsync,
-        uploadAttachment: chatService.uploadAttachment.bind(chatService),
-        uploadVoiceMessage: chatService.uploadVoiceMessage.bind(chatService),
         handleIncomingMessage,
         handleHistoryCleared,
         clearHistory: clearHistoryMutation.mutateAsync,

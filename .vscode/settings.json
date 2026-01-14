@@ -7,5 +7,12 @@
     "deno.suggest.imports.hosts": {
         "https://deno.land": true,
         "https://esm.sh": true
+    },
+"terminal.integrated.profiles.windows": {
+    "Bash": {
+        "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+        "args": ["--login", "-i"]
     }
+},
+"terminal.integrated.defaultProfile.windows": "Bash"
 }

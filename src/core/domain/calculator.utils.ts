@@ -10,7 +10,7 @@ export function calculateTotalCost(items: InventoryItem[] = []): number {
 
     return items.reduce((acc, item) => {
         // Prefer explicit total if available, otherwise calculate
-        const itemTotal = Number(item.total) || (Number(item.price) * Number(item.quantity));
+        const itemTotal = Number(item.total) || Number(item.price) * Number(item.quantity);
 
         // Handle NaN/Infinity
         if (!Number.isFinite(itemTotal)) return acc;
@@ -40,7 +40,7 @@ export function formatCurrency(amount: number): string {
     return new Intl.NumberFormat('ru-RU', {
         style: 'currency',
         currency: 'RUB',
-        maximumFractionDigits: 0
+        maximumFractionDigits: 0,
     }).format(amount);
 }
 

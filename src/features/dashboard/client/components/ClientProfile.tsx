@@ -20,7 +20,12 @@ interface ProfileFormData {
  */
 export const ClientProfile = React.memo(() => {
     const { user, updateProfile, loading } = useAuth();
-    const { register, handleSubmit, reset, formState: { isDirty } } = useForm<ProfileFormData>();
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: { isDirty },
+    } = useForm<ProfileFormData>();
 
     useEffect(() => {
         if (user) {
@@ -36,17 +41,18 @@ export const ClientProfile = React.memo(() => {
     }, [user, reset]);
 
     const onSubmit = async (data: ProfileFormData) => {
-        try {
-            await updateProfile({
-                organizationName: isManager ? undefined : data.organizationName,
-                firstName: isManager ? data.firstName : undefined,
-                lastName: isManager ? data.lastName : undefined,
-                phone: data.phone,
-                address: isManager ? undefined : data.address,
-            });
+        const result = await updateProfile({
+            organizationName: isManager ? undefined : data.organizationName,
+            firstName: isManager ? data.firstName : undefined,
+            lastName: isManager ? data.lastName : undefined,
+            phone: data.phone,
+            address: isManager ? undefined : data.address,
+        });
+
+        if (result.success) {
             toast.success('Профиль успешно обновлен');
-        } catch {
-            toast.error('Ошибка при обновлении профиля');
+        } else {
+            toast.error(result.error.message || 'Ошибка при обновлении профиля');
         }
     };
 
@@ -63,13 +69,20 @@ export const ClientProfile = React.memo(() => {
     return (
         <div className="w-full max-w-[min(100%,800px)] animate-in fade-in slide-in-from-bottom-8 duration-700 bg-background text-foreground">
             <div className="mb-[clamp(1.5rem,6vh,4rem)]">
-                <h1 className="text-[clamp(1.75rem,6vw,3.5rem)] mb-3 sm:mb-4 font-black">Настройки профиля</h1>
+                <h1 className="text-[clamp(1.75rem,6vw,3.5rem)] mb-3 sm:mb-4 font-black">
+                    Настройки профиля
+                </h1>
                 <p className="text-foreground/60 font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] sm:tracking-[0.3em]">
-                    {isManager ? 'Персональные данные сотрудника' : 'Управление корпоративными данными'}
+                    {isManager
+                        ? 'Персональные данные сотрудника'
+                        : 'Управление корпоративными данными'}
                 </p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="glass-card !p-5 sm:!p-8 space-y-8 sm:space-y-10 border-border-theme bg-card shadow-xl">
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="glass-card !p-5 sm:!p-8 space-y-8 sm:space-y-10 border-border-theme bg-card shadow-xl"
+            >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                     {/* Role-based fields */}
                     {!isManager ? (
@@ -121,7 +134,9 @@ export const ClientProfile = React.memo(() => {
                             className="bg-card/30 opacity-60 cursor-not-allowed border-dashed"
                             {...register('email')}
                         />
-                        <p className="text-[9px] font-bold text-foreground/40 uppercase tracking-widest ml-1">Основной логин аккаунта</p>
+                        <p className="text-[9px] font-bold text-foreground/40 uppercase tracking-widest ml-1">
+                            Основной логин аккаунта
+                        </p>
                     </div>
 
                     <div className="space-y-3">
@@ -159,7 +174,6 @@ export const ClientProfile = React.memo(() => {
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                         {loading ? 'Сохранение...' : 'Обновить профиль'}
                     </button>
-
                 </div>
             </form>
         </div>

@@ -1,5 +1,5 @@
 import React, { Component, type ReactNode } from 'react';
-import { logger } from '@/app/services';
+import { logger } from '@/core/logging';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
@@ -16,7 +16,7 @@ interface State {
 
 /**
  * Error Boundary Component
- * 
+ *
  * Catches JavaScript errors anywhere in child component tree,
  * logs them, and displays a fallback UI.
  */
@@ -32,9 +32,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         // Log to telemetry
-        logger.error('React Error Boundary caught an error', {
-            componentStack: errorInfo.componentStack,
-        }, error);
+        logger.error(
+            'React Error Boundary caught an error',
+            {
+                componentStack: errorInfo.componentStack,
+            },
+            error
+        );
 
         // Store error info for display
         this.setState({ errorInfo });
@@ -77,7 +81,8 @@ export class ErrorBoundary extends Component<Props, State> {
                                 Произошла ошибка
                             </h1>
                             <p className="text-sm text-foreground/60">
-                                Что-то пошло не так. Мы уже получили уведомление и работаем над исправлением.
+                                Что-то пошло не так. Мы уже получили уведомление и работаем над
+                                исправлением.
                             </p>
                         </div>
 

@@ -13,9 +13,12 @@ describe('useMessages', () => {
 
         expect(result.current.isLoading).toBe(true);
 
-        await waitFor(() => {
-            expect(result.current.isLoading).toBe(false);
-        }, { timeout: 5000 });
+        await waitFor(
+            () => {
+                expect(result.current.isLoading).toBe(false);
+            },
+            { timeout: 5000 }
+        );
 
         expect(Array.isArray(result.current.messages)).toBe(true);
     });

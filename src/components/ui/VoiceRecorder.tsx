@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Square, X } from 'lucide-react';
-import { logger } from '@/app/services';
+import { logger } from '@/core/logging';
 import { toast } from 'sonner';
 
 export interface VoiceRecorderProps {
@@ -20,7 +20,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm;codecs=opus'
+                mimeType: 'audio/webm;codecs=opus',
             });
 
             mediaRecorderRef.current = mediaRecorder;
@@ -36,7 +36,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                 const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
                 const duration = Math.floor((Date.now() - startTimeRef.current) / 1000);
                 onRecordingComplete(audioBlob, duration);
-                stream.getTracks().forEach(track => track.stop());
+                stream.getTracks().forEach((track) => track.stop());
                 setIsRecording(false);
                 setRecordingTime(0);
             };
@@ -51,7 +51,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                 const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
                 setRecordingTime(elapsed);
             }, 100); // Update every 100ms for smooth display, but show only full seconds
-
         } catch (error) {
             logger.error('Error accessing microphone', { error });
             toast.error('Не удалось получить доступ к микрофону. Проверьте разрешения.');
@@ -117,7 +116,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                     className="ml-auto p-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all flex items-center gap-2"
                 >
                     <Square size={16} fill="currentColor" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Остановить</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                        Остановить
+                    </span>
                 </button>
             </div>
         );

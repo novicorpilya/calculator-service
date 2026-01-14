@@ -7,15 +7,16 @@ import { render, screen } from '@/test/utils';
 import { MessageList } from '@/features/chat/components/MessageList';
 import type { Message } from '../types';
 
-const createMessage = (overrides: Partial<Message> = {}): Message => ({
-    id: `msg-${Date.now()}`,
-    sender_id: 'user-1',
-    receiver_id: 'user-2',
-    content: 'Test message',
-    created_at: new Date().toISOString(),
-    is_edited: false,
-    ...overrides,
-} as Message);
+const createMessage = (overrides: Partial<Message> = {}): Message =>
+    ({
+        id: `msg-${Date.now()}`,
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'Test message',
+        created_at: new Date().toISOString(),
+        is_edited: false,
+        ...overrides,
+    }) as Message;
 
 describe('MessageList', () => {
     const defaultProps = {
@@ -85,9 +86,7 @@ describe('MessageList', () => {
 
     describe('search highlighting', () => {
         it('should highlight search terms', () => {
-            const messages = [
-                createMessage({ content: 'Hello world this is a test' }),
-            ];
+            const messages = [createMessage({ content: 'Hello world this is a test' })];
 
             render(<MessageList {...defaultProps} messages={messages} searchQuery="world" />);
 
@@ -115,11 +114,7 @@ describe('MessageList', () => {
             const messages = [createMessage({ content: 'Right click me' })];
 
             render(
-                <MessageList
-                    {...defaultProps}
-                    messages={messages}
-                    onContextMenu={onContextMenu}
-                />
+                <MessageList {...defaultProps} messages={messages} onContextMenu={onContextMenu} />
             );
 
             // Find the bubble container
@@ -162,11 +157,7 @@ describe('MessageList', () => {
             ];
 
             render(
-                <MessageList
-                    {...defaultProps}
-                    messages={messages}
-                    onImageClick={onImageClick}
-                />
+                <MessageList {...defaultProps} messages={messages} onImageClick={onImageClick} />
             );
 
             const img = screen.getByAltText('Изображение в сообщении');
@@ -186,19 +177,17 @@ describe('MessageList', () => {
 
             const { container } = render(<MessageList {...defaultProps} messages={messages} />);
 
-            // In our implementation, ChatImage might be blurred. 
+            // In our implementation, ChatImage might be blurred.
             // In MessageList.tsx, ChatImage component is passed isTemp={true}.
             // We check for blur class in the rendered output.
-            const blurredImg = container.querySelector('img.blur-sm'); // ChatImage uses blur-sm
+            const blurredImg = container.querySelector('img.blur-2xl'); // ChatImage uses blur-2xl
             expect(blurredImg).toBeTruthy();
         });
     });
 
     describe('edited messages', () => {
         it('should show edited indicator', () => {
-            const messages = [
-                createMessage({ content: 'Edited message', is_edited: true }),
-            ];
+            const messages = [createMessage({ content: 'Edited message', is_edited: true })];
 
             render(<MessageList {...defaultProps} messages={messages} />);
 

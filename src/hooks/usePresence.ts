@@ -34,9 +34,12 @@ export function usePresence(currentUserId: string | null | undefined) {
         return onlineUsers;
     }, [userId, onlineUsers]);
 
-    const isUserOnline = useCallback((targetUserId: string): boolean => {
-        return effectiveOnlineUsers.has(targetUserId);
-    }, [effectiveOnlineUsers]);
+    const isUserOnline = useCallback(
+        (targetUserId: string): boolean => {
+            return effectiveOnlineUsers.has(targetUserId);
+        },
+        [effectiveOnlineUsers]
+    );
 
     return {
         onlineUsers: effectiveOnlineUsers,

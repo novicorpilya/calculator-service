@@ -1,34 +1,34 @@
-import React from 'react'
-import { CheckCircle2, ArrowRight, MailCheck, PartyPopper } from 'lucide-react'
+import React from 'react';
+import { CheckCircle2, ArrowRight, MailCheck } from 'lucide-react';
 
 interface SuccessViewProps {
-    type: 'registration' | 'login' | 'reset-request' | 'reset-complete'
-    onContinue: () => void
+    type: 'registration' | 'login' | 'reset-request' | 'reset-complete';
+    onContinue: () => void;
 }
 
 export const SuccessView: React.FC<SuccessViewProps> = ({ type, onContinue }) => {
     const content = {
         registration: {
-            icon: <PartyPopper className="w-16 h-16 text-blue-500" />,
-            title: "Успех!",
-            description: "Ваша организация зарегистрирована. Мы подготовили рабочее пространство."
+            icon: <CheckCircle2 className="w-16 h-16 text-emerald-500" />,
+            title: 'Поздравляем!',
+            description: 'Ваш аккаунт успешно создан. Добро пожаловать в систему!',
         },
         login: {
             icon: <CheckCircle2 className="w-16 h-16 text-emerald-500" />,
-            title: "С возвращением!",
-            description: "Вы успешно авторизованы. Переходим в личный кабинет."
+            title: 'С возвращением!',
+            description: 'Вы успешно авторизованы. Переходим в личный кабинет.',
         },
         'reset-request': {
             icon: <MailCheck className="w-16 h-16 text-blue-400" />,
-            title: "Письмо в пути",
-            description: "Мы отправили инструкции по сбросу пароля на вашу почту."
+            title: 'Письмо в пути',
+            description: 'Мы отправили инструкции по сбросу пароля на вашу почту.',
         },
         'reset-complete': {
             icon: <CheckCircle2 className="w-16 h-16 text-emerald-500" />,
-            title: "Готово",
-            description: "Ваш новый пароль успешно сохранен. Можете войти в систему."
-        }
-    }[type]
+            title: 'Готово',
+            description: 'Ваш новый пароль успешно сохранен. Можете войти в систему.',
+        },
+    }[type];
 
     return (
         <div className="text-center py-6 animate-in fade-in zoom-in-95 duration-500">
@@ -49,13 +49,10 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ type, onContinue }) =>
                 {content.description}
             </p>
 
-            <button
-                onClick={onContinue}
-                className="btn-premium w-full !text-[12px] py-6"
-            >
+            <button onClick={onContinue} className="btn-premium w-full !text-[12px] py-6">
                 <span className="relative z-10">Продолжить работу</span>
                 <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />
             </button>
         </div>
-    )
-}
+    );
+};

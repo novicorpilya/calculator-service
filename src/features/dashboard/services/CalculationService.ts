@@ -1,24 +1,34 @@
-import type { ICalculationRepository } from '../repositories/CalculationRepository';
+import type {
+    ICalculationRepository,
+    PaginationParams,
+    PaginatedResult,
+} from '../repositories/CalculationRepository';
 import type { Calculation, CalculationResults } from '../dashboard.types';
-import { ApplicationError } from '@/core/errors/AppErrors';
 import { CALCULATION_STATUS, CALCULATION_ACTION } from '@/core/constants/calculation.constants';
 import { calculateTotalCost } from '@/core/domain/calculator.utils';
-import { logger } from '@/app/services';
+import { logger } from '@/core/logging';
+import type { ActionResult, VoidResult } from '@/core/types/results';
 
 export interface ICalculationService {
-    getMyCalculations(userId: string): Promise<Calculation[]>;
-    getCalculation(id: string | number): Promise<Calculation>;
-    getUnassigned(): Promise<Calculation[]>;
-    getManagerWorkload(managerId: string): Promise<Calculation[]>;
-    create(calc: Partial<Calculation>, userId: string): Promise<Calculation>;
-    update(id: string | number, updates: Partial<Calculation>): Promise<Calculation>;
-    delete(id: string | number): Promise<void>;
-    assignToMe(id: string | number, managerId: string): Promise<Calculation>;
-    adjustExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation>;
-    uploadReceipt(id: string | number, file: File, userId: string): Promise<string>;
-    getSignedReceiptUrl(path: string): Promise<string>;
-    acquireLock(id: string | number): Promise<Calculation>;
-    releaseLock(id: string | number): Promise<Calculation>;
+    getMyCalculations(userId: string): Promise<ActionResult<Calculation[]>>;
+    getCalculation(id: string | number): Promise<ActionResult<Calculation>>;
+    getUnassigned(): Promise<ActionResult<Calculation[]>>;
+    getManagerWorkload(managerId: string): Promise<ActionResult<Calculation[]>>;
+    getPaginated(params: PaginationParams): Promise<ActionResult<PaginatedResult<Calculation>>>;
+    create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>>;
+    update(id: string | number, updates: Partial<Calculation>): Promise<ActionResult<Calculation>>;
+    delete(id: string | number): Promise<VoidResult>;
+    assignToMe(id: string | number, managerId: string): Promise<ActionResult<Calculation>>;
+    adjustExpert(
+        id: string | number,
+        results: CalculationResults,
+        adjustments: Record<string, unknown>,
+        version: number
+    ): Promise<ActionResult<Calculation>>;
+    uploadReceipt(id: string | number, file: File, userId: string): Promise<ActionResult<string>>;
+    getSignedReceiptUrl(path: string): Promise<ActionResult<string>>;
+    acquireLock(id: string | number): Promise<ActionResult<Calculation>>;
+    releaseLock(id: string | number): Promise<ActionResult<Calculation>>;
 }
 
 export class CalculationService implements ICalculationService {
@@ -28,78 +38,99 @@ export class CalculationService implements ICalculationService {
         this.repository = repository;
     }
 
-    async getMyCalculations(userId: string): Promise<Calculation[]> {
-        if (!userId) throw new ApplicationError('USER_ID_REQUIRED', 'User ID is required');
+    private wrapError(error: unknown): { message: string } {
+        return { message: error instanceof Error ? error.message : String(error) };
+    }
+
+    async getMyCalculations(userId: string): Promise<ActionResult<Calculation[]>> {
+        if (!userId) return { success: false, error: { message: 'User ID is required' } };
         return this.repository.getByUserId(userId);
     }
 
-    async getCalculation(id: string | number): Promise<Calculation> {
+    async getCalculation(id: string | number): Promise<ActionResult<Calculation>> {
         return this.repository.getById(id);
     }
 
-    async getUnassigned(): Promise<Calculation[]> {
+    async getUnassigned(): Promise<ActionResult<Calculation[]>> {
         return this.repository.getUnassigned();
     }
 
-    async getManagerWorkload(managerId: string): Promise<Calculation[]> {
+    async getManagerWorkload(managerId: string): Promise<ActionResult<Calculation[]>> {
         return this.repository.getManagerWorkload(managerId);
     }
 
+    async getPaginated(
+        params: PaginationParams
+    ): Promise<ActionResult<PaginatedResult<Calculation>>> {
+        return this.repository.getPaginated(params);
+    }
 
-
-    // IMPLEMENTATION: Atomic Operations & Event Sourcing
-    // We use a Repository pattern to abstract the data layer (Supabase RPC).
-    // All state mutations (Create, Update Status) are handled atomically in the DB
-    // to ensure consistency. Events are emitted by DB Triggers (CDC), not by this service,
-    // to guarantee reliability (Event-Driven Architecture).
-
-    async create(calc: Partial<Calculation>, userId: string): Promise<Calculation> {
-        if (!userId) throw new ApplicationError('USER_ID_REQUIRED', 'User ID is required');
-
-        // SECURITY: We delegate creation to a secure RPC ('create_calculation_atomic').
-        // This ensures:
-        // 1. user_id is forcibly taken from Auth Context (anti-spoofing).
-        // 2. Initial Status is validated.
-        // 3. 'calculation.created' or 'calculation.submitted' event is auto-emitted by the DB.
+    async create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>> {
+        if (!userId) return { success: false, error: { message: 'User ID is required' } };
         return this.repository.create(calc, userId);
     }
 
-    async update(id: string | number, updates: Partial<Calculation>): Promise<Calculation> {
+    async update(
+        id: string | number,
+        updates: Partial<Calculation>
+    ): Promise<ActionResult<Calculation>> {
         try {
             const finalUpdates = { ...updates };
 
-            // If results are updated, recalculate total cost before saving
             if (updates.results?.summary) {
                 finalUpdates.totalCost = calculateTotalCost(updates.results.summary);
             }
 
             if (updates.status) {
-                // Determine action name
                 let action: string = updates.status;
                 switch (updates.status) {
-                    case CALCULATION_STATUS.SENT: action = CALCULATION_ACTION.SUBMIT; break;
-                    case CALCULATION_STATUS.INVOICE: action = CALCULATION_ACTION.APPROVE; break;
-                    case CALCULATION_STATUS.CHANGES: action = CALCULATION_ACTION.REJECT; break;
-                    case CALCULATION_STATUS.REVISION: action = CALCULATION_ACTION.RESOLVE; break;
-                    case CALCULATION_STATUS.PAID: action = CALCULATION_ACTION.ACCEPT_PAYMENT; break;
+                    case CALCULATION_STATUS.SENT:
+                        action = CALCULATION_ACTION.SUBMIT;
+                        break;
+                    case CALCULATION_STATUS.INVOICE:
+                        action = CALCULATION_ACTION.APPROVE;
+                        break;
+                    case CALCULATION_STATUS.CHANGES:
+                        action = CALCULATION_ACTION.REJECT;
+                        break;
+                    case CALCULATION_STATUS.REVISION:
+                        action = CALCULATION_ACTION.RESOLVE;
+                        break;
+                    case CALCULATION_STATUS.PAID:
+                        action = CALCULATION_ACTION.ACCEPT_PAYMENT;
+                        break;
+                    case CALCULATION_STATUS.PAYMENT_REVIEW:
+                        action = CALCULATION_ACTION.SUBMIT_PAYMENT;
+                        break;
+                }
+
+                const currentRes = await this.repository.getById(id);
+                if (!currentRes.success || !currentRes.data) return currentRes;
+
+                const current = currentRes.data;
+                if (
+                    current.status === CALCULATION_STATUS.PAYMENT_REVIEW &&
+                    updates.status === CALCULATION_STATUS.INVOICE
+                ) {
+                    action = CALCULATION_ACTION.REJECT_PAYMENT;
                 }
 
                 const contentUpdates: Partial<Calculation> = { ...finalUpdates };
                 delete contentUpdates.status;
 
                 if (Object.keys(contentUpdates).length > 0) {
-                    await this.repository.updateContent(id, contentUpdates);
+                    const upRes = await this.repository.updateContent(id, contentUpdates);
+                    if (!upRes.success) return upRes;
                 }
 
-                return await this.repository.executeAction(id, action);
+                return this.repository.executeAction(id, action);
             }
 
-            // Non-status updates (only data changes)
-            return await this.repository.updateContent(id, finalUpdates);
+            return this.repository.updateContent(id, finalUpdates);
         } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
             await this.recordError(id, `Update Error: ${errMsg}`);
-            throw error;
+            return { success: false, error: this.wrapError(error) };
         }
     }
 
@@ -111,73 +142,76 @@ export class CalculationService implements ICalculationService {
         }
     }
 
-    async delete(id: string | number): Promise<void> {
+    async delete(id: string | number): Promise<VoidResult> {
         return this.repository.delete(id);
     }
 
-    async assignToMe(id: string | number, managerId: string): Promise<Calculation> {
-        try {
-            const result = await this.repository.executeAction(id, 'assign', 'Project assigned to expert', { manager_id: managerId });
-
-            return result;
-        } catch (error: unknown) {
-            const errMsg = error instanceof Error ? error.message : String(error);
+    async assignToMe(id: string | number, managerId: string): Promise<ActionResult<Calculation>> {
+        const res = await this.repository.executeAction(
+            id,
+            'assign',
+            'Project assigned to expert',
+            { manager_id: managerId }
+        );
+        if (!res.success) {
+            const errMsg = res.error?.message || 'Assignment failure';
             await this.recordError(id, `Assignment Error: ${errMsg}`);
-            throw error;
         }
+        return res;
     }
 
-    async adjustExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation> {
-        try {
-            return await this.repository.adjustCalculationExpert(id, results, adjustments, version);
-        } catch (error: unknown) {
-            const errMsg = error instanceof Error ? error.message : String(error);
+    async adjustExpert(
+        id: string | number,
+        results: CalculationResults,
+        adjustments: Record<string, unknown>,
+        version: number
+    ): Promise<ActionResult<Calculation>> {
+        const res = await this.repository.adjustCalculationExpert(
+            id,
+            results,
+            adjustments,
+            version
+        );
+        if (!res.success) {
+            const errMsg = res.error?.message || 'Adjustment failure';
             await this.recordError(id, `Expert Adjustment Error: ${errMsg}`);
-            throw error;
         }
+        return res;
     }
 
-    async uploadReceipt(id: string | number, file: File, userId: string): Promise<string> {
+    async uploadReceipt(
+        id: string | number,
+        file: File,
+        userId: string
+    ): Promise<ActionResult<string>> {
         try {
             const fileExt = file.name.split('.').pop();
             const fileName = `receipt_${Date.now()}.${fileExt}`;
             const filePath = `${userId}/${id}/${fileName}`;
 
-            const { error: uploadError } = await (this.repository as any).client.storage
-                .from('receipts')
-                .upload(filePath, file);
-
-            if (uploadError) {
-                throw new ApplicationError('UPLOAD_FAILED', uploadError.message);
+            const res = await this.repository.uploadFile(filePath, file, 'receipts');
+            if (!res.success) {
+                const errMsg = res.error?.message || 'Upload failure';
+                await this.recordError(id, `Receipt Upload Error: ${errMsg}`);
+                return { success: false, error: res.error };
             }
-
-            return filePath;
+            return { success: true, data: filePath };
         } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
             await this.recordError(id, `Receipt Upload Error: ${errMsg}`);
-            throw error;
+            return { success: false, error: this.wrapError(error) };
         }
     }
 
-    async getSignedReceiptUrl(path: string): Promise<string> {
-        try {
-            const { data, error } = await (this.repository as any).client.storage
-                .from('receipts')
-                .createSignedUrl(path, 3600);
-
-            if (error) throw error;
-            return data.signedUrl;
-        } catch (error: unknown) {
-            logger.error('[CalculationService] Failed to get signed URL', { error });
-            throw new ApplicationError('SIGNED_URL_FAILED', 'Could not retrieve file access');
-        }
+    async getSignedReceiptUrl(path: string): Promise<ActionResult<string>> {
+        return this.repository.createSignedUrl(path, 'receipts', 3600);
     }
 
-    async acquireLock(id: string | number): Promise<Calculation> {
+    async acquireLock(id: string | number): Promise<ActionResult<Calculation>> {
         return this.repository.acquireLock(id);
     }
 
-    async releaseLock(id: string | number): Promise<Calculation> {
+    async releaseLock(id: string | number): Promise<ActionResult<Calculation>> {
         return this.repository.releaseLock(id);
     }
 }

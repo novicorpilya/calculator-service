@@ -36,14 +36,24 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ calculation }) => {
             <div className="flex justify-between items-start mb-12">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">СЧЕТ НА ОПЛАТУ</h1>
-                    <p className="text-lg text-gray-600">№ {invoiceNumber} от {invoiceDate}</p>
+                    <p className="text-lg text-gray-600">
+                        № {invoiceNumber} от {invoiceDate}
+                    </p>
                 </div>
                 <div className="text-right text-sm">
                     <p className="font-bold text-lg mb-1">{COMPANY_REQUISITES.name}</p>
                     <p>{COMPANY_REQUISITES.address}</p>
-                    <div className="mt-2 text-gray-600 cursor-pointer hover:text-black group" onClick={handleCopyRequisites}>
-                        <p>ИНН {COMPANY_REQUISITES.inn} / КПП {COMPANY_REQUISITES.kpp}</p>
-                        <p className="group-hover:underline decoration-dashed">Р/С {COMPANY_REQUISITES.account} <Copy className="inline w-3 h-3 ml-1 opacity-0 group-hover:opacity-100" /></p>
+                    <div
+                        className="mt-2 text-gray-600 cursor-pointer hover:text-black group"
+                        onClick={handleCopyRequisites}
+                    >
+                        <p>
+                            ИНН {COMPANY_REQUISITES.inn} / КПП {COMPANY_REQUISITES.kpp}
+                        </p>
+                        <p className="group-hover:underline decoration-dashed">
+                            Р/С {COMPANY_REQUISITES.account}{' '}
+                            <Copy className="inline w-3 h-3 ml-1 opacity-0 group-hover:opacity-100" />
+                        </p>
                         <p>{COMPANY_REQUISITES.bank}</p>
                         <p>БИК {COMPANY_REQUISITES.bik}</p>
                     </div>
@@ -54,7 +64,9 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ calculation }) => {
 
             {/* Client Info */}
             <div className="mb-12">
-                <p className="text-sm text-gray-500 uppercase tracking-widest font-bold mb-2">Плательщик</p>
+                <p className="text-sm text-gray-500 uppercase tracking-widest font-bold mb-2">
+                    Плательщик
+                </p>
                 <h2 className="text-xl font-bold">{organizationName}</h2>
                 <p className="text-gray-600">Оплата по договору оферты (Заказ #{id})</p>
             </div>
@@ -64,11 +76,21 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ calculation }) => {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b-2 border-black">
-                            <th className="py-3 text-left font-bold uppercase tracking-wider w-12">#</th>
-                            <th className="py-3 text-left font-bold uppercase tracking-wider">Наименование товара / Услуги</th>
-                            <th className="py-3 text-right font-bold uppercase tracking-wider w-24">Кол-во</th>
-                            <th className="py-3 text-right font-bold uppercase tracking-wider w-32">Цена</th>
-                            <th className="py-3 text-right font-bold uppercase tracking-wider w-32">Сумма</th>
+                            <th className="py-3 text-left font-bold uppercase tracking-wider w-12">
+                                #
+                            </th>
+                            <th className="py-3 text-left font-bold uppercase tracking-wider">
+                                Наименование товара / Услуги
+                            </th>
+                            <th className="py-3 text-right font-bold uppercase tracking-wider w-24">
+                                Кол-во
+                            </th>
+                            <th className="py-3 text-right font-bold uppercase tracking-wider w-32">
+                                Цена
+                            </th>
+                            <th className="py-3 text-right font-bold uppercase tracking-wider w-32">
+                                Сумма
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -77,18 +99,29 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ calculation }) => {
                                 <td className="py-3 text-gray-500">{index + 1}</td>
                                 <td className="py-3">
                                     <p className="font-medium">{item.inventory}</p>
-                                    <p className="text-xs text-gray-500">{item.sku ? `Арт: ${item.sku}` : ''}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {item.sku ? `Арт: ${item.sku}` : ''}
+                                    </p>
                                 </td>
                                 <td className="py-3 text-right">{item.quantity} шт</td>
                                 <td className="py-3 text-right">{item.price.toLocaleString()} ₽</td>
-                                <td className="py-3 text-right font-bold">{item.total.toLocaleString()} ₽</td>
+                                <td className="py-3 text-right font-bold">
+                                    {item.total.toLocaleString()} ₽
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                     <tfoot className="border-t-2 border-black">
                         <tr>
-                            <td colSpan={4} className="py-4 text-right font-bold uppercase tracking-widest">Итого к оплате (без НДС):</td>
-                            <td className="py-4 text-right font-black text-xl whitespace-nowrap">{totalCost?.toLocaleString()} ₽</td>
+                            <td
+                                colSpan={4}
+                                className="py-4 text-right font-bold uppercase tracking-widest"
+                            >
+                                Итого к оплате (без НДС):
+                            </td>
+                            <td className="py-4 text-right font-black text-xl whitespace-nowrap">
+                                {totalCost?.toLocaleString()} ₽
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -96,11 +129,14 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ calculation }) => {
 
             {/* Summary Text */}
             <div className="bg-gray-50 p-6 rounded-lg mb-12">
-                <p className="font-bold mb-1">Всего наименований {results.summary.length}, на сумму {totalCost?.toLocaleString()} ₽</p>
+                <p className="font-bold mb-1">
+                    Всего наименований {results.summary.length}, на сумму{' '}
+                    {totalCost?.toLocaleString()} ₽
+                </p>
                 <p className="text-gray-600 italic text-sm border-t border-gray-200 mt-2 pt-2">
                     Внимание! Оплата данного счета означает согласие с условиями поставки товара.
-                    Уведомление об оплате обязательно, в противном случае не гарантируется наличие товара на складе.
-                    Товар отпускается по факту прихода денег на р/с Поставщика.
+                    Уведомление об оплате обязательно, в противном случае не гарантируется наличие
+                    товара на складе. Товар отпускается по факту прихода денег на р/с Поставщика.
                 </p>
             </div>
 
@@ -109,9 +145,17 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ calculation }) => {
                 <div>
                     <p className="font-bold text-sm mb-8">Руководитель</p>
                     <div className="w-48 border-b border-black relative">
-                        <span className="absolute -top-6 left-4 text-blue-600 font-script text-2xl opacity-60 rotate-[-5deg]">Novikov I.</span>
+                        <span className="absolute -top-6 left-4 text-blue-600 font-script text-2xl opacity-60 rotate-[-5deg]">
+                            Novikov I.
+                        </span>
                         <div className="absolute -top-12 -right-4 w-24 h-24 border-4 border-blue-600 rounded-full opacity-30 mix-blend-multiply flex items-center justify-center">
-                            <span className="text-[8px] uppercase font-bold text-center text-blue-800 leading-tight">ООО Новикорп<br />Для<br />Документов</span>
+                            <span className="text-[8px] uppercase font-bold text-center text-blue-800 leading-tight">
+                                ООО Новикорп
+                                <br />
+                                Для
+                                <br />
+                                Документов
+                            </span>
                         </div>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">Новиков И.А.</p>

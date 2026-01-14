@@ -1,24 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardHeader } from '@/features/dashboard/components/DashboardHeader';
 import { DashboardSidebar } from '@/features/dashboard/components/DashboardSidebar';
 import {
     ManagerCalculationsList,
     ManagerOverview,
-    MasterInventoryManager
+    MasterInventoryManager,
 } from '@/features/dashboard/manager/components';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
 import { ClientCalculationDetails } from '@/features/dashboard/client/components/ClientCalculationDetails';
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
-import type { Calculation, CalculationStatus } from '@/features/dashboard/dashboard.types';
+import type {
+    Calculation,
+    CalculationStatus,
+    CalculationResults,
+} from '@/features/dashboard/dashboard.types';
 import { useAuth } from '@/features/auth';
-import { chatService, logger } from '@/app/services'; // Import singleton
+import { useServices } from '@/core/di/ServiceContainer';
+import { logger } from '@/core/logging';
 import {
     useManagerWorkload,
     useUnassignedLeads,
     useCalculationActions,
     dashboardKeys,
-    useCalculation
+    useCalculation,
 } from '@/features/dashboard/hooks/useCalculations';
 
 /**
@@ -26,15 +32,45 @@ import {
  * Refactored to use React Query for caching, deduping, and state management.
  */
 export const ManagerDashboard: React.FC = () => {
+    const { chatService } = useServices();
     const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
-    const [currentPage, setCurrentPage] = useState('overview');
-    const [selectedId, setSelectedId] = useState<string | number | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const currentPage = searchParams.get('page') || 'overview';
+    const selectedId = searchParams.get('id');
+
+    const setCurrentPage = useCallback(
+        (page: string) => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('page', page);
+                next.delete('id');
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
+
+    const setSelectedId = useCallback(
+        (id: string | number | null) => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                if (id) next.set('id', String(id));
+                else next.delete('id');
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
 
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
     // Data Fetching Hooks
-    const { data: myProjects = [], isLoading: loadingMy, error: errorMy } = useManagerWorkload(user?.id);
+    const {
+        data: myProjects = [],
+        isLoading: loadingMy,
+        error: errorMy,
+    } = useManagerWorkload(user?.id);
     const { data: leads = [], isLoading: loadingLeads, error: errorLeads } = useUnassignedLeads();
 
     // Actions
@@ -57,48 +93,66 @@ export const ManagerDashboard: React.FC = () => {
     useEffect(() => {
         if (!user?.id) return;
 
-        const unsubscribe = chatService.subscribeToProjects((payload: { id: string | number, isSignal?: boolean }) => {
-            // Optimistic update logging
-            if (import.meta.env.DEV) {
-                logger.debug(`[Sync:Pulse] ${payload.id} invalidating queries...`);
+        const unsubscribe = chatService.subscribeToProjects(
+            (payload: { id: string | number; isSignal?: boolean }) => {
+                // Optimistic update logging
+                if (import.meta.env.DEV) {
+                    logger.debug(`[Sync:Pulse] ${payload.id} invalidating queries...`);
+                }
+
+                // Invalidate all dashboard data to ensure consistency
+                // In a more complex app, we'd update specific cache entries
+                queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+
+                // Show toast if relevant (Re-implement specific toast logic if critical)
+                // Simplified for now to focus on data consistency
             }
-
-            // Invalidate all dashboard data to ensure consistency
-            // In a more complex app, we'd update specific cache entries
-            queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-
-            // Show toast if relevant (Re-implement specific toast logic if critical)
-            // Simplified for now to focus on data consistency
-        });
+        );
 
         return () => unsubscribe();
-    }, [user?.id, queryClient]);
+    }, [user?.id, queryClient, chatService]);
 
     const handleAssign = async (id: string | number) => {
-        assignToMe.mutate({ id, managerId: user!.id }, {
-            onSuccess: () => {
-                setSelectedId(null);
-                setCurrentPage('pipeline');
+        assignToMe.mutate(
+            { id, managerId: user!.id },
+            {
+                onSuccess: () => {
+                    setSelectedId(null);
+                    setCurrentPage('pipeline');
+                },
             }
-        });
+        );
     };
 
-    const handleUpdateStatus = (id: number | string, status: CalculationStatus, additionalUpdates: Partial<Calculation> = {}) => {
+    const handleUpdateStatus = (
+        id: number | string,
+        status: CalculationStatus,
+        additionalUpdates: Partial<Calculation> = {}
+    ) => {
         updateStatus.mutate({
             id,
             status,
-            updates: additionalUpdates
+            updates: additionalUpdates,
         });
     };
 
-    const handleAdjustExpert = async (id: string | number, results: any, adjustments: any, version: number) => {
+    const handleAdjustExpert = async (
+        id: string | number,
+        results: CalculationResults,
+        adjustments: Record<string, unknown>,
+        version: number
+    ) => {
         await adjustExpert.mutateAsync({ id, results, adjustments, version });
     };
 
     if (selectedCalculation) {
         return (
             <div className="min-h-screen bg-background flex flex-col">
-                <DashboardHeader sidebarOpen={false} setSidebarOpen={() => { }} title="Экспертиза расчета" />
+                <DashboardHeader
+                    sidebarOpen={false}
+                    setSidebarOpen={() => {}}
+                    title="Экспертиза расчета"
+                />
                 <main className="flex-1 overflow-auto bg-background/50">
                     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
                         <ClientCalculationDetails
@@ -107,8 +161,8 @@ export const ManagerDashboard: React.FC = () => {
                             onBack={() => setSelectedId(null)}
                             onUpdateStatus={handleUpdateStatus}
                             onAdjustExpert={handleAdjustExpert}
-                            onDelete={() => { }}
-                            onEdit={() => { }}
+                            onDelete={() => {}}
+                            onEdit={() => {}}
                             onAssign={handleAssign}
                         />
                     </div>
@@ -123,10 +177,15 @@ export const ManagerDashboard: React.FC = () => {
                 sidebarOpen={sidebarOpen}
                 setSidebarOpen={setSidebarOpen}
                 title={
-                    currentPage === 'pipeline' ? 'Проекты' :
-                        currentPage === 'overview' ? 'Обзор' :
-                            currentPage === 'chat' ? 'Чат' :
-                                currentPage === 'kb' ? 'Реестр товаров' : 'Панель эксперта'
+                    currentPage === 'pipeline'
+                        ? 'Проекты'
+                        : currentPage === 'overview'
+                          ? 'Обзор'
+                          : currentPage === 'chat'
+                            ? 'Чат'
+                            : currentPage === 'kb'
+                              ? 'Реестр товаров'
+                              : 'Панель эксперта'
                 }
             />
 
@@ -141,7 +200,13 @@ export const ManagerDashboard: React.FC = () => {
                 />
 
                 <main className="flex-1 overflow-auto bg-background/30">
-                    <div className={currentPage === 'chat' ? 'w-full' : 'p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full'}>
+                    <div
+                        className={
+                            currentPage === 'chat'
+                                ? 'w-full'
+                                : 'p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full'
+                        }
+                    >
                         {error && (
                             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-black uppercase tracking-widest">
                                 {error}
@@ -155,7 +220,10 @@ export const ManagerDashboard: React.FC = () => {
                         ) : (
                             <>
                                 {currentPage === 'overview' && (
-                                    <ManagerOverview calculations={allCalculations} onNavigate={setCurrentPage} />
+                                    <ManagerOverview
+                                        calculations={allCalculations}
+                                        onNavigate={setCurrentPage}
+                                    />
                                 )}
                                 {currentPage === 'pipeline' && (
                                     <ManagerCalculationsList

@@ -1,101 +1,56 @@
-import { z } from 'zod';
 import { type SupabaseClient } from '@supabase/supabase-js';
-import type { Calculation, CalculationStatus, CalculationResults, Zone, Interaction } from '../dashboard.types';
-import { InfrastructureError } from '@/core/errors/AppErrors';
+import type { Calculation, CalculationStatus, CalculationResults, Zone } from '../dashboard.types';
 import { type ILogger } from '@/core/logging/LogManager';
-
-// --- Zod Schemas for Runtime Validation ---
-
-const ZoneSchema = z.object({
-    id: z.custom<string | number>(), // Accept both to satisfy Zone type
-    name: z.string(),
-    area: z.number().or(z.string()).optional(),
-    type: z.string().optional(),
-    staffCount: z.number().or(z.string()).optional(),
-    color: z.string().optional()
-});
-
-// NOTE: ManagerInfoSchema removed - manager info validated at DB level
-
-
-
-export interface PaginationParams {
-    page: number;
-    pageSize: number;
-    search?: string;
-    sortBy?: 'created_at' | 'updated_at' | 'organization_name' | 'total_cost_value';
-    sortOrder?: 'asc' | 'desc';
-    status?: CalculationStatus;
-    managerId?: string | null; // null = unassigned
-}
-
-export interface PaginatedResult<T> {
-    data: T[];
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-}
+import { rawDBCalculationSchema, type RawDBCalculation } from '../dashboard.validation';
+import {
+    type PaginationParams,
+    type PaginatedResult,
+    calculateOffset,
+    createPaginatedResult,
+} from '@/core/types/pagination';
+import type { ActionResult, VoidResult } from '@/core/types/results';
 
 export interface ICalculationRepository {
-    getById(id: string | number): Promise<Calculation>;
-    getByUserId(userId: string): Promise<Calculation[]>;
-    getUnassigned(): Promise<Calculation[]>;
-    getManagerWorkload(managerId: string): Promise<Calculation[]>;
+    getById(id: string | number): Promise<ActionResult<Calculation>>;
+    getByUserId(userId: string): Promise<ActionResult<Calculation[]>>;
+    getUnassigned(): Promise<ActionResult<Calculation[]>>;
+    getManagerWorkload(managerId: string): Promise<ActionResult<Calculation[]>>;
 
     // Server-Side Pagination
-    getPaginated(params: PaginationParams): Promise<PaginatedResult<Calculation>>;
+    getPaginated(
+        params: PaginationParams & {
+            status?: string;
+            search?: string;
+            managerId?: string | null;
+            sortBy?: string;
+            sortOrder?: 'asc' | 'desc';
+        }
+    ): Promise<ActionResult<PaginatedResult<Calculation>>>;
 
     // CRUD
-    create(calc: Partial<Calculation>, userId: string): Promise<Calculation>;
-    updateContent(id: string | number, updates: Partial<Calculation>): Promise<Calculation>;
-    delete(id: string | number): Promise<void>;
+    create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>>;
+    updateContent(
+        id: string | number,
+        updates: Partial<Calculation>
+    ): Promise<ActionResult<Calculation>>;
+    delete(id: string | number): Promise<VoidResult>;
 
-    executeAction(id: string | number, action: string, message?: string, payload?: Record<string, unknown>): Promise<Calculation>;
-    adjustCalculationExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation>;
-    acquireLock(id: string | number): Promise<Calculation>;
-    releaseLock(id: string | number): Promise<Calculation>;
-}
-
-// Internal DB Interface (Strictly Typed)
-interface CalculationDB {
-    id: string | number;
-    user_id: string;
-    manager_id?: string | null;
-    organization_name: string;
-    type?: string;
-    status: string;
-    zone_details?: z.infer<typeof ZoneSchema>[]; // JSONB array
-    total_area: number;
-    zones_count: number;
-    staff_count: number;
-    daily_visitors: number;
-    sanitary_level: string;
-    intensity_level?: string;
-    replacement_cycle: string;
-    results: CalculationResults | null;
-    history: Interaction[];
-    created_at: string;
-    updated_at: string;
-    total_cost_value?: number;
-    total_items_count?: number;
-    version_number?: number;
-    manager_adjustments?: Record<string, any>;
-    locked_at?: string;
-    locked_by?: string;
-    lock_expires_at?: string;
-    final_snapshot?: CalculationResults;
-    receipt_path?: string;
-    manager_info?: {
-        first_name?: string | null;
-        last_name?: string | null;
-        organization_name?: string | null;
-    };
-    client_info?: {
-        first_name?: string | null;
-        last_name?: string | null;
-    };
-    project_number?: number;
+    executeAction(
+        id: string | number,
+        action: string,
+        message?: string,
+        payload?: Record<string, unknown>
+    ): Promise<ActionResult<Calculation>>;
+    adjustCalculationExpert(
+        id: string | number,
+        results: CalculationResults,
+        adjustments: Record<string, unknown>,
+        version: number
+    ): Promise<ActionResult<Calculation>>;
+    acquireLock(id: string | number): Promise<ActionResult<Calculation>>;
+    releaseLock(id: string | number): Promise<ActionResult<Calculation>>;
+    uploadFile(path: string, file: File | Blob, bucket: string): Promise<VoidResult>;
+    createSignedUrl(path: string, bucket: string, expiresIn: number): Promise<ActionResult<string>>;
 }
 
 export class CalculationRepository implements ICalculationRepository {
@@ -107,299 +62,354 @@ export class CalculationRepository implements ICalculationRepository {
         this.logger = logger;
     }
 
-    private readonly PROJECT_SELECT = '*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)';
+    private readonly PROJECT_SELECT =
+        '*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)';
 
-    private mapToEntity(db: CalculationDB): Calculation {
-        const results = db.results;
-        const totalCost = db.total_cost_value || 0;
+    private wrapError(error: unknown): { message: string } {
+        return { message: error instanceof Error ? error.message : String(error) };
+    }
+
+    private mapToEntity(dbRaw: unknown): Calculation {
+        const raw = dbRaw as Record<string, unknown>;
+        const parseResult = rawDBCalculationSchema.safeParse(dbRaw);
+
+        if (!parseResult.success) {
+            this.logger.error(
+                `Critical: Calculation Data Corruption for ID ${raw?.id}`,
+                parseResult.error
+            );
+        }
+
+        const db = parseResult.success ? parseResult.data : (dbRaw as RawDBCalculation);
 
         const mInfo = db.manager_info;
-        const managerData = Array.isArray(mInfo) ? mInfo[0] : (mInfo || null);
+        const managerData = Array.isArray(mInfo) ? mInfo[0] : mInfo || null;
         const cInfo = db.client_info;
-        const clientData = Array.isArray(cInfo) ? cInfo[0] : (cInfo || null);
+        const clientData = Array.isArray(cInfo) ? cInfo[0] : cInfo || null;
 
         let managerName = 'Назначается';
         if (managerData) {
-            const fullName = `${managerData.first_name || ''} ${managerData.last_name || ''}`.trim();
+            const fullName =
+                `${managerData.first_name || ''} ${managerData.last_name || ''}`.trim();
             managerName = fullName || managerData.organization_name || 'Специалист';
         }
 
-        const clientName = clientData ? (clientData.first_name || 'Клиент') : 'Клиент';
-
-        // 10/10 Validation: Ensure JSONB fields are valid
-        const zonesParse = z.array(ZoneSchema).safeParse(db.zone_details || []);
-        if (!zonesParse.success) {
-            this.logger.warn(`Invalid zone_details for calculation ${db.id}`, zonesParse.error);
-        }
-        const validZones = zonesParse.success ? zonesParse.data : [];
+        const validZones = (db.zone_details || []) as Zone[];
 
         return {
             id: db.id,
             user_id: db.user_id,
             manager_id: db.manager_id || undefined,
             organizationName: db.organization_name,
-            type: db.type,
+            type: db.type || undefined,
             status: db.status as CalculationStatus,
-            zones: validZones.map(z => z.name),
+            zones: validZones.map((z) => z.name || 'Zone'),
             zoneDetails: validZones as Zone[],
             totalArea: db.total_area,
             zonesCount: db.zones_count,
             staffCount: db.staff_count,
-            dailyVisitors: db.daily_visitors, // Fixed mapping key
+            dailyVisitors: db.daily_visitors,
             sanitaryLevel: db.sanitary_level,
-            intensityLevel: db.intensity_level,
+            intensityLevel: db.intensity_level || undefined,
             replacementCycle: db.replacement_cycle,
-            createdDate: db.created_at, // Return ISO string, let UI format it to avoid TZ issues
+            totalCost: db.total_cost_value || 0,
+            results: db.results as CalculationResults | null,
+            createdDate: db.created_at,
+            updated_at: db.updated_at,
             manager: managerName,
             comments: [],
             unreadComments: 0,
-            results: results,
-            totalCost: totalCost,
-            history: db.history || [],
-            version_number: db.version_number || 1,
-            manager_adjustments: db.manager_adjustments || {},
-            locked_at: db.locked_at,
-            locked_by: db.locked_by,
-            lock_expires_at: db.lock_expires_at,
-            final_snapshot: db.final_snapshot,
-            receipt_path: db.receipt_path,
-            client_name: clientName,
-            project_number: db.project_number
+            project_number: db.project_number ?? undefined,
+            version_number: db.version_number,
+            receipt_path: db.receipt_path ?? undefined,
+            manager_adjustments: db.manager_adjustments,
+            locked_at: db.locked_at ?? undefined,
+            locked_by: db.locked_by ?? undefined,
+            lock_expires_at: db.lock_expires_at ?? undefined,
+            final_snapshot: db.final_snapshot || undefined,
+            client_name: clientData ? clientData.first_name || 'Клиент' : 'Клиент',
         };
     }
 
-    async getById(id: string | number): Promise<Calculation> {
-        const { data, error } = await this.client
-            .from('calculations')
-            .select(this.PROJECT_SELECT)
-            .eq('id', id)
-            .single();
+    async getById(id: string | number): Promise<ActionResult<Calculation>> {
+        try {
+            const { data, error } = await this.client
+                .from('calculations')
+                .select(this.PROJECT_SELECT)
+                .eq('id', id)
+                .single();
 
-        if (error) {
-            this.logger.error('Failed to get calculation', { id }, error);
-            throw new InfrastructureError('FETCH_CALCULATION_FAILED', error);
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: this.mapToEntity(data) };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-        return this.mapToEntity(data as CalculationDB);
     }
 
-    async getByUserId(userId: string): Promise<Calculation[]> {
-        const { data, error } = await this.client
-            .from('calculations')
-            .select(this.PROJECT_SELECT)
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+    async getByUserId(userId: string): Promise<ActionResult<Calculation[]>> {
+        try {
+            const { data, error } = await this.client
+                .from('calculations')
+                .select(this.PROJECT_SELECT)
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
 
-        if (error) {
-            this.logger.error('Failed to get user calculations', { userId }, error);
-            throw new InfrastructureError('FETCH_MY_CALCULATIONS_FAILED', error);
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: (data || []).map((d) => this.mapToEntity(d)) };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-        return (data || []).map((db: CalculationDB) => this.mapToEntity(db));
     }
 
-    async getUnassigned(): Promise<Calculation[]> {
-        const { data, error } = await this.client
-            .from('calculations')
-            .select(this.PROJECT_SELECT)
-            .is('manager_id', null)
-            .neq('status', 'draft')
-            .order('created_at', { ascending: false });
+    async getUnassigned(): Promise<ActionResult<Calculation[]>> {
+        try {
+            const { data, error } = await this.client
+                .from('calculations')
+                .select(this.PROJECT_SELECT)
+                .is('manager_id', null)
+                .order('created_at', { ascending: false });
 
-        if (error) {
-            this.logger.error('Failed to get unassigned calculations', null, error);
-            throw new InfrastructureError('FETCH_UNASSIGNED_FAILED', error);
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: (data || []).map((d) => this.mapToEntity(d)) };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-        return (data || []).map((db: CalculationDB) => this.mapToEntity(db));
     }
 
-    async getManagerWorkload(managerId: string): Promise<Calculation[]> {
-        const { data, error } = await this.client
-            .from('calculations')
-            .select(this.PROJECT_SELECT)
-            .eq('manager_id', managerId)
-            .order('updated_at', { ascending: false });
+    async getManagerWorkload(managerId: string): Promise<ActionResult<Calculation[]>> {
+        try {
+            const { data, error } = await this.client
+                .from('calculations')
+                .select(this.PROJECT_SELECT)
+                .eq('manager_id', managerId)
+                .order('created_at', { ascending: false });
 
-        if (error) {
-            this.logger.error('Failed to get manager workload', { managerId }, error);
-            throw new InfrastructureError('FETCH_WORKLOAD_FAILED', error);
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: (data || []).map((d) => this.mapToEntity(d)) };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-        return (data || []).map((db: CalculationDB) => this.mapToEntity(db));
     }
 
-    /**
-     * Server-Side Paginated Query
-     * Supports: search, filter by status/manager, sort, pagination
-     */
-    async getPaginated(params: PaginationParams): Promise<PaginatedResult<Calculation>> {
-        const { page, pageSize, search, sortBy = 'created_at', sortOrder = 'desc', status, managerId } = params;
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize - 1;
-
-        // Build query
-        // Architecture Decision: Lazy Load Client Info
-        // We do NOT join 'client_info' here to ensure the list is performant and reliable.
-        // If a client profile is missing or locked by RLS, we don't want the entire project hidden.
-        // Detailed client info is fetched in 'getById' (Project Card).
-        let query = this.client
-            .from('calculations')
-            .select(this.PROJECT_SELECT, { count: 'exact' });
-
-        // Filter by manager
-        if (managerId === null) {
-            query = query.is('manager_id', null).neq('status', 'draft');
-        } else if (managerId) {
-            query = query.eq('manager_id', managerId);
+    async getPaginated(
+        params: PaginationParams & {
+            status?: string;
+            search?: string;
+            managerId?: string | null;
+            sortBy?: string;
+            sortOrder?: 'asc' | 'desc';
         }
+    ): Promise<ActionResult<PaginatedResult<Calculation>>> {
+        try {
+            const { from, to } = calculateOffset(params);
 
-        // Filter by status
-        if (status) {
-            query = query.eq('status', status);
-        }
+            let query = this.client
+                .from('calculations')
+                .select(this.PROJECT_SELECT, { count: 'exact' });
 
-        // Search by organization name
-        if (search && search.trim()) {
-            query = query.ilike('organization_name', `%${search.trim()}%`);
-        }
-
-        // Order
-        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
-
-        // Pagination
-        query = query.range(from, to);
-
-        const { data, error, count } = await query;
-
-        if (error) {
-            this.logger.error('Failed to get paginated calculations', params, error);
-            throw new InfrastructureError('FETCH_PAGINATED_FAILED', error);
-        }
-
-        const total = count || 0;
-        return {
-            data: (data || []).map((db: CalculationDB) => this.mapToEntity(db)),
-            total,
-            page,
-            pageSize,
-            totalPages: Math.ceil(total / pageSize)
-        };
-    }
-
-    // ATOMIC CREATE IMPLEMENTATION
-    async create(calc: Partial<Calculation>, userId: string): Promise<Calculation> {
-        // Use the Atomic RPC instead of raw INSERT
-        const { data, error } = await this.client.rpc('create_calculation_atomic', {
-            p_payload: {
-                ...calc,
-                status: calc.status || 'draft'
+            if (params.search) {
+                query = query.ilike('organization_name', `%${params.search}%`);
             }
-        });
+            if (params.status) {
+                query = query.eq('status', params.status);
+            }
+            if (params.managerId === null) {
+                query = query.is('manager_id', null);
+            } else if (params.managerId) {
+                query = query.eq('manager_id', params.managerId);
+            }
 
-        if (error) {
-            this.logger.error('Failed to create calculation atomically', { userId }, error);
-            throw new InfrastructureError('CREATE_CALCULATION_FAILED', error);
+            const { data, error, count } = await query
+                .order(params.sortBy || 'created_at', { ascending: params.sortOrder === 'asc' })
+                .range(from, to);
+
+            if (error) return { success: false, error: this.wrapError(error) };
+
+            const total = count || 0;
+            const mappedData = (data || []).map((d) => this.mapToEntity(d));
+            return {
+                success: true,
+                data: createPaginatedResult(mappedData, params, total),
+            };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-
-        // RPC returns the created row, but we need full joined data (manager info etc)
-        return this.getById(data.id);
     }
 
-    async updateContent(id: string | number, updates: Partial<Calculation>): Promise<Calculation> {
-        const dbUpdates: Partial<CalculationDB> = {};
-        if (updates.organizationName !== undefined) dbUpdates.organization_name = updates.organizationName;
-        if (updates.type !== undefined) dbUpdates.type = updates.type;
-        if (updates.zoneDetails !== undefined) {
-            dbUpdates.zone_details = updates.zoneDetails as unknown as CalculationDB['zone_details']; // Align with DB schema
-            dbUpdates.zones_count = updates.zoneDetails.length;
+    async create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>> {
+        try {
+            const { data, error } = await this.client
+                .from('calculations')
+                .insert({
+                    user_id: userId,
+                    organization_name: calc.organizationName,
+                    type: calc.type,
+                    total_area: calc.totalArea,
+                    staff_count: calc.staffCount,
+                    daily_visitors: calc.dailyVisitors,
+                    sanitary_level: calc.sanitaryLevel,
+                    intensity_level: calc.intensityLevel,
+                    replacement_cycle: calc.replacementCycle,
+                    zone_details: calc.zoneDetails,
+                    results: calc.results,
+                    total_cost_value: calc.totalCost,
+                })
+                .select(this.PROJECT_SELECT)
+                .single();
+
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: this.mapToEntity(data) };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-        if (updates.totalArea !== undefined) dbUpdates.total_area = updates.totalArea;
-        if (updates.staffCount !== undefined) dbUpdates.staff_count = updates.staffCount;
-        if (updates.dailyVisitors !== undefined) dbUpdates.daily_visitors = updates.dailyVisitors;
-        if (updates.sanitaryLevel !== undefined) dbUpdates.sanitary_level = updates.sanitaryLevel;
-        if (updates.intensityLevel !== undefined) dbUpdates.intensity_level = updates.intensityLevel;
-        if (updates.replacementCycle !== undefined) dbUpdates.replacement_cycle = updates.replacementCycle;
-        if (updates.results !== undefined) {
-            dbUpdates.results = updates.results;
+    }
+
+    async updateContent(
+        id: string | number,
+        updates: Partial<Calculation>
+    ): Promise<ActionResult<Calculation>> {
+        try {
+            const dbUpdates: Record<string, unknown> = {};
+            if (updates.organizationName) dbUpdates.organization_name = updates.organizationName;
+            if (updates.type) dbUpdates.type = updates.type;
+            if (updates.totalArea) dbUpdates.total_area = updates.totalArea;
+            if (updates.staffCount) dbUpdates.staff_count = updates.staffCount;
+            if (updates.dailyVisitors) dbUpdates.daily_visitors = updates.dailyVisitors;
+            if (updates.sanitaryLevel) dbUpdates.sanitary_level = updates.sanitaryLevel;
+            if (updates.intensityLevel) dbUpdates.intensity_level = updates.intensityLevel;
+            if (updates.replacementCycle) dbUpdates.replacement_cycle = updates.replacementCycle;
+            if (updates.zoneDetails) dbUpdates.zone_details = updates.zoneDetails;
+            if (updates.results) dbUpdates.results = updates.results;
             if (updates.totalCost !== undefined) dbUpdates.total_cost_value = updates.totalCost;
-        }
-        if (updates.receipt_path !== undefined) {
-            dbUpdates.receipt_path = updates.receipt_path;
-        }
+            if (updates.receipt_path !== undefined) dbUpdates.receipt_path = updates.receipt_path;
 
-        dbUpdates.updated_at = new Date().toISOString();
+            const { data, error } = await this.client
+                .from('calculations')
+                .update(dbUpdates)
+                .eq('id', id)
+                .select(this.PROJECT_SELECT)
+                .single();
 
-        const { data, error } = await this.client
-            .from('calculations')
-            .update(dbUpdates)
-            .eq('id', id)
-            .select(this.PROJECT_SELECT)
-            .single();
-
-        if (error) {
-            this.logger.error('Failed to update calculation content', { id }, error);
-            throw new InfrastructureError('UPDATE_CALCULATION_FAILED', error);
-        }
-        return this.mapToEntity(data as CalculationDB);
-    }
-
-    async executeAction(id: string | number, action: string, message?: string, payload: Record<string, unknown> = {}): Promise<Calculation> {
-        const { data, error } = await this.client.rpc('perform_calculation_action', {
-            p_calculation_id: id,
-            p_action_type: action,
-            p_message: message,
-            p_payload: payload
-        });
-
-        if (error) {
-            this.logger.error('Failed to execute calculation action', { id, action }, error);
-            throw new InfrastructureError('EXECUTE_ACTION_FAILED', error);
-        }
-        // Action might change manager or status - always refetch full joined object
-        return this.getById(data.id);
-    }
-
-
-
-    async delete(id: string | number): Promise<void> {
-        const { error } = await this.client.from('calculations').delete().eq('id', id);
-        if (error) {
-            this.logger.error('Failed to delete calculation', { id }, error);
-            throw new InfrastructureError('DELETE_CALCULATION_FAILED', error);
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: this.mapToEntity(data) };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
     }
 
-    async adjustCalculationExpert(id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number): Promise<Calculation> {
-        const { data, error } = await this.client.rpc('adjust_calculation_expert', {
-            p_calculation_id: id,
-            p_results: results,
-            p_adjustments: adjustments,
-            p_current_version: Math.floor(version)
-        });
+    async delete(id: string | number): Promise<VoidResult> {
+        try {
+            const { error } = await this.client.from('calculations').delete().eq('id', id);
 
-        if (error) {
-            this.logger.error('Supabase RPC Error Details', {
-                message: error.message,
-                code: error.code,
-                details: error.details,
-                hint: error.hint
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async executeAction(
+        id: string | number,
+        action: string,
+        message?: string,
+        payload?: Record<string, unknown>
+    ): Promise<ActionResult<Calculation>> {
+        try {
+            console.log('[CalculationRepository] Calling perform_calculation_action', {
+                p_calculation_id: id,
+                p_action_type: action,
+                p_message: message || '',
+                p_payload: payload || {},
             });
-            throw new InfrastructureError('EXECUTE_ACTION_FAILED', error);
+
+            const { error } = await this.client.rpc('perform_calculation_action', {
+                p_calculation_id: id,
+                p_action_type: action,
+                p_message: message || '',
+                p_payload: payload || {},
+            });
+
+            if (error) return { success: false, error: this.wrapError(error) };
+
+            // Refetch to get joined info
+            return this.getById(id);
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
         }
-
-        return this.getById(data.id);
     }
 
-    async acquireLock(id: string | number): Promise<Calculation> {
-        const { data, error } = await this.client.rpc('acquire_calculation_lock', {
-            p_calculation_id: id
-        });
-        if (error) throw new InfrastructureError('ACQUIRE_LOCK_FAILED', error);
-        return this.getById(data.id);
+    async adjustCalculationExpert(
+        id: string | number,
+        results: CalculationResults,
+        adjustments: Record<string, unknown>,
+        version: number
+    ): Promise<ActionResult<Calculation>> {
+        try {
+            const { error } = await this.client.rpc('adjust_calculation_expert', {
+                p_calculation_id: id,
+                p_results: results,
+                p_adjustments: adjustments,
+                p_current_version: version,
+            });
+
+            if (error) return { success: false, error: this.wrapError(error) };
+            return this.getById(id);
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
     }
 
-    async releaseLock(id: string | number): Promise<Calculation> {
-        const { data, error } = await this.client.rpc('release_calculation_lock', {
-            p_calculation_id: id
-        });
-        if (error) throw new InfrastructureError('RELEASE_LOCK_FAILED', error);
-        return this.getById(data.id);
+    async acquireLock(id: string | number): Promise<ActionResult<Calculation>> {
+        try {
+            const { error } = await this.client.rpc('acquire_calculation_lock', {
+                p_calculation_id: id,
+            });
+            if (error) return { success: false, error: this.wrapError(error) };
+            return this.getById(id);
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async releaseLock(id: string | number): Promise<ActionResult<Calculation>> {
+        try {
+            const { error } = await this.client.rpc('release_calculation_lock', {
+                p_calculation_id: id,
+            });
+            if (error) return { success: false, error: this.wrapError(error) };
+            return this.getById(id);
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async uploadFile(path: string, file: File | Blob, bucket: string): Promise<VoidResult> {
+        try {
+            const { error } = await this.client.storage
+                .from(bucket)
+                .upload(path, file, { cacheControl: '3600', upsert: true });
+
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async createSignedUrl(
+        path: string,
+        bucket: string,
+        expiresIn: number
+    ): Promise<ActionResult<string>> {
+        try {
+            const { data, error } = await this.client.storage
+                .from(bucket)
+                .createSignedUrl(path, expiresIn);
+
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: data.signedUrl };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
     }
 }

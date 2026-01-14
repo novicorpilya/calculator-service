@@ -5,7 +5,7 @@ import { calculateTotalCost } from './calculator.utils';
 
 /**
  * CalculationEntity - Rich Domain Model
- * 
+ *
  * Encapsulates ALL business rules and invariants for a Calculation.
  * UI components should ONLY call methods on this entity, never check status directly.
  */
@@ -17,29 +17,75 @@ export class CalculationEntity {
     }
 
     // ===== GETTERS =====
-    get id() { return this.data.id; }
-    get status() { return this.data.status; }
-    get organizationName() { return this.data.organizationName; }
-    get createdAt() { return new Date(this.data.createdDate); }
-    get rawData() { return { ...this.data }; }
-    get manager() { return this.data.manager; }
-    get type() { return this.data.type; }
-    get zonesCount() { return this.data.zonesCount; }
-    get totalArea() { return this.data.totalArea; }
-    get managerId() { return this.data.manager_id; }
-    get userId() { return this.data.user_id; }
-    get results() { return this.data.results; }
-    get summary() { return this.data.results?.summary || []; }
-    get byZone() { return this.data.results?.byZone || []; }
-    get staffCount() { return this.data.staffCount; }
-    get dailyVisitors() { return this.data.dailyVisitors; }
-    get sanitaryLevel() { return this.data.sanitaryLevel; }
-    get replacementCycle() { return this.data.replacementCycle; }
-    get zoneDetails() { return this.data.zoneDetails; }
-    get versionNumber() { return this.data.version_number || 1; }
-    get managerAdjustments() { return this.data.manager_adjustments || {}; }
-    get lockedAt() { return this.data.locked_at ? new Date(this.data.locked_at) : null; }
-    get finalSnapshot() { return this.data.final_snapshot; }
+    get id() {
+        return this.data.id;
+    }
+    get status() {
+        return this.data.status;
+    }
+    get organizationName() {
+        return this.data.organizationName;
+    }
+    get createdAt() {
+        return new Date(this.data.createdDate);
+    }
+    get rawData() {
+        return { ...this.data };
+    }
+    get manager() {
+        return this.data.manager;
+    }
+    get type() {
+        return this.data.type;
+    }
+    get zonesCount() {
+        return this.data.zonesCount;
+    }
+    get totalArea() {
+        return this.data.totalArea;
+    }
+    get managerId() {
+        return this.data.manager_id;
+    }
+    get userId() {
+        return this.data.user_id;
+    }
+    get results() {
+        return this.data.results;
+    }
+    get summary() {
+        return this.data.results?.summary || [];
+    }
+    get byZone() {
+        return this.data.results?.byZone || [];
+    }
+    get staffCount() {
+        return this.data.staffCount;
+    }
+    get dailyVisitors() {
+        return this.data.dailyVisitors;
+    }
+    get sanitaryLevel() {
+        return this.data.sanitaryLevel;
+    }
+    get replacementCycle() {
+        return this.data.replacementCycle;
+    }
+    get zoneDetails() {
+        return this.data.zoneDetails;
+    }
+    get versionNumber() {
+        return this.data.version_number || 1;
+    }
+    get managerAdjustments() {
+        return this.data.manager_adjustments || {};
+    }
+    get lockedAt() {
+        return this.data.locked_at ? new Date(this.data.locked_at) : null;
+    }
+    get finalSnapshot() {
+        return this.data.final_snapshot;
+    }
 
     // ===== STATUS MACHINE =====
 
@@ -48,35 +94,48 @@ export class CalculationEntity {
      */
     canTransitionTo(target: CalculationStatus): boolean {
         const allowedTransitions: Partial<Record<CalculationStatus, CalculationStatus[]>> = {
-            'draft': ['sent'],
-            'sent': ['expert', 'changes', 'invoice'],
-            'expert': ['changes', 'invoice'],
-            'changes': ['revision', 'sent'],
-            'revision': ['expert', 'invoice'],
-            'invoice': ['payment_review', 'changes'],
-            'payment_review': ['paid', 'changes', 'invoice'],
-            'paid': ['processing'],
-            'processing': ['ready'],
-            'ready': ['shipping'],
-            'shipping': ['completed'],
-            'completed': ['closed'],
-            'closed': []
+            draft: ['sent'],
+            sent: ['expert', 'changes', 'invoice'],
+            expert: ['changes', 'invoice'],
+            changes: ['revision', 'sent'],
+            revision: ['expert', 'invoice'],
+            invoice: ['payment_review', 'changes'],
+            payment_review: ['paid', 'changes', 'invoice'],
+            paid: ['processing'],
+            processing: ['ready'],
+            ready: ['shipping'],
+            shipping: ['completed'],
+            completed: ['closed'],
+            closed: [],
         };
 
         const possible = allowedTransitions[this.data.status] || [];
         return possible.includes(target);
     }
 
-    // ===== FINANCIAL CALCULATIONS =====
-
     /**
-     * Calculate total cost from results
+     * Calculate total cost from results, applying manager adjustments
      */
     get totalCost(): number {
-        if (typeof this.data.totalCost === 'number' && this.data.totalCost > 0) return this.data.totalCost;
+        // 1. If we have a finalized/pre-calculated totalCost from DB, use it
+        if (this.data.totalCost && this.data.totalCost > 0) {
+            return this.data.totalCost;
+        }
+
         const results = this.data.results;
         if (!results || !results.summary) return 0;
-        return calculateTotalCost(results.summary);
+
+        // Base cost from items
+        const baseCost = calculateTotalCost(results.summary);
+
+        // Apply manager adjustments
+        const adjustments = this.managerAdjustments;
+        const globalMargin = Number(adjustments.global_margin) || 1.0;
+        const deliveryCost = Number(adjustments.delivery_cost) || 0;
+        const serviceCost = Number(adjustments.service_cost) || 0;
+
+        // Final cost = (base * margin) + delivery + service
+        return Math.round(baseCost * globalMargin + deliveryCost + serviceCost);
     }
 
     get totalItems(): number {
@@ -109,7 +168,11 @@ export class CalculationEntity {
      * True for: sent, revision, expert, suppliers, invoice
      */
     canRequestChanges(): boolean {
-        const statuses: CalculationStatus[] = [CALCULATION_STATUS.SENT, CALCULATION_STATUS.REVISION, CALCULATION_STATUS.EXPERT];
+        const statuses: CalculationStatus[] = [
+            CALCULATION_STATUS.SENT,
+            CALCULATION_STATUS.REVISION,
+            CALCULATION_STATUS.EXPERT,
+        ];
         return statuses.includes(this.data.status);
     }
 
@@ -122,7 +185,7 @@ export class CalculationEntity {
             CALCULATION_STATUS.SENT,
             CALCULATION_STATUS.REVISION,
             CALCULATION_STATUS.CHANGES,
-            CALCULATION_STATUS.EXPERT
+            CALCULATION_STATUS.EXPERT,
         ];
         return statuses.includes(this.data.status);
     }
@@ -164,7 +227,7 @@ export class CalculationEntity {
             CALCULATION_STATUS.PROCESSING,
             CALCULATION_STATUS.READY,
             CALCULATION_STATUS.SHIPPING,
-            CALCULATION_STATUS.COMPLETED
+            CALCULATION_STATUS.COMPLETED,
         ];
         return statuses.includes(this.data.status);
     }
@@ -218,4 +281,3 @@ export class CalculationEntity {
         return this.data.status === 'expert' && this.isAssignedTo(userId) && !this.isLocked();
     }
 }
-

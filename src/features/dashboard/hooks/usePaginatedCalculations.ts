@@ -2,7 +2,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { dashboardKeys } from './useCalculations';
 import type { CalculationStatus } from '../dashboard.types';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { calculationRepository } from '@/app/services';
+import { useServices } from '@/core/di/ServiceContainer';
 
 export interface PaginationState {
     page: number;
@@ -22,13 +22,14 @@ const SEARCH_DEBOUNCE_MS = 300;
  * Replaces client-side filtering in ManagerCalculationsList
  */
 export function usePaginatedCalculations(userId?: string) {
+    const { calculationService } = useServices();
     const [pagination, setPagination] = useState<PaginationState>({
         page: 1,
         pageSize: DEFAULT_PAGE_SIZE,
         search: '',
         sortBy: 'created_at',
         sortOrder: 'desc',
-        tab: 'my'
+        tab: 'my',
     });
 
     // Debounced search value
@@ -62,16 +63,27 @@ export function usePaginatedCalculations(userId?: string) {
 
     const { data, isLoading, error, isFetching } = useQuery({
         queryKey,
-        queryFn: () => calculationRepository.getPaginated({
-            page: pagination.page,
-            pageSize: pagination.pageSize,
-            search: debouncedSearch, // Use debounced value
-            sortBy: pagination.sortBy,
-            sortOrder: pagination.sortOrder,
-            status: pagination.status,
-            managerId: pagination.tab === 'unassigned' ? null :
-                pagination.tab === 'my' ? userId : undefined
-        }),
+        queryFn: async () => {
+            const result = await calculationService.getPaginated({
+                page: pagination.page,
+                pageSize: pagination.pageSize,
+                search: debouncedSearch, // Use debounced value
+                sortBy: pagination.sortBy,
+                sortOrder: pagination.sortOrder,
+                status: pagination.status,
+                managerId:
+                    pagination.tab === 'unassigned'
+                        ? null
+                        : pagination.tab === 'my'
+                          ? userId
+                          : undefined,
+            });
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'Failed to fetch paginated calculations');
+            }
+            return result.data;
+        },
         enabled: !!userId || pagination.tab === 'unassigned',
         staleTime: 1000 * 30, // 30 seconds
         placeholderData: keepPreviousData, // Keep previous data while fetching new page
@@ -79,23 +91,26 @@ export function usePaginatedCalculations(userId?: string) {
 
     // Actions
     const setPage = useCallback((page: number) => {
-        setPagination(prev => ({ ...prev, page }));
+        setPagination((prev) => ({ ...prev, page }));
     }, []);
 
     const setSearch = useCallback((search: string) => {
-        setPagination(prev => ({ ...prev, search, page: 1 })); // Reset to page 1 on search
+        setPagination((prev) => ({ ...prev, search, page: 1 })); // Reset to page 1 on search
     }, []);
 
-    const setSort = useCallback((sortBy: PaginationState['sortBy'], sortOrder: PaginationState['sortOrder']) => {
-        setPagination(prev => ({ ...prev, sortBy, sortOrder, page: 1 }));
-    }, []);
+    const setSort = useCallback(
+        (sortBy: PaginationState['sortBy'], sortOrder: PaginationState['sortOrder']) => {
+            setPagination((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }));
+        },
+        []
+    );
 
     const setTab = useCallback((tab: PaginationState['tab']) => {
-        setPagination(prev => ({ ...prev, tab, page: 1 }));
+        setPagination((prev) => ({ ...prev, tab, page: 1 }));
     }, []);
 
     const setStatus = useCallback((status?: CalculationStatus) => {
-        setPagination(prev => ({ ...prev, status, page: 1 }));
+        setPagination((prev) => ({ ...prev, status, page: 1 }));
     }, []);
 
     return {

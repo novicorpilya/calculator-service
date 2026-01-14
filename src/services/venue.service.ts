@@ -1,25 +1,29 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import type { ActionResult, VoidResult } from '@/core/types/results';
 
-export interface Venue {
-    id: string;
-    owner_id: string;
-    name: string;
-    type: 'restaurant' | 'cafe' | 'bar' | 'hotel' | 'other';
-    total_area: number;
-    seating_capacity: number;
-    staff_count: number;
-    visitors_per_day: number;
-    address?: string;
-    created_at: string;
-}
+export const VenueSchema = z.object({
+    id: z.string().uuid(),
+    owner_id: z.string().uuid(),
+    name: z.string().min(1, 'Название обязательно'),
+    type: z.enum(['restaurant', 'cafe', 'bar', 'hotel', 'other']),
+    total_area: z.number().nonnegative(),
+    seating_capacity: z.number().int().nonnegative(),
+    staff_count: z.number().int().nonnegative(),
+    visitors_per_day: z.number().int().nonnegative(),
+    address: z.string().optional().nullable(),
+    created_at: z.string(),
+});
+
+export type Venue = z.infer<typeof VenueSchema>;
 
 export type CreateVenueData = Omit<Venue, 'id' | 'owner_id' | 'created_at'>;
 
 export interface IVenueService {
-    getVenues(): Promise<Venue[]>;
-    createVenue(data: CreateVenueData): Promise<Venue>;
-    updateVenue(id: string, data: Partial<CreateVenueData>): Promise<Venue>;
-    deleteVenue(id: string): Promise<void>;
+    getVenues(): Promise<ActionResult<Venue[]>>;
+    createVenue(data: CreateVenueData): Promise<ActionResult<Venue>>;
+    updateVenue(id: string, data: Partial<CreateVenueData>): Promise<ActionResult<Venue>>;
+    deleteVenue(id: string): Promise<VoidResult>;
 }
 
 export class VenueService implements IVenueService {
@@ -29,51 +33,92 @@ export class VenueService implements IVenueService {
         this.supabase = supabase;
     }
 
-    async getVenues(): Promise<Venue[]> {
-        const { data, error } = await this.supabase
-            .from('venues')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        return data || [];
+    private wrapError(error: unknown): { message: string } {
+        return { message: error instanceof Error ? error.message : String(error) };
     }
 
-    async createVenue(data: CreateVenueData): Promise<Venue> {
-        const { data: { user } } = await this.supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+    async getVenues(): Promise<ActionResult<Venue[]>> {
+        try {
+            const { data, error } = await this.supabase
+                .from('venues')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        const { data: venue, error } = await this.supabase
-            .from('venues')
-            .insert({
-                ...data,
-                owner_id: user.id
-            })
-            .select()
-            .single();
+            if (error) return { success: false, error: this.wrapError(error) };
 
-        if (error) throw error;
-        return venue;
+            const validated = z.array(VenueSchema).safeParse(data);
+            if (!validated.success) {
+                console.error('[VenueService:Validation:Error]', validated.error);
+                return { success: false, error: { message: 'Data format error in venues list' } };
+            }
+
+            return { success: true, data: validated.data };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
     }
 
-    async updateVenue(id: string, data: Partial<CreateVenueData>): Promise<Venue> {
-        const { data: venue, error } = await this.supabase
-            .from('venues')
-            .update(data)
-            .eq('id', id)
-            .select()
-            .single();
+    async createVenue(data: CreateVenueData): Promise<ActionResult<Venue>> {
+        try {
+            const {
+                data: { user },
+            } = await this.supabase.auth.getUser();
+            if (!user) return { success: false, error: { message: 'Not authenticated' } };
 
-        if (error) throw error;
-        return venue;
+            const { data: venue, error } = await this.supabase
+                .from('venues')
+                .insert({
+                    ...data,
+                    owner_id: user.id,
+                })
+                .select()
+                .single();
+
+            if (error) return { success: false, error: this.wrapError(error) };
+
+            const validated = VenueSchema.safeParse(venue);
+            if (!validated.success) {
+                console.error('[VenueService:Create:Validation:Error]', validated.error);
+                return { success: false, error: { message: 'Invalid data format after creation' } };
+            }
+
+            return { success: true, data: validated.data };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
     }
 
-    async deleteVenue(id: string): Promise<void> {
-        const { error } = await this.supabase
-            .from('venues')
-            .delete()
-            .eq('id', id);
+    async updateVenue(id: string, data: Partial<CreateVenueData>): Promise<ActionResult<Venue>> {
+        try {
+            const { data: venue, error } = await this.supabase
+                .from('venues')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
 
-        if (error) throw error;
+            if (error) return { success: false, error: this.wrapError(error) };
+
+            const validated = VenueSchema.safeParse(venue);
+            if (!validated.success) {
+                console.error('[VenueService:Update:Validation:Error]', validated.error);
+                return { success: false, error: { message: 'Invalid data format after update' } };
+            }
+
+            return { success: true, data: validated.data };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async deleteVenue(id: string): Promise<VoidResult> {
+        try {
+            const { error } = await this.supabase.from('venues').delete().eq('id', id);
+
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
     }
 }

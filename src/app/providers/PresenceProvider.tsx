@@ -4,7 +4,7 @@ import { useServices } from '@/core/di/ServiceContainer';
 
 /**
  * PresenceProvider
- * 
+ *
  * Separates Presence Lifecycle responsibility from AuthProvider.
  * Automatically tracks user presence when logged in.
  */
@@ -26,7 +26,7 @@ export const PresenceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         return () => {
             // Component unmount -> Cleanup
-            // We don't un-track here strictly because re-renders might cause flickering, 
+            // We don't un-track here strictly because re-renders might cause flickering,
             // but for a top-level provider it's fine.
             if (user) {
                 presenceService.untrackUser().catch(console.error);
@@ -34,9 +34,5 @@ export const PresenceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
     }, [user, presenceService]);
 
-    return (
-        <PresenceContext.Provider value={null}>
-            {children}
-        </PresenceContext.Provider>
-    );
+    return <PresenceContext.Provider value={null}>{children}</PresenceContext.Provider>;
 };

@@ -29,7 +29,7 @@ export const authStorage = {
 
             return value;
         } catch {
-            return null
+            return null;
         }
     },
 
@@ -69,8 +69,8 @@ export const authStorage = {
             localStorage.removeItem(REMEMBER_ME_KEY);
 
             // Удаляем все ключи с нашим префиксом из обоих хранилищ
-            [localStorage, sessionStorage].forEach(storage => {
-                Object.keys(storage).forEach(key => {
+            [localStorage, sessionStorage].forEach((storage) => {
+                Object.keys(storage).forEach((key) => {
                     if (key.startsWith(STORAGE_PREFIX)) {
                         storage.removeItem(key);
                     }
@@ -79,9 +79,9 @@ export const authStorage = {
         } catch (err) {
             console.error('[Storage] Global clear failed:', err);
         }
-    }
-}
+    },
+};
 
 export const setRememberMePreference = (preference: boolean) => {
     localStorage.setItem(REMEMBER_ME_KEY, String(preference));
-}
+};

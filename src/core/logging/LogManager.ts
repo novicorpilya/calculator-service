@@ -7,7 +7,7 @@ export const LogLevel = {
     ERROR: 3,
 } as const;
 
-export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
 const LogLevelNames: Record<LogLevel, string> = {
     [LogLevel.DEBUG]: 'DEBUG',
@@ -67,10 +67,13 @@ export class LogManager implements ILogger {
                 message,
                 context: {
                     context,
-                    error_details: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+                    error_details:
+                        error instanceof Error
+                            ? { name: error.name, message: error.message, stack: error.stack }
+                            : error,
                     url: window.location.href,
-                    user_agent: navigator.userAgent
-                }
+                    user_agent: navigator.userAgent,
+                },
             });
         } catch (e) {
             // Fail-safe: Don't crash app if logger fails

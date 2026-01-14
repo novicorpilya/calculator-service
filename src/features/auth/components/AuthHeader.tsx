@@ -1,5 +1,5 @@
-import React from 'react'
-import { ShieldCheck } from 'lucide-react'
+import React from 'react';
+import { ShieldCheck } from 'lucide-react';
 
 export const AuthHeader: React.FC = () => {
     return (
@@ -11,7 +11,9 @@ export const AuthHeader: React.FC = () => {
                 </div>
             </div>
             <h1 className="text-4xl font-black text-foreground mb-2 tracking-tighter">HICS</h1>
-            <p className="text-foreground/40 text-[10px] font-black uppercase tracking-[0.3em]">Inventory Intelligence Systems</p>
+            <p className="text-foreground/40 text-[10px] font-black uppercase tracking-[0.3em]">
+                Inventory Intelligence Systems
+            </p>
         </div>
-    )
-}
+    );
+};

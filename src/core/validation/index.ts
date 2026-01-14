@@ -18,10 +18,10 @@ export const UUIDSchema = z.string().uuid('Некорректный формат
 /**
  * Проверяет, является ли значение корректным UUID.
  * Не выбрасывает исключение — возвращает boolean.
- * 
+ *
  * @param value - Значение для проверки
  * @returns true если значение является валидным UUID
- * 
+ *
  * @example
  * if (isValidUUID(userId)) {
  *   // Безопасно использовать userId
@@ -34,12 +34,12 @@ export function isValidUUID(value: unknown): value is string {
 /**
  * Валидирует значение как UUID и возвращает его.
  * Выбрасывает ApplicationError если значение невалидно.
- * 
+ *
  * @param value - Значение для валидации
  * @param fieldName - Название поля (для сообщения об ошибке)
  * @returns Валидированный UUID
  * @throws ApplicationError с кодом INVALID_UUID
- * 
+ *
  * @example
  * const userId = validateUUID(input.userId, 'userId');
  */

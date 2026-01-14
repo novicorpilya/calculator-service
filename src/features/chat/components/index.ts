@@ -1,7 +1,9 @@
-export { RecipientListItem } from './RecipientListItem';
+export { ChatWindow } from './ChatWindow';
+export { ChatSidebar } from './ChatSidebar';
+export { ChatHeader } from './ChatHeader';
+export { ChatImage } from './ChatImage';
 export { ChatContextMenu } from './ChatContextMenu';
 export { MessageList } from './MessageList';
-export { RecipientList } from './RecipientList';
-export { ChatHeader } from './ChatHeader';
 export { MessageInput } from './MessageInput';
-
+export { RecipientList } from './RecipientList';
+export { RecipientListItem } from './RecipientListItem';

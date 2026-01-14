@@ -39,7 +39,9 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ imageUrl, 
     };
 
     return (
-        <div className={`fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-10 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div
+            className={`fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-10 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        >
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/95 backdrop-blur-sm cursor-zoom-out"
@@ -50,7 +52,7 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ imageUrl, 
             <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
                 <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/10">
                     <button
-                        onClick={() => setZoom(prev => Math.max(0.5, prev - 0.25))}
+                        onClick={() => setZoom((prev) => Math.max(0.5, prev - 0.25))}
                         className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"
                     >
                         <ZoomOut size={18} />
@@ -59,7 +61,7 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ imageUrl, 
                         {Math.round(zoom * 100)}%
                     </span>
                     <button
-                        onClick={() => setZoom(prev => Math.min(3, prev + 0.25))}
+                        onClick={() => setZoom((prev) => Math.min(3, prev + 0.25))}
                         className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"
                     >
                         <ZoomIn size={18} />
@@ -98,7 +100,9 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ imageUrl, 
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-white/5 backdrop-blur-md rounded-full border border-white/5">
                 <div className="flex items-center gap-3">
                     <Maximize2 size={14} className="text-primary" />
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Режим предпросмотра HoReCa Hub</p>
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">
+                        Режим предпросмотра HoReCa Hub
+                    </p>
                 </div>
             </div>
         </div>

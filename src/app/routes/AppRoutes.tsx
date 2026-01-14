@@ -1,9 +1,9 @@
-import React, { Suspense } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/features/auth'
-import { ProtectedRoute } from './ProtectedRoute'
-import { PublicRoute } from './PublicRoute'
-import { ROUTES } from './routes.constants'
+import React, { Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/features/auth';
+import { ProtectedRoute } from './ProtectedRoute';
+import { PublicRoute } from './PublicRoute';
+import { ROUTES } from './routes.constants';
 
 // ============================================================
 // LAZY LOADED COMPONENTS (Code Splitting)
@@ -12,21 +12,27 @@ import { ROUTES } from './routes.constants'
 
 // Public pages
 const Landing = React.lazy(() =>
-    import('@/pages/Landing/Landing.page').then(m => ({ default: m.Landing }))
+    import('@/pages/Landing/Landing.page').then((m) => ({ default: m.Landing }))
 );
 const HoRecaAuth = React.lazy(() =>
-    import('@/features/auth').then(m => ({ default: m.HoRecaAuth }))
+    import('@/features/auth').then((m) => ({ default: m.HoRecaAuth }))
 );
 
 // Dashboard pages (heavy components)
 const ClientDashboard = React.lazy(() =>
-    import('@/pages/Dashboard/Client/ClientDashboard.page').then(m => ({ default: m.ClientDashboard }))
+    import('@/pages/Dashboard/Client/ClientDashboard.page').then((m) => ({
+        default: m.ClientDashboard,
+    }))
 );
 const ManagerDashboard = React.lazy(() =>
-    import('@/pages/Dashboard/Manager/ManagerDashboard.page').then(m => ({ default: m.ManagerDashboard }))
+    import('@/pages/Dashboard/Manager/ManagerDashboard.page').then((m) => ({
+        default: m.ManagerDashboard,
+    }))
 );
 const AdminDashboard = React.lazy(() =>
-    import('@/pages/Dashboard/Admin/AdminDashboard.page').then(m => ({ default: m.AdminDashboard }))
+    import('@/pages/Dashboard/Admin/AdminDashboard.page').then((m) => ({
+        default: m.AdminDashboard,
+    }))
 );
 
 // ============================================================
@@ -57,8 +63,16 @@ const InitLoader = () => (
 // ============================================================
 
 export const AppRoutes: React.FC = () => {
-    const { user, isInitializing, isRecoveryFlow } = useAuth()
-    const navigate = useNavigate()
+    const { user, isInitializing, isRecoveryFlow, setIsRecoveryFlow } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Fix "Zombie" Recovery Flow: reset when navigating away from reset page
+    React.useEffect(() => {
+        if (isRecoveryFlow && location.pathname !== ROUTES.AUTH.RESET_PASSWORD) {
+            setIsRecoveryFlow(false);
+        }
+    }, [location.pathname, isRecoveryFlow, setIsRecoveryFlow]);
 
     // Global initialization loader
     if (isInitializing) {
@@ -110,13 +124,13 @@ export const AppRoutes: React.FC = () => {
                 <Route
                     path={ROUTES.AUTH.RESET_PASSWORD}
                     element={
-                        (isRecoveryFlow || window.location.hash.includes('access_token'))
-                            ? (
-                                <Suspense fallback={<PageLoader />}>
-                                    <HoRecaAuth initialMode="reset-password" />
-                                </Suspense>
-                            )
-                            : <Navigate to={ROUTES.LANDING} replace />
+                        isRecoveryFlow || window.location.hash.includes('access_token') ? (
+                            <Suspense fallback={<PageLoader />}>
+                                <HoRecaAuth initialMode="reset-password" />
+                            </Suspense>
+                        ) : (
+                            <Navigate to={ROUTES.LANDING} replace />
+                        )
                     }
                 />
 
@@ -125,11 +139,13 @@ export const AppRoutes: React.FC = () => {
                     <Route
                         path={ROUTES.DASHBOARD.ROOT}
                         element={
-                            user?.role === 'admin'
-                                ? <Navigate to={ROUTES.DASHBOARD.ADMIN} replace />
-                                : user?.role === 'manager'
-                                    ? <Navigate to={ROUTES.DASHBOARD.MANAGER} replace />
-                                    : <Navigate to={ROUTES.DASHBOARD.CLIENT} replace />
+                            user?.role === 'admin' ? (
+                                <Navigate to={ROUTES.DASHBOARD.ADMIN} replace />
+                            ) : user?.role === 'manager' ? (
+                                <Navigate to={ROUTES.DASHBOARD.MANAGER} replace />
+                            ) : (
+                                <Navigate to={ROUTES.DASHBOARD.CLIENT} replace />
+                            )
                         }
                     />
 
@@ -171,5 +187,5 @@ export const AppRoutes: React.FC = () => {
                 <Route path="*" element={<Navigate to={ROUTES.LANDING} replace />} />
             </Routes>
         </Suspense>
-    )
-}
+    );
+};

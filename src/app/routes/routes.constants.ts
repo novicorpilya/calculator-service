@@ -14,4 +14,4 @@ export const ROUTES = {
     },
 } as const;
 
-export type AppRoute = typeof ROUTES[keyof typeof ROUTES] | string;
+export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES] | string;

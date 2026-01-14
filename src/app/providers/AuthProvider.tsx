@@ -1,255 +1,250 @@
-import React from 'react'
-import { supabase } from '@/services/supabase'
-import { type RealtimeChannel } from '@supabase/supabase-js'
-import { authService } from '@/features/auth/auth.service'
-import type { User, LoginCredentials, RegisterCredentials, UpdateProfileData } from '@/features/auth/auth.types'
+import React, { useCallback } from 'react';
+import { supabase } from '@/services/supabase';
+import { toast } from 'sonner';
+import { authService } from '@/features/auth/auth.service';
+import { useProfileSync } from '@/features/auth/hooks/useProfileSync';
+import { checkIsRecoveryFlow } from '@/features/auth/utils/authPathUtils';
+import { logger } from '@/core/logging';
+import type {
+    User,
+    LoginCredentials,
+    RegisterCredentials,
+    UpdateProfileData,
+    ActionResult,
+} from '@/features/auth/auth.types';
 
 export interface AuthContextType {
-    isAuthenticated: boolean
-    user: User | null
-    token: string | null
-    login: (credentials: LoginCredentials) => Promise<void>
-    register: (credentials: RegisterCredentials) => Promise<void>
-    logout: () => Promise<void>
-    resetPassword: (email: string) => Promise<void>
-    updatePassword: (password: string) => Promise<void>
-    updateProfile: (updates: UpdateProfileData) => Promise<void>
-    setIsAuthenticated: (value: boolean) => void
-    setIsRecoveryFlow: (value: boolean) => void
-    error: string | null
-    loading: boolean
-    isInitializing: boolean
-    isRecoveryFlow: boolean
+    isAuthenticated: boolean;
+    user: User | null;
+    token: string | null;
+    login: (credentials: LoginCredentials) => Promise<ActionResult<User>>;
+    register: (credentials: RegisterCredentials) => Promise<ActionResult<User>>;
+    logout: () => Promise<void>;
+    resetPassword: (email: string) => Promise<ActionResult<void>>;
+    updatePassword: (password: string) => Promise<ActionResult<void>>;
+    updateProfile: (updates: UpdateProfileData) => Promise<ActionResult<User>>;
+    setIsAuthenticated: (value: boolean) => void;
+    setIsRecoveryFlow: (value: boolean) => void;
+    error: string | null;
+    loading: boolean;
+    isInitializing: boolean;
+    isRecoveryFlow: boolean;
 }
 
-const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-    children,
-}) => {
-    const [isAuthenticated, setIsAuthenticated] = React.useState(false)
-    const [user, setUser] = React.useState<User | null>(null)
-    const [token, setToken] = React.useState<string | null>(null)
-    const [error, setError] = React.useState<string | null>(null)
-    const [loading, setLoading] = React.useState(false)
-    const [isInitializing, setIsInitializing] = React.useState(true)
-    const [isRecoveryFlow, setIsRecoveryFlow] = React.useState(false)
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+    const [user, setUser] = React.useState<User | null>(null);
+    const [token, setToken] = React.useState<string | null>(null);
+    const [error, setError] = React.useState<string | null>(null);
+    const [loading, setLoading] = React.useState(false);
+    const [isInitializing, setIsInitializing] = React.useState(true);
+    const [isRecoveryFlow, setIsRecoveryFlow] = React.useState(false);
+    const [isMounted, setIsMounted] = React.useState(true);
+
+    const logout = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await authService.logout();
+            if (!res.success) {
+                logger.error('Logout error', res.error);
+            }
+        } finally {
+            setToken(null);
+            setUser(null);
+            setIsAuthenticated(false);
+            setIsRecoveryFlow(false);
+            setLoading(false);
+        }
+    }, []);
+
+    // Realtime Profile Synchronization
+    useProfileSync({
+        userId: user?.id,
+        isMounted,
+        onProfileUpdate: (updatedUser) => {
+            // Fix Role Desync: if role changed in DB, force logout
+            if (user && user.role !== updatedUser.role) {
+                toast.error('Ваши права доступа изменились. Пожалуйста, войдите снова.');
+                logout();
+            } else {
+                setUser(updatedUser);
+            }
+        },
+        onSyncError: () => logout(),
+    });
 
     React.useEffect(() => {
-        let isMounted = true;
-        let profileSubscription: RealtimeChannel | null = null;
-
-        const checkRecovery = () => {
-            return window.location.hash.includes('type=recovery') ||
-                window.location.search.includes('type=recovery') ||
-                window.location.hash.includes('access_token');
-        };
+        setIsMounted(true);
 
         const init = async () => {
             try {
-                if (checkRecovery()) setIsRecoveryFlow(true);
-                const { data: { session } } = await supabase.auth.getSession()
+                if (checkIsRecoveryFlow()) setIsRecoveryFlow(true);
+                const {
+                    data: { session },
+                } = await supabase.auth.getSession();
 
-                if (session && isMounted) {
-                    setToken(session.access_token)
-                    const userProfile = await authService.getCurrentUser()
+                if (session) {
+                    setToken(session.access_token);
+                    const res = await authService.getCurrentUser();
 
-                    if (userProfile && isMounted) {
+                    if (res.success && res.data) {
+                        const userProfile = res.data;
                         if (userProfile.status === 'blocked') {
                             await logout();
                             return;
                         }
-                        setUser(userProfile)
-                        if (!checkRecovery()) setIsAuthenticated(true)
-                        setupProfileListener(userProfile.id);
-                    } else if (isMounted) {
-                        // Profile not found - likely deleted
+                        setUser(userProfile);
+                        if (!checkIsRecoveryFlow()) setIsAuthenticated(true);
+                    } else {
                         await logout();
                     }
                 }
             } catch {
-                // Молчаливая обработка ошибок инициализации
+                // Silent catch for init errors
             } finally {
-                if (isMounted) setIsInitializing(false)
+                setIsInitializing(false);
             }
         };
 
-        const setupProfileListener = (userId: string) => {
-            if (profileSubscription) profileSubscription.unsubscribe();
-
-            profileSubscription = supabase
-                .channel(`public:profiles:id=eq.${userId}`)
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'profiles',
-                    filter: `id=eq.${userId}`
-                }, (payload) => {
-                    if (!isMounted) return;
-
-                    // IF DELETED
-                    if (payload.eventType === 'DELETE') {
-                        logout();
-                        return;
-                    }
-
-                    // IF BLOCKED
-                    const newProfile = payload.new as User;
-                    if (newProfile && newProfile.status === 'blocked') {
-                        logout();
-                    } else if (newProfile) {
-                        setUser(prev => prev ? { ...prev, ...newProfile } : newProfile);
-                    }
-                })
-                .subscribe();
-        };
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (!isMounted) return;
-
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
             if (session) {
-                setToken(session.access_token)
-                if (event === 'PASSWORD_RECOVERY') setIsRecoveryFlow(true)
+                setToken(session.access_token);
+                if (event === 'PASSWORD_RECOVERY') setIsRecoveryFlow(true);
 
                 if (session.user) {
-                    authService.getUserProfile(session.user.id).then(profile => {
-                        if (profile && isMounted) {
-                            if (profile.status === 'blocked') {
+                    authService
+                        .getUserProfile(session.user.id)
+                        .then((res) => {
+                            if (res.success && res.data) {
+                                const profile = res.data;
+                                if (profile.status === 'blocked') {
+                                    logout();
+                                    return;
+                                }
+                                setUser(profile);
+                            } else {
                                 logout();
-                                return;
                             }
-                            setUser(profile);
-                            setupProfileListener(profile.id);
-                        } else if (isMounted) {
+                        })
+                        .catch(() => {
                             logout();
-                        }
-                    }).catch(() => {
-                        // Молчаливая обработка фонового обновления
-                    });
+                        });
                 }
-            } else {
-                if (event === 'SIGNED_OUT') {
-                    setToken(null)
-                    setUser(null)
-                    setIsAuthenticated(false)
-                    setIsRecoveryFlow(false)
-                    if (profileSubscription) profileSubscription.unsubscribe();
-                }
+            } else if (event === 'SIGNED_OUT') {
+                setToken(null);
+                setUser(null);
+                setIsAuthenticated(false);
+                setIsRecoveryFlow(false);
             }
-        })
+        });
 
         init();
 
         return () => {
-            isMounted = false;
-            subscription.unsubscribe()
-            if (profileSubscription) profileSubscription.unsubscribe();
-        }
-    }, [])
+            setIsMounted(false);
+            subscription.unsubscribe();
+        };
+    }, [logout]);
 
-    const login = async (credentials: LoginCredentials) => {
-        setLoading(true)
-        setError(null)
-        try {
-            const response = await authService.login(credentials)
-            setToken(response.token)
-            setUser(response.user)
-            setIsAuthenticated(true)
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err)
-            setError(message)
-            throw err
-        } finally {
-            setLoading(false)
-        }
-    }
+    const login = async (credentials: LoginCredentials): Promise<ActionResult<User>> => {
+        setLoading(true);
+        setError(null);
+        const result = await authService.login(credentials);
 
-    const register = async (credentials: RegisterCredentials) => {
-        setLoading(true)
-        setError(null)
-        try {
-            const response = await authService.register(credentials)
-            setToken(response.token)
-            setUser(response.user)
-            setIsAuthenticated(true)
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err)
-            setError(message)
-            throw err
-        } finally {
-            setLoading(false)
+        if (result.success && result.data) {
+            setToken(result.data.token);
+            setUser(result.data.user);
+            setIsAuthenticated(true);
+            setLoading(false);
+            return { success: true, data: result.data.user };
+        } else {
+            const msg = result.error?.message || 'Login failed';
+            setError(msg);
+            setLoading(false);
+            return { success: false, error: { message: msg } };
         }
-    }
+    };
 
-    const resetPassword = async (email: string) => {
-        setLoading(true)
-        setError(null)
-        try {
-            await authService.resetPassword(email)
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err)
-            setError(message)
-            throw err
-        } finally {
-            setLoading(false)
+    const register = async (credentials: RegisterCredentials): Promise<ActionResult<User>> => {
+        setLoading(true);
+        setError(null);
+        const result = await authService.register(credentials);
+
+        if (result.success && result.data) {
+            setToken(result.data.token);
+            setUser(result.data.user);
+            setIsAuthenticated(true);
+            setLoading(false);
+            return { success: true, data: result.data.user };
+        } else {
+            const msg = result.error?.message || 'Registration failed';
+            setError(msg);
+            setLoading(false);
+            return { success: false, error: { message: msg } };
         }
-    }
+    };
 
-    const updatePassword = async (password: string) => {
-        setError(null)
-        await authService.updatePassword(password)
-    }
-
-    const updateProfile = async (updates: UpdateProfileData) => {
-        if (!user) return
-        setLoading(true)
-        setError(null)
-        try {
-            const updatedUser = await authService.updateProfile(user.id, updates)
-            if (updatedUser) setUser(updatedUser)
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err)
-            setError(message)
-            throw err
-        } finally {
-            setLoading(false)
+    const resetPassword = async (email: string): Promise<ActionResult<void>> => {
+        setLoading(true);
+        setError(null);
+        const result = await authService.resetPassword(email);
+        if (!result.success) {
+            setError(result.error?.message || 'Password reset failed');
         }
-    }
+        setLoading(false);
+        return result;
+    };
 
-    const logout = async () => {
-        setLoading(true)
-        try {
-            await authService.logout()
-        } finally {
-            setToken(null)
-            setUser(null)
-            setIsAuthenticated(false)
-            setIsRecoveryFlow(false)
-            setLoading(false)
+    const updatePassword = async (password: string): Promise<ActionResult<void>> => {
+        setError(null);
+        const result = await authService.updatePassword(password);
+        if (!result.success) setError(result.error?.message || 'Password update failed');
+        return result;
+    };
+
+    const updateProfile = async (updates: UpdateProfileData): Promise<ActionResult<User>> => {
+        if (!user) return { success: false, error: { message: 'Пользователь не авторизован' } };
+        setLoading(true);
+        setError(null);
+        const result = await authService.updateProfile(user.id, updates);
+
+        if (result.success && result.data) {
+            setUser(result.data);
+        } else {
+            setError(result.error?.message || 'Profile update failed');
         }
-    }
+
+        setLoading(false);
+        return result;
+    };
 
     return (
-        <AuthContext.Provider value={{
-            isAuthenticated,
-            user,
-            token,
-            login,
-            register,
-            logout,
-            resetPassword,
-            updatePassword,
-            updateProfile,
-            setIsAuthenticated,
-            setIsRecoveryFlow,
-            error,
-            loading,
-            isInitializing,
-            isRecoveryFlow
-        }}>
+        <AuthContext.Provider
+            value={{
+                isAuthenticated,
+                user,
+                token,
+                login,
+                register,
+                logout,
+                resetPassword,
+                updatePassword,
+                updateProfile,
+                setIsAuthenticated,
+                setIsRecoveryFlow,
+                error,
+                loading,
+                isInitializing,
+                isRecoveryFlow,
+            }}
+        >
             {children}
         </AuthContext.Provider>
-    )
-}
+    );
+};
 
-export { AuthContext }
+export { AuthContext };

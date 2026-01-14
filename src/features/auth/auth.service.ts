@@ -1,181 +1,302 @@
-import { supabase } from '@/services/supabase'
-import { authStorage } from '@/services/supabase/storage'
+import { supabase } from '@/services/supabase';
+import { authStorage } from '@/services/supabase/storage';
 import type {
-  AuthResponse,
-  LoginCredentials,
-  RegisterCredentials,
-  User,
-  UpdateProfileData
-} from './auth.types'
+    AuthResponse,
+    LoginCredentials,
+    RegisterCredentials,
+    User,
+    UpdateProfileData,
+    ActionResult,
+    AuthVoidResult,
+} from './auth.types';
+import { dbProfileSchema } from './auth.validation';
+
+const wrapError = (err: unknown): { message: string } => {
+    if (err instanceof Error) return { message: err.message };
+    if (typeof err === 'object' && err !== null && 'message' in err) {
+        return { message: String((err as { message: unknown }).message) };
+    }
+    return { message: String(err) };
+};
 
 export const authService = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password,
-    })
+    login: async (credentials: LoginCredentials): Promise<ActionResult<AuthResponse>> => {
+        try {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: credentials.email,
+                password: credentials.password,
+            });
 
-    if (authError) throw new Error(authError.message)
-    if (!authData.user) throw new Error('Ошибка входа')
+            if (authError) return { success: false, error: { message: authError.message } };
+            if (!authData.user) return { success: false, error: { message: 'Ошибка входа' } };
 
-    const profile = await authService.getUserProfile(authData.user.id)
-    if (!profile) throw new Error('Профиль не найден')
+            const profileRes = await authService.getUserProfile(authData.user.id);
+            if (!profileRes.success || !profileRes.data) {
+                return {
+                    success: false,
+                    error: { message: profileRes.error?.message || 'Профиль не найден' },
+                };
+            }
 
-    return {
-      token: authData.session?.access_token || '',
-      user: profile,
-    }
-  },
+            return {
+                success: true,
+                data: {
+                    token: authData.session?.access_token || '',
+                    user: profileRes.data,
+                },
+            };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
 
-  logout: async (): Promise<void> => {
-    try {
-      await supabase.auth.signOut()
-    } finally {
-      authStorage.clearAll()
-    }
-  },
+    logout: async (): Promise<AuthVoidResult> => {
+        try {
+            const { error } = await supabase.auth.signOut();
+            authStorage.clearAll();
+            if (error) return { success: false, error: { message: error.message } };
+            return { success: true, data: undefined };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
 
-  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
-    let role: 'client' | 'manager' | 'admin' = 'client'
-    let inviteId: string | null = null
+    register: async (credentials: RegisterCredentials): Promise<ActionResult<AuthResponse>> => {
+        try {
+            let role: 'client' | 'manager' | 'admin' = 'client';
+            let inviteId: string | null = null;
 
-    // Проверка приглашения
-    if (credentials.inviteToken) {
-      const { data: invite, error: inviteError } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('token', credentials.inviteToken)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
-        .single()
+            // Проверка приглашения
+            if (credentials.inviteToken) {
+                const { data: invite, error: inviteError } = await supabase
+                    .from('invitations')
+                    .select('*')
+                    .eq('token', credentials.inviteToken)
+                    .eq('status', 'pending')
+                    .gt('expires_at', new Date().toISOString())
+                    .single();
 
-      if (inviteError || !invite) {
-        throw new Error('Приглашение недействительно или просрочено')
-      }
+                if (inviteError || !invite) {
+                    return {
+                        success: false,
+                        error: { message: 'Приглашение недействительно или просрочено' },
+                    };
+                }
 
-      role = invite.role as 'client' | 'manager' | 'admin'
-      inviteId = invite.id
-    }
+                role = invite.role as 'client' | 'manager' | 'admin';
+                inviteId = invite.id;
+            }
 
-    // Регистрация в Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: credentials.email,
-      password: credentials.password,
-    })
+            // Регистрация в Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: credentials.email,
+                password: credentials.password,
+                options: {
+                    data: {
+                        first_name: credentials.firstName,
+                        organization_name: credentials.organizationName,
+                        role: role,
+                    },
+                },
+            });
 
-    if (authError) throw new Error(authError.message)
-    if (!authData.user) throw new Error('Ошибка создания пользователя')
+            if (authError) return { success: false, error: { message: authError.message } };
+            if (!authData.user)
+                return { success: false, error: { message: 'Ошибка создания пользователя' } };
 
-    // Ожидание создания профиля (триггером в БД)
-    const profile = await authService.getUserProfileWithRetry(authData.user.id)
-    if (!profile) throw new Error('Таймаут создания профиля. Попробуйте войти.')
+            // Если email confirmation включен - сессии не будет
+            if (!authData.session) {
+                return {
+                    success: true,
+                    data: {
+                        token: '',
+                        user: {
+                            id: authData.user.id,
+                            email: authData.user.email || credentials.email,
+                            role: role,
+                            organizationName: credentials.organizationName,
+                            firstName: credentials.firstName,
+                            lastName: credentials.lastName,
+                            phone: credentials.phone,
+                            address: credentials.address,
+                            status: 'active',
+                            createdAt: new Date().toISOString(),
+                        },
+                    },
+                };
+            }
 
-    // Обновление профиля данными из формы и ролью
-    await supabase.from('profiles').update({
-      organization_name: credentials.organizationName,
-      first_name: credentials.firstName,
-      last_name: credentials.lastName,
-      phone: credentials.phone,
-      address: credentials.address,
-      role: role
-    }).eq('id', authData.user.id)
+            const profileRes = await authService.getUserProfileWithRetry(authData.user.id);
+            if (!profileRes.success || !profileRes.data) {
+                return {
+                    success: false,
+                    error: {
+                        message:
+                            profileRes.error?.message ||
+                            'Таймаут создания профиля. Попробуйте войти.',
+                    },
+                };
+            }
 
-    // Если был инвайт - гасим его через безопасный RPC
-    if (inviteId) {
-      await supabase.rpc('accept_invitation_v2', {
-        invite_id_param: inviteId,
-        user_id_param: authData.user.id
-      })
-    }
+            // Обновление профиля данными из формы
+            const { error: upError } = await supabase
+                .from('profiles')
+                .update({
+                    organization_name: credentials.organizationName,
+                    first_name: credentials.firstName,
+                    last_name: credentials.lastName,
+                    phone: credentials.phone,
+                    address: credentials.address,
+                    role: role,
+                })
+                .eq('id', authData.user.id);
 
-    const updatedProfile = await authService.getUserProfile(authData.user.id)
-    if (!updatedProfile) throw new Error('Ошибка получения данных профиля')
+            if (upError) return { success: false, error: { message: upError.message } };
 
-    return {
-      token: authData.session?.access_token || '',
-      user: updatedProfile,
-    }
-  },
+            if (inviteId) {
+                await supabase.rpc('accept_invitation_v2', {
+                    invite_id_param: inviteId,
+                    user_id_param: authData.user.id,
+                });
+            }
 
-  getCurrentUser: async (): Promise<User | null> => {
-    const { data } = await supabase.auth.getUser()
-    if (!data.user) return null
-    return authService.getUserProfile(data.user.id)
-  },
+            const updatedProfileRes = await authService.getUserProfile(authData.user.id);
+            if (!updatedProfileRes.success || !updatedProfileRes.data) {
+                return { success: false, error: { message: 'Ошибка получения данных профиля' } };
+            }
 
-  getInvitationByToken: async (token: string) => {
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('email, role')
-      .eq('token', token)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle()
+            return {
+                success: true,
+                data: {
+                    token: authData.session?.access_token || '',
+                    user: updatedProfileRes.data,
+                },
+            };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
 
-    if (error) return null
-    return data
-  },
+    getCurrentUser: async (): Promise<ActionResult<User | null>> => {
+        try {
+            const { data } = await supabase.auth.getUser();
+            if (!data.user) return { success: true, data: null };
+            return authService.getUserProfile(data.user.id);
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
 
-  getUserProfile: async (id: string): Promise<User | null> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle()
+    getInvitationByToken: async (
+        token: string
+    ): Promise<ActionResult<{ email: string; role: string } | null>> => {
+        try {
+            const { data, error } = await supabase
+                .from('invitations')
+                .select('email, role')
+                .eq('token', token)
+                .eq('status', 'pending')
+                .gt('expires_at', new Date().toISOString())
+                .maybeSingle();
 
-    if (error || !data) return null
+            if (error) return { success: false, error: { message: error.message } };
+            return { success: true, data };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
 
-    // Map snake_case from DB to camelCase for the Application
-    return {
-      id: data.id,
-      email: data.email,
-      role: data.role,
-      organizationName: data.organization_name,
-      firstName: data.first_name,
-      lastName: data.last_name,
-      phone: data.phone,
-      address: data.address,
-      createdAt: data.created_at
-    } as User
-  },
+    getUserProfile: async (id: string): Promise<ActionResult<User | null>> => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
 
-  getUserProfileWithRetry: async (id: string, retries = 5): Promise<User | null> => {
-    for (let i = 0; i < retries; i++) {
-      const profile = await authService.getUserProfile(id)
-      if (profile) return profile
-      await new Promise(r => setTimeout(r, 1000))
-    }
-    return null
-  },
+            if (error) return { success: false, error: { message: error.message } };
+            if (!data) return { success: true, data: null };
 
-  resetPassword: async (email: string): Promise<void> => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    })
-    if (error) throw new Error(error.message)
-  },
+            const parsed = dbProfileSchema.safeParse(data);
+            if (!parsed.success) {
+                console.error('Failed to parse profile from DB', parsed.error);
+                return { success: false, error: { message: 'Data corruption in profile' } };
+            }
 
-  updatePassword: async (password: string): Promise<void> => {
-    const { error } = await supabase.auth.updateUser({ password })
-    if (error) throw new Error(error.message)
-  },
+            const { organization_name, first_name, last_name, created_at, ...other } = parsed.data;
 
-  updateProfile: async (userId: string, data: UpdateProfileData): Promise<User> => {
-    const updateObj: Record<string, string | undefined> = {};
-    if (data.organizationName !== undefined) updateObj.organization_name = data.organizationName;
-    if (data.firstName !== undefined) updateObj.first_name = data.firstName;
-    if (data.lastName !== undefined) updateObj.last_name = data.lastName;
-    if (data.phone !== undefined) updateObj.phone = data.phone;
-    if (data.address !== undefined) updateObj.address = data.address;
+            return {
+                success: true,
+                data: {
+                    ...other,
+                    organizationName: organization_name || undefined,
+                    firstName: first_name || undefined,
+                    lastName: last_name || undefined,
+                    createdAt: created_at,
+                },
+            };
+        } catch (e) {
+            console.error('Error in getUserProfile:', e);
+            return { success: false, error: wrapError(e) };
+        }
+    },
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(updateObj)
-      .eq('id', userId)
+    getUserProfileWithRetry: async (
+        id: string,
+        retries = 3
+    ): Promise<ActionResult<User | null>> => {
+        for (let i = 0; i < retries; i++) {
+            const res = await authService.getUserProfile(id);
+            if (res.success && res.data) return res;
+            await new Promise((r) => setTimeout(r, 2000));
+        }
+        return { success: false, error: { message: 'Profile initialization timeout' } };
+    },
 
-    if (error) throw new Error(error.message)
-    const profile = await authService.getUserProfile(userId)
-    if (!profile) throw new Error('Ошибка получения профиля')
-    return profile
-  }
-}
+    resetPassword: async (email: string): Promise<AuthVoidResult> => {
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/auth/reset-password`,
+            });
+            if (error) return { success: false, error: { message: error.message } };
+            return { success: true, data: undefined };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
+
+    updatePassword: async (password: string): Promise<AuthVoidResult> => {
+        try {
+            const { error } = await supabase.auth.updateUser({ password });
+            if (error) return { success: false, error: { message: error.message } };
+            return { success: true, data: undefined };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
+
+    updateProfile: async (userId: string, data: UpdateProfileData): Promise<ActionResult<User>> => {
+        try {
+            const updateObj: Record<string, string | undefined> = {};
+            if (data.organizationName !== undefined)
+                updateObj.organization_name = data.organizationName;
+            if (data.firstName !== undefined) updateObj.first_name = data.firstName;
+            if (data.lastName !== undefined) updateObj.last_name = data.lastName;
+            if (data.phone !== undefined) updateObj.phone = data.phone;
+            if (data.address !== undefined) updateObj.address = data.address;
+
+            const { error } = await supabase.from('profiles').update(updateObj).eq('id', userId);
+
+            if (error) return { success: false, error: { message: error.message } };
+            const res = await authService.getUserProfile(userId);
+            if (!res.success || !res.data)
+                return {
+                    success: false,
+                    error: { message: res.error?.message || 'Ошибка получения профиля' },
+                };
+            return { success: true, data: res.data };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
+};

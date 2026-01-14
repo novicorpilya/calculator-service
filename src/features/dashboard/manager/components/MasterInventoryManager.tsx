@@ -6,7 +6,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Building2,
-    Layers
+    Layers,
 } from 'lucide-react';
 import { type InventoryItemMaster, type Supplier } from '@/services/inventory.service';
 import { toast } from 'sonner';
@@ -36,7 +36,17 @@ export const MasterInventoryManager = React.memo(() => {
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
     // Derived Categories from items (simplified, ideally from DB)
-    const categories = ['Кухонная химия', 'Общая химия', 'Санитария', 'Оборудование', 'Инвентарь', 'Расходные материалы', 'Системы', 'Бумага', 'Гигиена'];
+    const categories = [
+        'Кухонная химия',
+        'Общая химия',
+        'Санитария',
+        'Оборудование',
+        'Инвентарь',
+        'Расходные материалы',
+        'Системы',
+        'Бумага',
+        'Гигиена',
+    ];
 
     const fetchData = useCallback(async () => {
         try {
@@ -48,24 +58,38 @@ export const MasterInventoryManager = React.memo(() => {
                 pageSize,
                 search: searchQuery,
                 supplierId: selectedSupplier === 'all' ? undefined : selectedSupplier,
-                category: selectedCategory === 'all' ? undefined : selectedCategory
+                category: selectedCategory === 'all' ? undefined : selectedCategory,
             });
 
-            setItems(result.data);
-            setTotalCount(result.count);
-            setTotalPages(result.totalPages);
+            if (result.success && result.data) {
+                setItems(result.data.data);
+                setTotalCount(result.data.count);
+                setTotalPages(result.data.totalPages);
+            } else {
+                toast.error(result.error?.message || 'Ошибка при загрузке реестра товаров');
+            }
 
             // 2. Fetch Suppliers if not already loaded
             if (suppliers.length === 0) {
-                const sData = await inventoryService.getSuppliers();
-                setSuppliers(sData);
+                const sResult = await inventoryService.getSuppliers();
+                if (sResult.success && sResult.data) {
+                    setSuppliers(sResult.data);
+                }
             }
         } catch {
             toast.error('Ошибка при загрузке реестра товаров');
         } finally {
             setLoading(false);
         }
-    }, [inventoryService, page, pageSize, searchQuery, selectedSupplier, selectedCategory, suppliers.length]);
+    }, [
+        inventoryService,
+        page,
+        pageSize,
+        searchQuery,
+        selectedSupplier,
+        selectedCategory,
+        suppliers.length,
+    ]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -86,7 +110,9 @@ export const MasterInventoryManager = React.memo(() => {
             {/* Header */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                 <div className="space-y-2">
-                    <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">Реестр товаров</h1>
+                    <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">
+                        Реестр товаров
+                    </h1>
                     <div className="flex items-center gap-4">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary border-l-2 border-primary pl-4">
                             Глобальный каталог и коммерческие спецификации
@@ -99,11 +125,19 @@ export const MasterInventoryManager = React.memo(() => {
 
                 <div className="flex flex-wrap items-center gap-4">
                     <button
-                        onClick={() => { setPage(1); fetchData(); }}
+                        onClick={() => {
+                            setPage(1);
+                            fetchData();
+                        }}
                         className="flex items-center gap-3 px-6 py-4 bg-card border border-border-theme rounded-2xl hover:text-primary transition-all group shadow-sm"
                     >
-                        <RefreshCw size={18} className={`${loading ? 'animate-spin' : ''} transition-transform group-hover:rotate-180`} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Синхронизировать</span>
+                        <RefreshCw
+                            size={18}
+                            className={`${loading ? 'animate-spin' : ''} transition-transform group-hover:rotate-180`}
+                        />
+                        <span className="text-[10px] font-black uppercase tracking-widest">
+                            Синхронизировать
+                        </span>
                     </button>
                 </div>
             </div>
@@ -118,7 +152,10 @@ export const MasterInventoryManager = React.memo(() => {
                             type="text"
                             placeholder="Поиск по названию или SKU..."
                             value={searchQuery}
-                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                setPage(1);
+                            }}
                             className="w-full bg-background/50 border border-border-theme rounded-2xl pl-16 pr-8 py-5 text-[13px] font-black outline-none focus:border-primary transition-all shadow-inner"
                         />
                     </div>
@@ -128,12 +165,17 @@ export const MasterInventoryManager = React.memo(() => {
                         <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
                         <select
                             value={selectedSupplier}
-                            onChange={e => { setSelectedSupplier(e.target.value); setPage(1); }}
+                            onChange={(e) => {
+                                setSelectedSupplier(e.target.value);
+                                setPage(1);
+                            }}
                             className="w-full bg-background/50 border border-border-theme rounded-2xl pl-12 pr-4 py-5 text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all cursor-pointer"
                         >
                             <option value="all">Все поставщики</option>
-                            {suppliers.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
+                            {suppliers.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.name}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -143,12 +185,17 @@ export const MasterInventoryManager = React.memo(() => {
                         <Layers className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
                         <select
                             value={selectedCategory}
-                            onChange={e => { setSelectedCategory(e.target.value); setPage(1); }}
+                            onChange={(e) => {
+                                setSelectedCategory(e.target.value);
+                                setPage(1);
+                            }}
                             className="w-full bg-background/50 border border-border-theme rounded-2xl pl-12 pr-4 py-5 text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all cursor-pointer"
                         >
                             <option value="all">Все категории</option>
-                            {categories.map(c => (
-                                <option key={c} value={c}>{c}</option>
+                            {categories.map((c) => (
+                                <option key={c} value={c}>
+                                    {c}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -161,76 +208,119 @@ export const MasterInventoryManager = React.memo(() => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-border-theme bg-primary/5">
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">Товар / Артикул</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">Поставщик & Категория</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">Остаток</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">Цена</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">
+                                    Товар / Артикул
+                                </th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40">
+                                    Поставщик & Категория
+                                </th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">
+                                    Остаток
+                                </th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-foreground/40 text-center">
+                                    Цена
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border-theme">
                             {loading ? (
                                 Array.from({ length: 8 }).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td className="px-8 py-8"><div className="h-12 bg-foreground/5 rounded-2xl w-full" /></td>
-                                        <td className="px-8 py-8"><div className="h-8 bg-foreground/5 rounded-xl w-3/4" /></td>
-                                        <td className="px-8 py-8"><div className="h-10 bg-foreground/5 rounded-xl w-24 mx-auto" /></td>
-                                        <td className="px-8 py-8"><div className="h-10 bg-foreground/5 rounded-xl w-24 mx-auto" /></td>
+                                        <td className="px-8 py-8">
+                                            <div className="h-12 bg-foreground/5 rounded-2xl w-full" />
+                                        </td>
+                                        <td className="px-8 py-8">
+                                            <div className="h-8 bg-foreground/5 rounded-xl w-3/4" />
+                                        </td>
+                                        <td className="px-8 py-8">
+                                            <div className="h-10 bg-foreground/5 rounded-xl w-24 mx-auto" />
+                                        </td>
+                                        <td className="px-8 py-8">
+                                            <div className="h-10 bg-foreground/5 rounded-xl w-24 mx-auto" />
+                                        </td>
                                     </tr>
                                 ))
                             ) : items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-8 py-40 text-center flex flex-col items-center justify-center gap-4">
+                                    <td
+                                        colSpan={4}
+                                        className="px-8 py-40 text-center flex flex-col items-center justify-center gap-4"
+                                    >
                                         <Package size={48} className="opacity-10" />
                                         <p className="text-foreground/20 text-[10px] font-black uppercase tracking-[0.3em]">
                                             Ничего не найдено в этой категории
                                         </p>
                                     </td>
                                 </tr>
-                            ) : items.map((item) => (
-                                <tr key={item.id} className="hover:bg-primary/5 transition-colors group">
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-primary bg-primary/10 relative overflow-hidden shrink-0 shadow-sm border border-primary/5">
-                                                <Package size={22} className="group-hover:scale-110 transition-transform" />
-                                                <div className="absolute bottom-0 left-0 w-full h-1.5" style={{ backgroundColor: item.color }} />
+                            ) : (
+                                items.map((item) => (
+                                    <tr
+                                        key={item.id}
+                                        className="hover:bg-primary/5 transition-colors group"
+                                    >
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-6">
+                                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-primary bg-primary/10 relative overflow-hidden shrink-0 shadow-sm border border-primary/5">
+                                                    <Package
+                                                        size={22}
+                                                        className="group-hover:scale-110 transition-transform"
+                                                    />
+                                                    <div
+                                                        className="absolute bottom-0 left-0 w-full h-1.5"
+                                                        style={{ backgroundColor: item.color }}
+                                                    />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[15px] font-black tracking-tight mb-1 truncate">
+                                                        {item.name}
+                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="px-2 py-0.5 bg-background border border-border-theme rounded text-[8px] font-bold text-foreground/40 uppercase tracking-widest">
+                                                            {item.sku || 'N/A'}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="text-[15px] font-black tracking-tight mb-1 truncate">{item.name}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="px-2 py-0.5 bg-background border border-border-theme rounded text-[8px] font-bold text-foreground/40 uppercase tracking-widest">
-                                                        {item.sku || 'N/A'}
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] tracking-widest">
+                                                    <Building2 size={12} />
+                                                    {item.supplier?.name || 'Внешний поставщик'}
+                                                </div>
+                                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-background border border-border-theme rounded-lg">
+                                                    <div
+                                                        className="w-1.5 h-1.5 rounded-full"
+                                                        style={{ backgroundColor: item.color }}
+                                                    />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                                                        {item.category || 'Без категории'}
                                                     </span>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] tracking-widest">
-                                                <Building2 size={12} />
-                                                {item.supplier?.name || 'Внешний поставщик'}
-                                            </div>
-                                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-background border border-border-theme rounded-lg">
-                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
-                                                    {item.category || 'Без категории'}
+                                        </td>
+                                        <td className="px-8 py-6 text-center">
+                                            <div
+                                                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border transition-all ${item.stock < 10 ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-background border-border-theme'}`}
+                                            >
+                                                <span className="text-[14px] font-black tracking-tight">
+                                                    {item.stock.toLocaleString()}
+                                                </span>
+                                                <span className="text-[8px] font-bold uppercase opacity-50">
+                                                    шт
                                                 </span>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border transition-all ${item.stock < 10 ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-background border-border-theme'}`}>
-                                            <span className="text-[14px] font-black tracking-tight">{item.stock.toLocaleString()}</span>
-                                            <span className="text-[8px] font-bold uppercase opacity-50">шт</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className="inline-flex items-center gap-2 px-6 py-3 bg-foreground text-background rounded-2xl shadow-xl shadow-foreground/5 group-hover:bg-primary transition-colors">
-                                            <span className="text-[14px] font-black tracking-tight">{item.price.toLocaleString()} ₽</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="px-8 py-6 text-center">
+                                            <div className="inline-flex items-center gap-2 px-6 py-3 bg-foreground text-background rounded-2xl shadow-xl shadow-foreground/5 group-hover:bg-primary transition-colors">
+                                                <span className="text-[14px] font-black tracking-tight">
+                                                    {item.price.toLocaleString()} ₽
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

@@ -1,72 +1,71 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { chatService, logger } from '@/app/services';
-import type { Message, MessageEventType } from '@/features/chat/types';
+import { useServices } from '@/core/di/ServiceContainer';
+import { logger } from '@/core/logging';
+import { type Message, type MessageEventType, type ReadEventPayload } from '@/features/chat/types';
 import { toast } from 'sonner';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
+import { preloadImage, sortMessages } from '../utils/chatUtils';
 
-export function useProjectChat(entity: CalculationEntity, user: { id: string; role?: string } | null) {
+export function useProjectChat(
+    entity: CalculationEntity,
+    user: { id: string; role?: string } | null
+) {
+    const { chatService } = useServices();
     const queryClient = useQueryClient();
+    const [isTyping, setIsTyping] = useState(false);
     const queryKey = useMemo(() => ['messages', 'calculation', String(entity.id)], [entity.id]);
 
     // 1. Fetching
-    const { data: messages = [], isLoading: loadingMessages, refetch } = useQuery({
+    const { data: messages = [], isLoading: loadingMessages } = useQuery({
         queryKey,
-        queryFn: () => chatService.getCalculationMessages(String(entity.id)),
-        select: (data) => sortMessages(data),
+        queryFn: async () => {
+            const res = await chatService.getCalculationMessages(String(entity.id));
+            if (!res.success) throw new Error(res.error?.message || 'Failed to fetch messages');
+            return res.data || [];
+        },
+        select: (data: Message[]) => sortMessages(data),
         enabled: !!entity.id,
-        refetchOnWindowFocus: true,
-        refetchOnReconnect: true,
-        staleTime: 1000 * 30, // 30 seconds
+        staleTime: 1000 * 30,
     });
-
-    // Manual sync on reconnection (browser level)
-    useEffect(() => {
-        const handleOnline = () => {
-            logger.info('App back online, syncing chat history...');
-            refetch();
-        };
-        window.addEventListener('online', handleOnline);
-        return () => window.removeEventListener('online', handleOnline);
-    }, [refetch]);
-
-    const sortMessages = useCallback((msgs: Message[]) => {
-        return [...msgs].sort((a, b) => {
-            const timeA = new Date(a.created_at).getTime();
-            const timeB = new Date(b.created_at).getTime();
-            if (timeA !== timeB) return timeA - timeB;
-            // Fallback for same-millisecond messages: use stable ID compare
-            return String(a.id).localeCompare(String(b.id));
-        });
-    }, []);
 
     // 2. Mutations
     const sendMutation = useMutation({
-        mutationFn: async ({ text, attachments, clientIds }: { text: string, attachments: { file: File, preview: string }[], clientIds: string[] }) => {
+        mutationFn: async ({
+            text,
+            attachments,
+            clientIds,
+        }: {
+            text: string;
+            attachments: { file: File; preview: string }[];
+            clientIds: string[];
+        }) => {
             const receiverId = user?.role === 'manager' ? entity.userId : entity.managerId;
             if (!receiverId) throw new Error('Receiver not defined');
 
-            if (attachments.length > 0) {
-                const urls = await Promise.all(attachments.map(att => chatService.uploadAttachment(att.file)));
-                for (let i = 0; i < urls.length; i++) {
-                    await chatService.sendMessage({
-                        sender_id: user!.id,
-                        receiver_id: null,
-                        calculation_id: String(entity.id),
-                        content: i === 0 ? text : '',
-                        image_url: urls[i],
-                        client_message_id: clientIds[i]
-                    });
+            const results: Message[] = [];
+            for (let i = 0; i < (attachments.length || 1); i++) {
+                let imageUrl: string | null = null;
+                if (attachments[i]) {
+                    const uploadRes = await chatService.uploadAttachment(attachments[i].file);
+                    if (!uploadRes.success)
+                        throw new Error(uploadRes.error?.message || 'Upload failed');
+                    imageUrl = uploadRes.data || null;
                 }
-            } else {
-                await chatService.sendMessage({
+
+                const res = await chatService.sendMessage({
                     sender_id: user!.id,
                     receiver_id: null,
                     calculation_id: String(entity.id),
-                    content: text,
-                    client_message_id: clientIds[0]
+                    content: i === 0 ? text : '',
+                    image_url: imageUrl,
+                    client_message_id: clientIds[i],
                 });
+
+                if (!res.success || !res.data) throw new Error(res.error?.message || 'Send failed');
+                results.push(res.data);
             }
+            return results;
         },
         onMutate: async ({ text, attachments }) => {
             const receiverId = user?.role === 'manager' ? entity.userId : entity.managerId;
@@ -87,10 +86,10 @@ export function useProjectChat(entity: CalculationEntity, user: { id: string; ro
                         receiver_id: receiverId!,
                         calculation_id: String(entity.id),
                         content: i === 0 ? text : '',
-                        image_url: att.preview,
+                        image_url: att.preview, // Используем blob URL для превью
                         created_at: timestamp,
                         client_message_id: clientMsgId,
-                        status: 'pending'
+                        status: 'pending',
                     } as Message);
                 });
             } else {
@@ -104,240 +103,291 @@ export function useProjectChat(entity: CalculationEntity, user: { id: string; ro
                     content: text,
                     created_at: timestamp,
                     client_message_id: clientMsgId,
-                    status: 'pending'
+                    status: 'pending',
                 } as Message);
             }
 
-            queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, ...optimisticMsgs]);
-            
+            queryClient.setQueryData(queryKey, (old: Message[] = []) => [
+                ...old,
+                ...optimisticMsgs,
+            ]);
             return { previousMessages, optimisticMsgs, clientIds };
+        },
+        onSuccess: (data: Message[]) => {
+            // Мгновенно заменяем временные сообщения реальными данными с сервера (с правильными URL)
+            queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+                let next = [...old];
+                data.forEach((realMsg) => {
+                    next = next.map((m) =>
+                        m.client_message_id === realMsg.client_message_id
+                            ? { ...realMsg, status: 'sent' as const }
+                            : m
+                    );
+                });
+                return sortMessages(next);
+            });
         },
         onError: (err, _vars, context) => {
             logger.error('Failed to send project message', { err });
             toast.error('Ошибка отправки');
-            
             if (context?.optimisticMsgs) {
                 queryClient.setQueryData(queryKey, (old: Message[] = []) => {
-                    const optIds = context.optimisticMsgs.map(m => m.client_message_id);
-                    return old.map(m => 
-                        optIds.includes(m.client_message_id) 
-                            ? { ...m, status: 'error' as const } 
+                    const optIds = context.optimisticMsgs.map((m) => m.client_message_id);
+                    return old.map((m) =>
+                        optIds.includes(m.client_message_id)
+                            ? { ...m, status: 'error' as const }
                             : m
                     );
                 });
             }
         },
-        onSettled: () => {
-            // Realtime handles the swap, but invalidate ensures consistency
-            queryClient.invalidateQueries({ queryKey });
-        }
     });
 
-    const syncChannel = useMemo(() => new BroadcastChannel('chat_local_sync'), []);
+    const voiceMutation = useMutation({
+        mutationFn: async ({
+            blob,
+            duration,
+            clientId,
+        }: {
+            blob: Blob;
+            duration: number;
+            clientId: string;
+        }) => {
+            const receiverId = user?.role === 'manager' ? entity.userId : entity.managerId;
+            if (!receiverId) throw new Error('Receiver not defined');
 
+            const uploadRes = await chatService.uploadVoiceMessage(blob);
+            if (!uploadRes.success)
+                throw new Error(uploadRes.error?.message || 'Voice upload failed');
+            const voiceUrl = uploadRes.data || '';
+
+            const res = await chatService.sendMessage({
+                sender_id: user!.id,
+                receiver_id: null,
+                calculation_id: String(entity.id),
+                content: '',
+                voice_url: voiceUrl,
+                voice_duration: duration,
+                client_message_id: clientId,
+            });
+
+            if (!res.success || !res.data) throw new Error(res.error?.message || 'Send failed');
+            return res.data;
+        },
+        onMutate: async ({ duration, clientId }) => {
+            const receiverId = user?.role === 'manager' ? entity.userId : entity.managerId;
+            await queryClient.cancelQueries({ queryKey });
+            const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
+
+            const timestamp = new Date().toISOString();
+            const optimisticMsg: Message = {
+                id: `temp-${clientId}`,
+                sender_id: user!.id,
+                receiver_id: receiverId!,
+                calculation_id: String(entity.id),
+                content: '',
+                voice_url: 'pending', // Placeholder
+                voice_duration: duration,
+                created_at: timestamp,
+                client_message_id: clientId,
+                status: 'pending',
+            } as Message;
+
+            queryClient.setQueryData(queryKey, (old: Message[] = []) => [...old, optimisticMsg]);
+            return { previousMessages, optimisticMsg };
+        },
+        onSuccess: (realMsg: Message) => {
+            queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+                return sortMessages(
+                    old.map((m) =>
+                        m.client_message_id === realMsg.client_message_id
+                            ? { ...realMsg, status: 'sent' as const }
+                            : m
+                    )
+                );
+            });
+        },
+        onError: (err, _vars, context) => {
+            logger.error('Failed to send voice message', { err });
+            toast.error('Ошибка отправки голосового сообщения');
+            if (context?.optimisticMsg) {
+                queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+                    return old.map((m) =>
+                        m.client_message_id === context.optimisticMsg.client_message_id
+                            ? { ...m, status: 'error' as const }
+                            : m
+                    );
+                });
+            }
+        },
+    });
+
+    // 3. Sync Logic
     const performDeepSync = useCallback(async () => {
         if (!entity.id || !user) return;
-        
-        // 1. Optimistic Update of UI
-        queryClient.setQueryData(['unread-counts', user.id], (old: any) => {
-            if (!old) return old;
-            const projectCounts = { ...old.perProject };
-            const countToSubtract = projectCounts[String(entity.id)] || 0;
-            delete projectCounts[String(entity.id)];
-            
-            return {
-                ...old,
-                total: Math.max(0, old.total - countToSubtract),
-                perProject: projectCounts
-            };
-        });
-
-        // 2. Perform background sync
         try {
-            const shouldInvalidate = await chatService.syncReadStatus(entity, user);
-            if (shouldInvalidate) {
-                const payload = { type: 'PROJECT_READ', calculationId: String(entity.id), userId: user.id };
-                syncChannel.postMessage(payload);
-            }
+            await chatService.syncReadStatus(entity, user);
         } catch (err) {
-            logger.warn('Deep sync background failure', { error: err });
+            logger.warn('Deep sync failure', { error: err });
         } finally {
-            // 3. Final Invalidation to ensure truth
-            queryClient.invalidateQueries({ queryKey });
+            // Force invalidate unread counts for both roles
             queryClient.invalidateQueries({ queryKey: ['unread-counts', user.id] });
+            // Also invalidate messages to show new "read" statuses
+            queryClient.invalidateQueries({ queryKey });
         }
-    }, [entity.id, user, queryClient, syncChannel, queryKey]);
+    }, [entity, user, queryClient, queryKey, chatService]);
 
-    useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            if (event.data.type === 'PROJECT_READ' && event.data.calculationId === String(entity.id)) {
-                queryClient.invalidateQueries({ queryKey });
-                queryClient.invalidateQueries({ queryKey: ['unread-counts', user?.id] });
-            }
-        };
-        syncChannel.addEventListener('message', handleMessage);
-        return () => syncChannel.removeEventListener('message', handleMessage);
-    }, [syncChannel, entity.id, user?.id, queryClient, queryKey]);
-
-    // Sync on reconnection or visibility change
+    // Clear notifications on mount & window focus
     useEffect(() => {
         const handleSync = () => {
             if (document.visibilityState === 'visible') {
                 performDeepSync();
             }
         };
-        window.addEventListener('online', handleSync);
-        window.addEventListener('visibilitychange', handleSync);
+        handleSync(); // mount
         window.addEventListener('focus', handleSync);
-        
+        window.addEventListener('visibilitychange', handleSync);
         return () => {
-            window.removeEventListener('online', handleSync);
-            window.removeEventListener('visibilitychange', handleSync);
             window.removeEventListener('focus', handleSync);
+            window.removeEventListener('visibilitychange', handleSync);
         };
     }, [performDeepSync]);
 
-    const resendMessage = useCallback(async (msg: Message) => {
-        // 1. Remove that error message from cache first
-        queryClient.setQueryData(queryKey, (old: Message[] = []) => 
-            old.filter(m => m.client_message_id !== msg.client_message_id)
-        );
-        
-        // 2. Trigger retry (for text-only retry for now)
-        if (msg.content) {
-            sendMutation.mutate({ text: msg.content, attachments: [], clientIds: [msg.client_message_id!] });
-        }
-    }, [sendMutation, queryClient, queryKey]);
-
-    const clearHistoryMutation = useMutation({
-        mutationFn: () => chatService.clearProjectHistory(String(entity.id)),
-        onMutate: async () => {
-            await queryClient.cancelQueries({ queryKey });
-            const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
-            queryClient.setQueryData(queryKey, []);
-            return { previousMessages };
-        },
-        onError: (_err, _vars, context) => {
-            toast.error('Не удалось очистить историю');
-            queryClient.setQueryData(queryKey, context?.previousMessages);
-        },
-        onSuccess: () => {
-            toast.success('История обсуждения очищена');
-        }
-    });
-
-    // 3. Effects (Sync & Realtime)
     useEffect(() => {
         if (!entity.id || !user) return;
 
-        // Initial Sync
-        performDeepSync();
+        const unsubscribe = chatService.subscribeToMessages(
+            async (payload, eventType: MessageEventType) => {
+                switch (eventType) {
+                    case 'RECONNECT':
+                        performDeepSync();
+                        break;
+                    case 'READ': {
+                        const readPayload = payload as ReadEventPayload;
+                        // If someone else read messages in THIS project
+                        const isRelevantRead =
+                            readPayload.calculationId === String(entity.id) &&
+                            readPayload.readerId !== user?.id;
 
-        // Realtime Subscription
-        const unsubscribe = chatService.subscribeToMessages(async (msg, eventType: MessageEventType) => {
-            switch (eventType) {
-                case 'RECONNECT':
-                    logger.info('Realtime reconnected, triggering deep sync...');
-                    performDeepSync();
-                    break;
-                case 'READ': {
-                    const payload = msg as any;
-                    if (payload.calculationId === String(entity.id) && payload.receiverId !== user?.id) {
-                        queryClient.setQueryData(queryKey, (old: Message[] = []) => 
-                            old.map(m => m.sender_id === user?.id ? { ...m, is_read: true } : m)
-                        );
-                    }
-                    break;
-                }
-                case 'INSERT': {
-                    // Auto-read logic if chat is open and visible
-                    const isRelevant = msg.calculation_id === String(entity.id);
-                    const isForMe = msg.receiver_id === user?.id || (msg.receiver_id === null && msg.sender_id !== user?.id);
-                    
-                    if (isRelevant && isForMe && document.visibilityState === 'visible') {
-                        // Optimistic Clear
-                        queryClient.setQueryData(['unread-counts', user.id], (old: any) => {
-                            if (!old) return old;
-                            const projectCounts = { ...old.perProject };
-                            const countToSubtract = projectCounts[String(entity.id)] || 0;
-                            if (countToSubtract === 0) return old;
-                            
-                            delete projectCounts[String(entity.id)];
-                            return {
-                                ...old,
-                                total: Math.max(0, old.total - countToSubtract),
-                                perProject: projectCounts
-                            };
-                        });
-
-                        chatService.markProjectAsRead(String(entity.id), user!.id)
-                            .then(() => queryClient.invalidateQueries({ queryKey: ['unread-counts', user?.id] }))
-                            .catch(err => {
-                                logger.warn('Auto-read failure', { error: err });
-                                toast.error('Не удалось синхронизировать статус прочтения');
-                            });
-                    }
-
-                    if (msg.image_url) await preloadImage(msg.image_url);
-
-                    queryClient.setQueryData(queryKey, (old: Message[] = []) => {
-                        let next = [...old];
-                        // 10/10 Idempotency: Swap temp message with real one
-                        if (msg.sender_id === user?.id && msg.client_message_id) {
-                            const tempIdx = next.findIndex(m => m.client_message_id === msg.client_message_id);
-                            if (tempIdx !== -1) {
-                                next[tempIdx] = { ...msg, status: 'sent' };
-                                return sortMessages(next);
-                            }
+                        if (isRelevantRead) {
+                            queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                                old.map((m) =>
+                                    m.sender_id === user?.id ? { ...m, is_read: true } : m
+                                )
+                            );
                         }
-                        if (next.some(m => m.id === msg.id)) return next;
-                        return sortMessages([...next, { ...msg, status: 'sent' }]);
-                    });
-                    break;
+                        break;
+                    }
+                    case 'INSERT': {
+                        const msg = payload as Message;
+                        if (msg.image_url) preloadImage(msg.image_url).catch(() => {});
+
+                        // If we receive a message in the ACTIVE project from SOMEONE ELSE,
+                        // we mark it as read on the backend, but we DON'T invalidate the whole list.
+                        const isWindowVisible = document.visibilityState === 'visible';
+                        if (
+                            msg.calculation_id === String(entity.id) &&
+                            msg.sender_id !== user.id &&
+                            isWindowVisible
+                        ) {
+                            chatService.syncReadStatus(entity, user).catch(() => {});
+                            // Targeted count invalidation is fine, but messages list stays stream-based
+                            queryClient.invalidateQueries({ queryKey: ['unread-counts', user.id] });
+                        }
+
+                        queryClient.setQueryData(queryKey, (old: Message[] = []) => {
+                            const alreadyExists = old.some((m) => m.id === msg.id);
+                            if (alreadyExists) return old;
+
+                            let replaced = false;
+                            const next = old.map((m) => {
+                                if (replaced) return m;
+                                // Match by client_message_id or media/content fallback
+                                const idMatch =
+                                    msg.client_message_id &&
+                                    m.client_message_id === msg.client_message_id;
+                                const mediaMatch =
+                                    m.id.startsWith('temp-') &&
+                                    !m.content &&
+                                    !msg.content &&
+                                    m.image_url &&
+                                    msg.image_url;
+                                const textMatch =
+                                    m.id.startsWith('temp-') &&
+                                    m.content === msg.content &&
+                                    m.content !== '';
+
+                                if (idMatch || mediaMatch || textMatch) {
+                                    replaced = true;
+                                    return { ...msg, status: 'sent' as const };
+                                }
+                                return m;
+                            });
+
+                            return replaced
+                                ? sortMessages(next)
+                                : sortMessages([...old, { ...msg, status: 'sent' as const }]);
+                        });
+                        break;
+                    }
+                    case 'UPDATE': {
+                        const msg = payload as Message;
+                        queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                            old.map((m) => (m.id === msg.id ? { ...m, ...msg } : m))
+                        );
+                        break;
+                    }
+                    case 'DELETE': {
+                        const msg = payload as Message;
+                        queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                            old.filter((m) => m.id !== msg.id)
+                        );
+                        break;
+                    }
+                    case 'TYPING': {
+                        const typingPayload = payload as { sender_id: string };
+                        if (typingPayload.sender_id !== user?.id) {
+                            setIsTyping(true);
+                            setTimeout(() => setIsTyping(false), 3000);
+                        }
+                        break;
+                    }
                 }
-                case 'UPDATE':
-                    queryClient.setQueryData(queryKey, (old: Message[] = []) => 
-                        old.map(m => m.id === msg.id ? { ...m, ...msg } : m));
-                    break;
-                case 'DELETE':
-                    queryClient.setQueryData(queryKey, (old: Message[] = []) => 
-                        old.filter(m => m.id !== msg.id));
-                    break;
-            }
-        }, String(entity.id));
+            },
+            String(entity.id)
+        );
 
         return () => unsubscribe();
-    }, [entity.id, user, queryKey, queryClient]);
-
-    const clearHistory = async () => {
-        const confirmed = window.confirm('Вы уверены, что хотите полностью очистить историю обсуждения этого проекта?');
-        if (confirmed) clearHistoryMutation.mutate();
-    };
-
-    const sendMessage = async (text: string, attachments: { file: File, preview: string }[]) => {
-        if (!user || (!text.trim() && attachments.length === 0)) return;
-        // We generate IDs here to pass them through for absolute stability
-        const clientIds = attachments.length > 0 
-            ? attachments.map(() => crypto.randomUUID())
-            : [crypto.randomUUID()];
-            
-        return sendMutation.mutateAsync({ text, attachments, clientIds });
-    };
+    }, [entity, user, queryKey, queryClient, performDeepSync, chatService]);
 
     return {
         messages,
         loadingMessages,
-        clearHistory,
-        sendMessage,
-        resendMessage
+        isTyping,
+        sendMessage: async (text: string, attachments: { file: File; preview: string }[]) => {
+            if (!user || (!text.trim() && attachments.length === 0)) return;
+            const clientIds =
+                attachments.length > 0
+                    ? attachments.map(() => crypto.randomUUID())
+                    : [crypto.randomUUID()];
+            return sendMutation.mutateAsync({ text, attachments, clientIds });
+        },
+        sendVoice: async (blob: Blob, duration: number) => {
+            if (!user) return;
+            const clientId = crypto.randomUUID();
+            return voiceMutation.mutateAsync({ blob, duration, clientId });
+        },
+        resendMessage: useCallback(
+            async (msg: Message) => {
+                queryClient.setQueryData(queryKey, (old: Message[] = []) =>
+                    old.filter((m) => m.client_message_id !== msg.client_message_id)
+                );
+                if (msg.content) {
+                    const clientIds = [msg.client_message_id || crypto.randomUUID()];
+                    sendMutation.mutate({ text: msg.content, attachments: [], clientIds });
+                }
+            },
+            [sendMutation, queryClient, queryKey]
+        ),
     };
-}
-
-async function preloadImage(url: string) {
-    return new Promise<void>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-        img.src = url;
-    });
 }

@@ -1,15 +1,14 @@
-
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/core/di/ServiceContainer';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { type MessageEventType } from '../types';
+import { type ChatEventPayload } from '../types';
 
 export function useUnreadCount(userId?: string) {
     const { chatService } = useServices();
     const queryClient = useQueryClient();
     const { user } = useAuth();
-    
+
     // Use passed userId or fallback to current user
     const effectiveUserId = userId || user?.id;
 
@@ -17,46 +16,57 @@ export function useUnreadCount(userId?: string) {
 
     const { data, isLoading, refetch } = useQuery({
         queryKey,
-        queryFn: () => chatService.getUnreadCounts(effectiveUserId!),
+        queryFn: async () => {
+            const res = await chatService.getUnreadCounts(effectiveUserId!);
+            if (!res.success)
+                throw new Error(res.error?.message || 'Failed to fetch unread counts');
+            return res.data || { total: 0, perSender: {}, perProject: {} };
+        },
         enabled: !!effectiveUserId,
         staleTime: 0,
-        refetchOnWindowFocus: true
+        refetchOnWindowFocus: true,
     });
 
     useEffect(() => {
         if (!effectiveUserId) return;
 
         // Subscribe to all incoming messages for this user to update counts
-        const unsubscribe = chatService.subscribeToMessages((_msg, eventType: MessageEventType) => {
-            // Listen for INSERT (new msg), UPDATE (read status/edit), or READ (custom broadcast)
-            if (eventType === 'INSERT' || eventType === 'UPDATE' || eventType === 'READ') {
-                // Invalidate to fetch fresh counts
-                queryClient.invalidateQueries({ queryKey });
-            }
-        }, undefined, effectiveUserId);
+        const unsubscribe = chatService.subscribeToMessages(
+            (_payload: ChatEventPayload, eventType) => {
+                // Listen for INSERT (new msg), UPDATE (read status/edit), or READ (custom broadcast)
+                if (eventType === 'INSERT' || eventType === 'UPDATE' || eventType === 'READ') {
+                    // Invalidate to fetch fresh counts
+                    queryClient.invalidateQueries({ queryKey });
+                }
+            },
+            undefined,
+            effectiveUserId
+        );
 
         // Also listen for "read" events (broadcasted specially)
-        // Note: ChatService handles 'broadcastMessagesRead' but access to raw channel might be needed 
+        // Note: ChatService handles 'broadcastMessagesRead' but access to raw channel might be needed
         // if subscribeToMessages doesn't cover custom events.
         // Assuming 'subscribeToMessages' covers standard DB changes.
         // For custom 'read' events, we might need a separate subscription if they are not just DB updates.
         // But usually marking as read updates the 'messages' or 'read_markers' table, which triggers DB changes?
-        // Actually, Realtime often listens to Postgres changes. 
+        // Actually, Realtime often listens to Postgres changes.
         // If 'markAsRead' updates 'messages' (is_read=true), we get UPDATE event.
         // If 'markAsRead' inserts 'chat_read_markers', we might need to listen to that table too.
-        
+
         return () => {
             unsubscribe();
         };
-    }, [chatService, effectiveUserId, queryClient, queryKey]);
+    }, [effectiveUserId, queryClient, queryKey, chatService]);
 
-    const projectUnread = useMemo(() => 
-        Object.values(data?.perProject || {}).reduce((a, b) => a + b, 0), 
-    [data?.perProject]);
+    const projectUnread = useMemo(
+        () => Object.values(data?.perProject || {}).reduce((a, b) => a + b, 0),
+        [data?.perProject]
+    );
 
-    const directUnread = useMemo(() => 
-        Object.values(data?.perSender || {}).reduce((a, b) => a + b, 0), 
-    [data?.perSender]);
+    const directUnread = useMemo(
+        () => Object.values(data?.perSender || {}).reduce((a, b) => a + b, 0),
+        [data?.perSender]
+    );
 
     return {
         totalUnread: data?.total || 0,
@@ -65,6 +75,6 @@ export function useUnreadCount(userId?: string) {
         projectCounts: data?.perProject || {},
         senderCounts: data?.perSender || {},
         isLoading,
-        refetch
+        refetch,
     };
 }

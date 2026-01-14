@@ -26,14 +26,17 @@ const MessageBubble = React.memo<{
     onContextMenu: (e: React.MouseEvent, message: Message) => void;
     onImageClick: (imageUrl: string) => void;
 }>(({ msg, isOwn, replyTo, searchQuery, onContextMenu, onImageClick }) => {
-
     const highlightText = useCallback((text: string, query: string) => {
         if (!query) return text;
         const parts = text.split(new RegExp(`(${query})`, 'gi'));
         return parts.map((part, i) =>
-            part.toLowerCase() === query.toLowerCase()
-                ? <span key={i} className="bg-yellow-200 text-black px-1 rounded">{part}</span>
-                : part
+            part.toLowerCase() === query.toLowerCase() ? (
+                <span key={i} className="bg-yellow-200 text-black px-1 rounded">
+                    {part}
+                </span>
+            ) : (
+                part
+            )
         );
     }, []);
 
@@ -52,9 +55,15 @@ const MessageBubble = React.memo<{
                 className={`
                     max-w-[85%] lg:max-w-[70%] rounded-[1.5rem] relative group cursor-context-menu overflow-hidden
                     ${msg.image_url && !msg.content ? 'p-0 bg-transparent' : 'p-4 sm:p-5'}
-                    ${isOwn
-                        ? (msg.image_url && !msg.content ? 'shadow-xl' : 'bg-primary text-white rounded-tr-none shadow-xl shadow-primary/20')
-                        : (msg.image_url && !msg.content ? 'shadow-lg' : 'bg-card border border-border-theme rounded-tl-none text-foreground')}
+                    ${
+                        isOwn
+                            ? msg.image_url && !msg.content
+                                ? 'shadow-xl'
+                                : 'bg-primary text-white rounded-tr-none shadow-xl shadow-primary/20'
+                            : msg.image_url && !msg.content
+                              ? 'shadow-lg'
+                              : 'bg-card border border-border-theme rounded-tl-none text-foreground'
+                    }
                 `}
             >
                 {/* Reply Context */}
@@ -68,32 +77,36 @@ const MessageBubble = React.memo<{
                 {/* Image */}
                 {msg.image_url && (
                     <ChatImage
-                        key={msg.image_url}
+                        key={msg.client_message_id || msg.id}
                         src={msg.image_url}
                         isTemp={isTemp}
                         altText={msg.content || 'Изображение в сообщении'}
                         onImageClick={() => msg.image_url && onImageClick(msg.image_url)}
-                        footer={!msg.content ? (
-                            <div className="flex items-center gap-1 justify-end">
-                                {msg.is_edited && (
-                                    <span className="text-[9px] text-white/70 leading-none">изм.</span>
-                                )}
-                                <span className="text-[10px] text-white/80 leading-none tabular-nums">
-                                    {formatTime(msg.created_at)}
-                                </span>
-                                {isOwn && (
-                                    <div className="flex items-center ml-0.5">
-                                        {isTemp ? (
-                                            <Clock size={10} className="text-white/70" />
-                                        ) : msg.is_read ? (
-                                            <CheckCheck size={14} className="text-white" />
-                                        ) : (
-                                            <Check size={14} className="text-white/80" />
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ) : undefined}
+                        footer={
+                            !msg.content ? (
+                                <div className="flex items-center gap-1 justify-end">
+                                    {msg.is_edited && (
+                                        <span className="text-[9px] text-white/70 leading-none">
+                                            изм.
+                                        </span>
+                                    )}
+                                    <span className="text-[10px] text-white/80 leading-none tabular-nums">
+                                        {formatTime(msg.created_at)}
+                                    </span>
+                                    {isOwn && (
+                                        <div className="flex items-center ml-0.5">
+                                            {isTemp ? (
+                                                <Clock size={10} className="text-white/70" />
+                                            ) : msg.is_read ? (
+                                                <CheckCheck size={14} className="text-white" />
+                                            ) : (
+                                                <Check size={14} className="text-white/80" />
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : undefined
+                        }
                     />
                 )}
 
@@ -103,6 +116,10 @@ const MessageBubble = React.memo<{
                         voiceUrl={msg.voice_url}
                         duration={msg.voice_duration || undefined}
                         className="min-w-[200px]"
+                        showLoading={isTemp}
+                        isOwn={isOwn}
+                        isRead={msg.is_read}
+                        isTemp={isTemp}
                     />
                 )}
 
@@ -123,7 +140,7 @@ const MessageBubble = React.memo<{
                             {formatTime(msg.created_at)}
                         </span>
 
-                        {isOwn && (
+                        {isOwn && msg.content && (
                             <div className="flex items-center ml-0.5 text-primary-foreground/60">
                                 {isTemp ? (
                                     <Clock size={10} className="opacity-70" />
@@ -137,78 +154,75 @@ const MessageBubble = React.memo<{
                     </div>
                 )}
             </div>
-        </div >
+        </div>
     );
 });
 
 MessageBubble.displayName = 'MessageBubble';
 
-export const MessageList: React.FC<MessageListProps> = React.memo(({
-    messages,
-    currentUserId,
-    isLoading,
-    searchQuery,
-    onContextMenu,
-    onImageClick,
-}) => {
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const lastMessageCountRef = useRef(messages.length);
+export const MessageList: React.FC<MessageListProps> = React.memo(
+    ({ messages, currentUserId, isLoading, searchQuery, onContextMenu, onImageClick }) => {
+        const messagesEndRef = useRef<HTMLDivElement>(null);
+        const lastMessageCountRef = useRef(messages.length);
 
-    // Optimized Scroll logic
-    useEffect(() => {
-        const hasNewMessages = messages.length > lastMessageCountRef.current;
-        if (hasNewMessages) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        } else if (messages.length > 0 && lastMessageCountRef.current === 0) {
-            // Initial load
-            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        // Optimized Scroll logic
+        useEffect(() => {
+            const hasNewMessages = messages.length > lastMessageCountRef.current;
+            if (hasNewMessages) {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            } else if (messages.length > 0 && lastMessageCountRef.current === 0) {
+                // Initial load
+                messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+            }
+            lastMessageCountRef.current = messages.length;
+        }, [messages.length]);
+
+        const filteredMessages = useMemo(() => {
+            if (!searchQuery) return messages;
+            const lowerQuery = searchQuery.toLowerCase();
+            return messages.filter((m) => m.content?.toLowerCase().includes(lowerQuery));
+        }, [messages, searchQuery]);
+
+        const messageMap = useMemo(() => {
+            return new Map(messages.map((m) => [m.id, m]));
+        }, [messages]);
+
+        if (isLoading) {
+            return (
+                <div className="h-full flex items-center justify-center">
+                    <Clock className="w-8 h-8 animate-pulse text-primary/50" />
+                </div>
+            );
         }
-        lastMessageCountRef.current = messages.length;
-    }, [messages.length]);
 
-    const filteredMessages = useMemo(() => {
-        if (!searchQuery) return messages;
-        const lowerQuery = searchQuery.toLowerCase();
-        return messages.filter(m => m.content?.toLowerCase().includes(lowerQuery));
-    }, [messages, searchQuery]);
+        if (messages.length === 0) {
+            return (
+                <div className="h-full flex flex-col items-center justify-center text-foreground/10 space-y-4">
+                    <MessageSquare size={64} />
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">
+                        Начните общение первым
+                    </p>
+                </div>
+            );
+        }
 
-    const messageMap = useMemo(() => {
-        return new Map(messages.map(m => [m.id, m]));
-    }, [messages]);
-
-    if (isLoading) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <Clock className="w-8 h-8 animate-pulse text-primary/50" />
+            <div className="flex flex-col gap-4">
+                {filteredMessages.map((msg) => (
+                    <MessageBubble
+                        key={msg.client_message_id || msg.id}
+                        msg={msg}
+                        isOwn={msg.sender_id === currentUserId}
+                        replyTo={msg.reply_to_id ? messageMap.get(msg.reply_to_id) : undefined}
+                        searchQuery={searchQuery}
+                        onContextMenu={onContextMenu}
+                        onImageClick={onImageClick}
+                    />
+                ))}
+                <div ref={messagesEndRef} />
             </div>
         );
     }
-
-    if (messages.length === 0) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center text-foreground/10 space-y-4">
-                <MessageSquare size={64} />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Начните общение первым</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-4">
-            {filteredMessages.map((msg) => (
-                <MessageBubble
-                    key={msg.client_id || msg.id}
-                    msg={msg}
-                    isOwn={msg.sender_id === currentUserId}
-                    replyTo={msg.reply_to_id ? messageMap.get(msg.reply_to_id) : undefined}
-                    searchQuery={searchQuery}
-                    onContextMenu={onContextMenu}
-                    onImageClick={onImageClick}
-                />
-            ))}
-            <div ref={messagesEndRef} />
-        </div>
-    );
-});
+);
 
 MessageList.displayName = 'MessageList';

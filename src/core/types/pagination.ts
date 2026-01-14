@@ -76,10 +76,7 @@ export function calculateOffset(params: PaginationParams): { from: number; to: n
 /**
  * Создаёт метаданные пагинации на основе total count.
  */
-export function createPaginationMeta(
-    params: PaginationParams,
-    total: number
-): PaginationMeta {
+export function createPaginationMeta(params: PaginationParams, total: number): PaginationMeta {
     const totalPages = Math.ceil(total / params.pageSize);
     return {
         page: params.page,

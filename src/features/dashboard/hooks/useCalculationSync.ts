@@ -16,7 +16,7 @@ interface CalculationDB {
 
 /**
  * useCalculationSync - Enterprise-grade realtime synchronization
- * 
+ *
  * Handles INSERT, UPDATE, DELETE events with precise cache updates
  * instead of broad cache invalidation.
  */
@@ -42,13 +42,15 @@ export function useCalculationSync(userId: string | null) {
                 { event: '*', schema: 'public', table: 'calculations' },
                 (payload: RealtimePostgresChangesPayload<CalculationDB>) => {
                     const eventType = payload.eventType;
-                    const record = (eventType === 'DELETE' ? payload.old : payload.new) as CalculationDB;
+                    const record = (
+                        eventType === 'DELETE' ? payload.old : payload.new
+                    ) as CalculationDB;
 
                     logger.info('[RealtimeSync] Calculation event received', {
                         eventType,
                         calculationId: record?.id,
                         managerId: record?.manager_id,
-                        status: record?.status
+                        status: record?.status,
                     });
 
                     switch (eventType) {
@@ -63,7 +65,7 @@ export function useCalculationSync(userId: string | null) {
                                 // Invalidate paginated queries to include new item
                                 queryClient.invalidateQueries({
                                     queryKey: ['calculations', 'paginated'],
-                                    refetchType: 'active'
+                                    refetchType: 'active',
                                 });
                             }
                             break;
@@ -76,21 +78,24 @@ export function useCalculationSync(userId: string | null) {
 
                             if (existingDetail) {
                                 // Partial update in cache (optimistic merge)
-                                queryClient.setQueryData(detailKey, (old: Calculation | undefined) => {
-                                    if (!old) return old;
-                                    return {
-                                        ...old,
-                                        status: record.status,
-                                        manager_id: record.manager_id,
-                                        // Note: We only update fields we receive
-                                    };
-                                });
+                                queryClient.setQueryData(
+                                    detailKey,
+                                    (old: Calculation | undefined) => {
+                                        if (!old) return old;
+                                        return {
+                                            ...old,
+                                            status: record.status,
+                                            manager_id: record.manager_id,
+                                            // Note: We only update fields we receive
+                                        };
+                                    }
+                                );
                             }
 
                             // Invalidate list queries to reflect status/assignment changes
                             queryClient.invalidateQueries({
                                 queryKey: ['calculations', 'paginated'],
-                                refetchType: 'active'
+                                refetchType: 'active',
                             });
 
                             // Also update recipients if manager changed
@@ -108,7 +113,7 @@ export function useCalculationSync(userId: string | null) {
                             // Invalidate lists
                             queryClient.invalidateQueries({
                                 queryKey: ['calculations', 'paginated'],
-                                refetchType: 'active'
+                                refetchType: 'active',
                             });
                             break;
                         }

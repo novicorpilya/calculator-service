@@ -2,17 +2,19 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePaginatedCalculations } from '../usePaginatedCalculations';
-import { calculationsService } from '@/services/calculations.service';
 import type { ReactNode } from 'react';
+import type { Calculation } from '@/features/dashboard/dashboard.types';
 
-// Mock the service
-vi.mock('@/services/calculations.service', () => ({
-    calculationsService: {
-        getPaginated: vi.fn(),
-    },
+// Mock the DI container
+const mockCalculationService = {
+    getPaginated: vi.fn(),
+};
+
+vi.mock('@/core/di/ServiceContainer', () => ({
+    useServices: () => ({
+        calculationService: mockCalculationService,
+    }),
 }));
-
-const mockCalculationsService = vi.mocked(calculationsService);
 
 // Wrapper with QueryClient
 const createWrapper = () => {
@@ -34,10 +36,9 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should initialize with default state', () => {
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         expect(result.current.currentPage).toBe(1);
         expect(result.current.pageSize).toBe(20);
@@ -48,24 +49,28 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should fetch paginated data on mount', async () => {
-        mockCalculationsService.getPaginated.mockResolvedValue({
-            data: [{ id: 1, status: 'draft', organizationName: 'Test' }] as any,
-            total: 1,
-            page: 1,
-            pageSize: 20,
-            totalPages: 1,
+        mockCalculationService.getPaginated.mockResolvedValue({
+            success: true,
+            data: {
+                data: [
+                    { id: 1, status: 'draft', organizationName: 'Test' },
+                ] as unknown as Calculation[],
+                total: 1,
+                page: 1,
+                pageSize: 20,
+                totalPages: 1,
+            },
         });
 
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         await waitFor(() => {
             expect(result.current.calculations.length).toBe(1);
         });
 
-        expect(mockCalculationsService.getPaginated).toHaveBeenCalledWith(
+        expect(mockCalculationService.getPaginated).toHaveBeenCalledWith(
             expect.objectContaining({
                 page: 1,
                 pageSize: 20,
@@ -75,18 +80,20 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should change page correctly', async () => {
-        mockCalculationsService.getPaginated.mockResolvedValue({
-            data: [],
-            total: 100,
-            page: 2,
-            pageSize: 20,
-            totalPages: 5,
+        mockCalculationService.getPaginated.mockResolvedValue({
+            success: true,
+            data: {
+                data: [],
+                total: 100,
+                page: 2,
+                pageSize: 20,
+                totalPages: 5,
+            },
         });
 
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         act(() => {
             result.current.setPage(2);
@@ -98,18 +105,20 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should reset to page 1 when search changes', async () => {
-        mockCalculationsService.getPaginated.mockResolvedValue({
-            data: [],
-            total: 0,
-            page: 1,
-            pageSize: 20,
-            totalPages: 0,
+        mockCalculationService.getPaginated.mockResolvedValue({
+            success: true,
+            data: {
+                data: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                totalPages: 0,
+            },
         });
 
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         // Set page to 2
         act(() => {
@@ -126,18 +135,20 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should change tab and reset page', async () => {
-        mockCalculationsService.getPaginated.mockResolvedValue({
-            data: [],
-            total: 0,
-            page: 1,
-            pageSize: 20,
-            totalPages: 0,
+        mockCalculationService.getPaginated.mockResolvedValue({
+            success: true,
+            data: {
+                data: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                totalPages: 0,
+            },
         });
 
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         act(() => {
             result.current.setTab('unassigned');
@@ -148,18 +159,20 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should change sort and reset page', async () => {
-        mockCalculationsService.getPaginated.mockResolvedValue({
-            data: [],
-            total: 0,
-            page: 1,
-            pageSize: 20,
-            totalPages: 0,
+        mockCalculationService.getPaginated.mockResolvedValue({
+            success: true,
+            data: {
+                data: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                totalPages: 0,
+            },
         });
 
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         act(() => {
             result.current.setSort('total_cost_value', 'asc');
@@ -170,22 +183,24 @@ describe('usePaginatedCalculations', () => {
     });
 
     test('should derive correct managerId for tabs', async () => {
-        mockCalculationsService.getPaginated.mockResolvedValue({
-            data: [],
-            total: 0,
-            page: 1,
-            pageSize: 20,
-            totalPages: 0,
+        mockCalculationService.getPaginated.mockResolvedValue({
+            success: true,
+            data: {
+                data: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                totalPages: 0,
+            },
         });
 
-        const { result } = renderHook(
-            () => usePaginatedCalculations('user123'),
-            { wrapper: createWrapper() }
-        );
+        const { result } = renderHook(() => usePaginatedCalculations('user123'), {
+            wrapper: createWrapper(),
+        });
 
         // 'my' tab -> managerId = userId
         await waitFor(() => {
-            expect(mockCalculationsService.getPaginated).toHaveBeenCalledWith(
+            expect(mockCalculationService.getPaginated).toHaveBeenCalledWith(
                 expect.objectContaining({ managerId: 'user123' })
             );
         });
@@ -196,7 +211,7 @@ describe('usePaginatedCalculations', () => {
         });
 
         await waitFor(() => {
-            expect(mockCalculationsService.getPaginated).toHaveBeenCalledWith(
+            expect(mockCalculationService.getPaginated).toHaveBeenCalledWith(
                 expect.objectContaining({ managerId: null })
             );
         });
@@ -207,7 +222,7 @@ describe('usePaginatedCalculations', () => {
         });
 
         await waitFor(() => {
-            expect(mockCalculationsService.getPaginated).toHaveBeenCalledWith(
+            expect(mockCalculationService.getPaginated).toHaveBeenCalledWith(
                 expect.objectContaining({ managerId: undefined })
             );
         });

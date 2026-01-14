@@ -3,27 +3,45 @@ import { CalculationEntity } from '../CalculationEntity';
 import type { Calculation, CalculationStatus } from '../../../features/dashboard/dashboard.types';
 
 // Mock helper to generate valid DTOs
-const mockCalculation = (status: CalculationStatus, overrides: Partial<Calculation> = {}): Calculation => ({
-    id: 1,
-    status,
-    organizationName: 'Test Org',
-    createdDate: '2025-01-01T00:00:00Z',
-    manager_id: null,
-    user_id: 'user1',
-    type: 'Biuro',
-    totalArea: 100,
-    zonesCount: 2,
-    unreadComments: 0,
-    comments: [],
-    results: {
-        summary: [
-            { inventory: 'Chair', quantity: 10, price: 100, total: 1000, color: '#000', supplier_id: 'sup1' },
-            { inventory: 'Table', quantity: 5, price: 200, total: 1000, color: '#FFF', supplier_id: 'sup1' }
-        ],
-        byZone: []
-    },
-    ...overrides
-} as unknown as Calculation);
+const mockCalculation = (
+    status: CalculationStatus,
+    overrides: Partial<Calculation> = {}
+): Calculation =>
+    ({
+        id: 1,
+        status,
+        organizationName: 'Test Org',
+        createdDate: '2025-01-01T00:00:00Z',
+        manager_id: null,
+        user_id: 'user1',
+        type: 'Biuro',
+        totalArea: 100,
+        zonesCount: 2,
+        unreadComments: 0,
+        comments: [],
+        results: {
+            summary: [
+                {
+                    inventory: 'Chair',
+                    quantity: 10,
+                    price: 100,
+                    total: 1000,
+                    color: '#000',
+                    supplier_id: 'sup1',
+                },
+                {
+                    inventory: 'Table',
+                    quantity: 5,
+                    price: 200,
+                    total: 1000,
+                    color: '#FFF',
+                    supplier_id: 'sup1',
+                },
+            ],
+            byZone: [],
+        },
+        ...overrides,
+    }) as unknown as Calculation;
 
 describe('CalculationEntity', () => {
     describe('Status Transitions (State Machine)', () => {
@@ -95,32 +113,56 @@ describe('CalculationEntity', () => {
     describe('Invariants & Permissions', () => {
         test('isEditableByClient should be true for DRAFT and CHANGES', () => {
             expect(new CalculationEntity(mockCalculation('draft')).isEditableByClient()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('changes')).isEditableByClient()).toBe(true);
+            expect(new CalculationEntity(mockCalculation('changes')).isEditableByClient()).toBe(
+                true
+            );
         });
 
         test('isEditableByClient should be false for SENT and INVOICE', () => {
             expect(new CalculationEntity(mockCalculation('sent')).isEditableByClient()).toBe(false);
-            expect(new CalculationEntity(mockCalculation('invoice')).isEditableByClient()).toBe(false);
+            expect(new CalculationEntity(mockCalculation('invoice')).isEditableByClient()).toBe(
+                false
+            );
         });
 
         test('canRequestChanges should be true for SENT and REVISION', () => {
             expect(new CalculationEntity(mockCalculation('sent')).canRequestChanges()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('revision')).canRequestChanges()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('changes')).canRequestChanges()).toBe(false);
+            expect(new CalculationEntity(mockCalculation('revision')).canRequestChanges()).toBe(
+                true
+            );
+            expect(new CalculationEntity(mockCalculation('changes')).canRequestChanges()).toBe(
+                false
+            );
         });
 
         test('canMoveToInvoice should be true for workflow states before invoice', () => {
             expect(new CalculationEntity(mockCalculation('sent')).canMoveToInvoice()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('revision')).canMoveToInvoice()).toBe(true);
+            expect(new CalculationEntity(mockCalculation('revision')).canMoveToInvoice()).toBe(
+                true
+            );
             expect(new CalculationEntity(mockCalculation('changes')).canMoveToInvoice()).toBe(true);
             expect(new CalculationEntity(mockCalculation('expert')).canMoveToInvoice()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('invoice')).canMoveToInvoice()).toBe(false);
+            expect(new CalculationEntity(mockCalculation('invoice')).canMoveToInvoice()).toBe(
+                false
+            );
         });
 
         test('canBeAssigned should be true only for unassigned non-draft calculations', () => {
-            expect(new CalculationEntity(mockCalculation('sent', { manager_id: undefined })).canBeAssigned()).toBe(true);
-            expect(new CalculationEntity(mockCalculation('draft', { manager_id: undefined })).canBeAssigned()).toBe(false);
-            expect(new CalculationEntity(mockCalculation('sent', { manager_id: 'mgr1' })).canBeAssigned()).toBe(false);
+            expect(
+                new CalculationEntity(
+                    mockCalculation('sent', { manager_id: undefined })
+                ).canBeAssigned()
+            ).toBe(true);
+            expect(
+                new CalculationEntity(
+                    mockCalculation('draft', { manager_id: undefined })
+                ).canBeAssigned()
+            ).toBe(false);
+            expect(
+                new CalculationEntity(
+                    mockCalculation('sent', { manager_id: 'mgr1' })
+                ).canBeAssigned()
+            ).toBe(false);
         });
 
         test('isAssignedTo should correctly identify assigned manager', () => {
@@ -133,9 +175,10 @@ describe('CalculationEntity', () => {
             expect(new CalculationEntity(mockCalculation('invoice')).canSubmitPayment()).toBe(true);
             expect(new CalculationEntity(mockCalculation('completed')).isCompleted()).toBe(true);
             expect(new CalculationEntity(mockCalculation('sent')).canSubmitPayment()).toBe(false);
-            expect(new CalculationEntity(mockCalculation('payment_review')).isPaymentSent()).toBe(true);
+            expect(new CalculationEntity(mockCalculation('payment_review')).isPaymentSent()).toBe(
+                true
+            );
             expect(new CalculationEntity(mockCalculation('paid')).isPaid()).toBe(true);
         });
-
     });
 });

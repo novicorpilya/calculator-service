@@ -4,7 +4,7 @@ import { COMPANY_REQUISITES } from '../dashboard.types';
 /**
  * Export calculation to Excel file.
  * Uses dynamic import to load xlsx (~350KB) only when actually needed.
- * 
+ *
  * @param calc - CalculationEntity to export
  * @param showPrices - Optional. If provided, controls price visibility explicitly.
  *                     If not provided, defaults to showing prices for financial stages.
@@ -34,20 +34,27 @@ export const exportToExcel = async (calc: CalculationEntity, showPrices?: boolea
 
     // Determine if prices should be shown
     // If explicitly provided, use that; otherwise default to financial stages
-    const isFinancialStage = ['invoice', 'paid', 'shipping', 'completed', 'closed'].includes(calc.status);
+    const isFinancialStage = ['invoice', 'paid', 'shipping', 'completed', 'closed'].includes(
+        calc.status
+    );
     const shouldShowPrices = showPrices !== undefined ? showPrices : isFinancialStage;
 
-    calc.byZone.forEach(zone => {
+    calc.byZone.forEach((zone) => {
         zoneData.push([zone.zoneName.toUpperCase(), '', '', '']);
 
         if (shouldShowPrices) {
             zoneData.push(['Инвентарь', 'Количество', 'Цена', 'Сумма']);
-            zone.items.forEach(item => {
-                zoneData.push([item.inventory, `${item.quantity} шт`, `${item.price}₽`, `${item.total * item.price}₽`]);
+            zone.items.forEach((item) => {
+                zoneData.push([
+                    item.inventory,
+                    `${item.quantity} шт`,
+                    `${item.price}₽`,
+                    `${item.total * item.price}₽`,
+                ]);
             });
         } else {
             zoneData.push(['Инвентарь', 'Количество', 'Маркировка']);
-            zone.items.forEach(item => {
+            zone.items.forEach((item) => {
                 zoneData.push([item.inventory, `${item.quantity} шт`, item.color]);
             });
         }
@@ -64,5 +71,8 @@ export const exportToExcel = async (calc: CalculationEntity, showPrices?: boolea
     ws1['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
 
     XLSX.utils.book_append_sheet(wb, ws1, calc.status === 'invoice' ? 'Счёт' : 'Спецификация');
-    XLSX.writeFile(wb, `${calc.status === 'invoice' ? 'Счет' : 'Расчет'}_${calc.organizationName}.xlsx`);
+    XLSX.writeFile(
+        wb,
+        `${calc.status === 'invoice' ? 'Счет' : 'Расчет'}_${calc.organizationName}.xlsx`
+    );
 };

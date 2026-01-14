@@ -1,17 +1,17 @@
-import React from 'react'
-import { useForm, type SubmitHandler } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
-import { IconInput } from '@/components/ui/IconInput'
-import { loginSchema } from '@/features/auth/auth.validation'
-import type { LoginFormValues } from '@/features/auth/auth.form.types'
+import React from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { IconInput } from '@/components/ui/IconInput';
+import { loginSchema } from '@/features/auth/auth.validation';
+import type { LoginFormValues } from '@/features/auth/auth.form.types';
 
 interface LoginFormProps {
-    onSubmit: (values: LoginFormValues) => void
-    onForgotPassword: () => void
-    onSwitchToRegister: () => void
-    loading: boolean
-    serverError?: string | null
+    onSubmit: (values: LoginFormValues) => void;
+    onForgotPassword: () => void;
+    onSwitchToRegister: () => void;
+    loading: boolean;
+    serverError?: string | null;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
@@ -19,39 +19,43 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     onForgotPassword,
     onSwitchToRegister,
     loading,
-    serverError
+    serverError,
 }) => {
-    const [showPassword, setShowPassword] = React.useState(false)
+    const [showPassword, setShowPassword] = React.useState(false);
 
     const {
         register,
         handleSubmit,
-        formState: { errors, isValid }
+        formState: { errors, isValid },
     } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
         mode: 'onBlur',
         defaultValues: {
             email: '',
             password: '',
-            rememberMe: true
-        }
-    })
+            rememberMe: true,
+        },
+    });
 
     const handleFormSubmit: SubmitHandler<LoginFormValues> = (data) => {
-        onSubmit(data)
-    }
+        onSubmit(data);
+    };
 
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
             {serverError && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">{serverError}</p>
+                    <p className="text-red-600 dark:text-red-400 text-xs font-bold leading-relaxed tracking-wide">
+                        {serverError}
+                    </p>
                 </div>
             )}
 
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">Email</label>
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                        Email
+                    </label>
                     <IconInput
                         {...register('email')}
                         type="email"
@@ -63,7 +67,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
                 <div className="space-y-2">
                     <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Пароль</label>
+                        <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
+                            Пароль
+                        </label>
                         <button
                             type="button"
                             onClick={onForgotPassword}
@@ -85,10 +91,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
 
             <div className="flex items-center justify-between py-1 px-1">
-                <div className="flex items-center gap-3 group cursor-pointer" onClick={() => {
-                    const el = document.getElementById('rememberMe') as HTMLInputElement;
-                    if (el) el.click();
-                }}>
+                <div
+                    className="flex items-center gap-3 group cursor-pointer"
+                    onClick={() => {
+                        const el = document.getElementById('rememberMe') as HTMLInputElement;
+                        if (el) el.click();
+                    }}
+                >
                     <div className="relative flex items-center">
                         <input
                             {...register('rememberMe')}
@@ -109,9 +118,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                     </div>
-                    <label
-                        className="text-[10px] font-black text-foreground/40 uppercase tracking-widest cursor-pointer group-hover:text-foreground/60 transition-colors"
-                    >
+                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest cursor-pointer group-hover:text-foreground/60 transition-colors">
                         Запомнить меня
                     </label>
                 </div>
@@ -123,7 +130,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 className="btn-premium w-full !text-[12px] py-6"
             >
                 <span className="relative z-10">{loading ? 'Вход...' : 'Войти в систему'}</span>
-                {!loading && <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />}
+                {!loading && (
+                    <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />
+                )}
             </button>
 
             <div className="pt-6 text-center border-t border-border-theme">
@@ -139,5 +148,5 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 </p>
             </div>
         </form>
-    )
-}
+    );
+};

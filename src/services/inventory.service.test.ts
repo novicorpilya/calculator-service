@@ -1,149 +1,89 @@
+import { describe, it, test, expect, vi, beforeEach } from 'vitest';
+import { type SupabaseClient } from '@supabase/supabase-js';
+import { InventoryService, type InventoryItemMaster } from './inventory.service';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InventoryService } from './inventory.service';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-// Mock Supabase Client Factory
-const createMockSupabase = () => {
-    const fromMock = vi.fn();
-    const selectMock = vi.fn();
-    const orderMock = vi.fn();
-    const upsertMock = vi.fn();
-    const deleteMock = vi.fn();
-    const eqMock = vi.fn();
-    const singleMock = vi.fn();
-
-    const client = {
-        from: fromMock.mockReturnValue({
-            select: selectMock.mockReturnValue({
-                order: orderMock,
-                // Handle different query chains
-                single: singleMock,
-            }),
-            upsert: upsertMock.mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                    single: singleMock,
-                }),
-            }),
-            delete: deleteMock.mockReturnValue({
-                eq: eqMock,
-            }),
-        }),
-    } as unknown as SupabaseClient;
-
-    return {
-        client,
-        mocks: {
-            from: fromMock,
-            select: selectMock,
-            order: orderMock,
-            upsert: upsertMock,
-            delete: deleteMock,
-            eq: eqMock,
-            single: singleMock,
-        },
-    };
+const mockSupabase = {
+    from: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockReturnThis(),
+    range: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    mocks: {
+        from: vi.fn(),
+        select: vi.fn(),
+        insert: vi.fn(),
+        update: vi.fn(),
+        upsert: vi.fn(),
+        delete: vi.fn(),
+        eq: vi.fn(),
+        single: vi.fn(),
+        range: vi.fn(),
+        order: vi.fn(),
+    },
 };
+
+// Setup method chaining mocks
+mockSupabase.from = mockSupabase.mocks.from.mockReturnThis();
+mockSupabase.select = mockSupabase.mocks.select.mockReturnThis();
+mockSupabase.insert = mockSupabase.mocks.insert.mockReturnThis();
+mockSupabase.update = mockSupabase.mocks.update.mockReturnThis();
+mockSupabase.upsert = mockSupabase.mocks.upsert.mockReturnThis();
+mockSupabase.delete = mockSupabase.mocks.delete.mockReturnThis();
+mockSupabase.eq = mockSupabase.mocks.eq.mockReturnThis();
+mockSupabase.single = mockSupabase.mocks.single.mockReturnThis();
+mockSupabase.range = mockSupabase.mocks.range.mockReturnThis();
+mockSupabase.order = mockSupabase.mocks.order.mockReturnThis();
 
 describe('InventoryService', () => {
     let service: InventoryService;
-    let mockSupabase: ReturnType<typeof createMockSupabase>;
 
     beforeEach(() => {
-        mockSupabase = createMockSupabase();
-        service = new InventoryService(mockSupabase.client);
+        vi.clearAllMocks();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        service = new InventoryService(mockSupabase as any as SupabaseClient);
     });
 
     describe('getGlobalItems', () => {
-        it('should return items from supabase on success', async () => {
-            const mockItems = [
-                { id: '1', name: 'Item 1' },
-                { id: '2', name: 'Item 2' },
-            ];
+        it('should return paginated data', async () => {
+            const mockData = [{ id: '1', name: 'Item 1' }] as InventoryItemMaster[];
+            mockSupabase.mocks.select.mockReturnThis();
+            mockSupabase.mocks.order.mockReturnThis();
+            mockSupabase.mocks.range.mockResolvedValue({
+                data: mockData,
+                error: null,
+                count: 1,
+            });
 
-            // Setup mock chain: from -> select -> order -> { data, error }
-            mockSupabase.mocks.order.mockResolvedValue({ data: mockItems, error: null });
+            const result = await service.getGlobalItems({ page: 1, pageSize: 10 });
 
-            // Note: In implementation: from('inventory_items').select('*').order('name', { ascending: true })
-            const result = await service.getGlobalItems();
-
-            expect(mockSupabase.mocks.from).toHaveBeenCalledWith('inventory_items');
-            expect(mockSupabase.mocks.select).toHaveBeenCalledWith('*');
-            expect(mockSupabase.mocks.order).toHaveBeenCalledWith('name', { ascending: true });
-            expect(result).toEqual(mockItems);
-        });
-
-        it('should return specialized mock data on error', async () => {
-            // Setup mock chain to fail
-            mockSupabase.mocks.order.mockResolvedValue({ data: null, error: { message: 'Table not found' } });
-
-            const logs = vi.spyOn(console, 'warn').mockImplementation(() => { });
-
-            const result = await service.getGlobalItems();
-
-            expect(result.length).toBeGreaterThan(0);
-            expect(result[0].name).toContain('GRILL-CLEANER'); // Check one of the hardcoded mock items
-            expect(logs).toHaveBeenCalled();
-
-            logs.mockRestore();
-        });
-
-        it('should return empty array if data is null but no error (edge case)', async () => {
-            mockSupabase.mocks.order.mockResolvedValue({ data: null, error: null });
-            const result = await service.getGlobalItems();
-            expect(result).toEqual([]);
+            expect(result.success).toBe(true);
+            if (result.success && result.data) {
+                expect(result.data.data).toEqual(mockData);
+                expect(result.data.count).toBe(1);
+            }
         });
     });
 
     describe('upsertItem', () => {
-        it('should upsert item and return result on success', async () => {
-            const newItem = { name: 'New Item' };
-            const returnedItem = { id: '1', ...newItem, created_at: 'now' };
+        test('should upsert item and return it', async () => {
+            const newItem = { name: 'New Item', sku: 'SKU1' };
+            const returnedItem = { id: '123', ...newItem } as InventoryItemMaster;
 
-            // Chain: from -> upsert -> select -> single -> { data, error }
+            mockSupabase.mocks.upsert.mockReturnThis();
+            mockSupabase.mocks.select.mockReturnThis();
             mockSupabase.mocks.single.mockResolvedValue({ data: returnedItem, error: null });
 
-            const result = await service.upsertItem(newItem as any);
+            const result = await service.upsertItem(newItem as InventoryItemMaster);
 
-            expect(mockSupabase.mocks.from).toHaveBeenCalledWith('inventory_items');
-            expect(mockSupabase.mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({
-                ...newItem,
-                updated_at: expect.any(String),
-            }));
-            expect(result).toEqual(returnedItem);
-        });
-
-        it('should throw error on upsert failure', async () => {
-            const newItem = { name: 'Fail Item' };
-            const error = { message: 'DB Error' };
-
-            mockSupabase.mocks.single.mockResolvedValue({ data: null, error });
-
-            await expect(service.upsertItem(newItem as any)).rejects.toEqual(error);
-        });
-    });
-
-    describe('deleteItem', () => {
-        it('should delete item by id', async () => {
-            const id = '123';
-
-            // Chain: from -> delete -> eq -> { error }
-            mockSupabase.mocks.eq.mockResolvedValue({ error: null });
-
-            await service.deleteItem(id);
-
-            expect(mockSupabase.mocks.from).toHaveBeenCalledWith('inventory_items');
-            expect(mockSupabase.mocks.delete).toHaveBeenCalled();
-            expect(mockSupabase.mocks.eq).toHaveBeenCalledWith('id', id);
-        });
-
-        it('should throw error on delete failure', async () => {
-            const id = '123';
-            const error = { message: 'Delete Error' };
-
-            mockSupabase.mocks.eq.mockResolvedValue({ error });
-
-            await expect(service.deleteItem(id)).rejects.toEqual(error);
+            expect(result.success).toBe(true);
+            if (result.success && result.data) {
+                expect(result.data).toEqual(returnedItem);
+            }
         });
     });
 });

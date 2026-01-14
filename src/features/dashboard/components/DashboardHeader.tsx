@@ -15,56 +15,71 @@ interface DashboardHeaderProps {
  * DashboardHeader provides the main navigation and action bar for the dashboard.
  * Optimized with React.memo to prevent re-renders when sidebar state changes on narrow screens.
  */
-export const DashboardHeader = React.memo<DashboardHeaderProps>(({ sidebarOpen, setSidebarOpen, title = 'Кабинет клиента' }) => {
-    const { logout } = useAuth();
-    const navigate = useNavigate();
+export const DashboardHeader = React.memo<DashboardHeaderProps>(
+    ({ sidebarOpen, setSidebarOpen, title = 'Кабинет клиента' }) => {
+        const { logout } = useAuth();
+        const navigate = useNavigate();
 
-    const handleLogout = async () => {
-        await logout();
-        navigate(ROUTES.AUTH.LOGIN);
-    }
+        const handleLogout = async () => {
+            await logout();
+            navigate(ROUTES.AUTH.LOGIN);
+        };
 
-    return (
-        <header className="header bg-background/80 backdrop-blur-2xl border-b border-border-theme sticky top-0 z-40 transition-all duration-300">
-            <div className="fluid-container py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-4">
-                <div className="flex items-center gap-3 sm:gap-6 overflow-hidden">
-                    <button
-                        onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="p-2 sm:p-3 bg-card border border-border-theme hover:border-primary rounded-xl lg:hidden transition-all active:scale-90"
-                    >
-                        {sidebarOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
-                    </button>
+        return (
+            <header className="header bg-background/80 backdrop-blur-2xl border-b border-border-theme sticky top-0 z-40 transition-all duration-300">
+                <div className="fluid-container py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-3 sm:gap-6 overflow-hidden">
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="p-2 sm:p-3 bg-card border border-border-theme hover:border-primary rounded-xl lg:hidden transition-all active:scale-90"
+                        >
+                            {sidebarOpen ? (
+                                <X className="w-5 h-5 text-foreground" />
+                            ) : (
+                                <Menu className="w-5 h-5 text-foreground" />
+                            )}
+                        </button>
 
-                    <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer shrink-0" onClick={() => navigate('/')}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-[1.25rem] flex items-center justify-center transition-transform group-hover:scale-110">
-                            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                        <div
+                            className="flex items-center gap-2 sm:gap-3 group cursor-pointer shrink-0"
+                            onClick={() => navigate('/')}
+                        >
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-[1.25rem] flex items-center justify-center transition-transform group-hover:scale-110">
+                                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                            </div>
+                            <div className="block">
+                                <span className="text-lg sm:text-xl font-black tracking-tighter uppercase leading-none block">
+                                    Hics
+                                </span>
+                                <span className="text-[7px] sm:text-[8px] font-black text-primary uppercase tracking-[0.3em] block mt-0.5">
+                                    Inventory
+                                </span>
+                            </div>
                         </div>
-                        <div className="block">
-                            <span className="text-lg sm:text-xl font-black tracking-tighter uppercase leading-none block">Hics</span>
-                            <span className="text-[7px] sm:text-[8px] font-black text-primary uppercase tracking-[0.3em] block mt-0.5">Inventory</span>
-                        </div>
+
+                        {title && (
+                            <div className="hidden lg:flex items-center gap-6">
+                                <div className="h-6 w-px bg-border-theme" />
+                                <h1 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
+                                    {title}
+                                </h1>
+                            </div>
+                        )}
                     </div>
 
-                    {title && (
-                        <div className="hidden lg:flex items-center gap-6">
-                            <div className="h-6 w-px bg-border-theme" />
-                            <h1 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">{title}</h1>
-                        </div>
-                    )}
-                </div>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <ThemeToggle />
 
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <ThemeToggle />
-
-                    <button
-                        onClick={handleLogout}
-                        className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 bg-card border border-border-theme rounded-xl sm:rounded-2xl hover:border-red-500 hover:text-red-600 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap"
-                    >
-                        <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                        <span className="hidden md:inline">Выйти</span>
-                    </button>
+                        <button
+                            onClick={handleLogout}
+                            className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 bg-card border border-border-theme rounded-xl sm:rounded-2xl hover:border-red-500 hover:text-red-600 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                            <span className="hidden md:inline">Выйти</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </header>
-    )
-});
+            </header>
+        );
+    }
+);

@@ -1,7 +1,15 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import type { ReactElement } from 'react';
-import { render, renderHook, waitFor, screen, fireEvent, within, act } from '@testing-library/react';
+import {
+    render,
+    renderHook,
+    waitFor,
+    screen,
+    fireEvent,
+    within,
+    act,
+} from '@testing-library/react';
 import type { RenderOptions } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { vi } from 'vitest';
@@ -47,7 +55,14 @@ export const mockChatService = {
     getCalculationMessages: vi.fn().mockResolvedValue([]),
     getMessagesPaginated: vi.fn().mockResolvedValue({
         data: [],
-        pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0, hasMore: false, hasPrevious: false }
+        pagination: {
+            page: 1,
+            pageSize: 20,
+            total: 0,
+            totalPages: 0,
+            hasMore: false,
+            hasPrevious: false,
+        },
     }),
     sendMessage: vi.fn().mockImplementation(async (payload) => ({
         id: `msg-${Date.now()}`,
@@ -56,7 +71,7 @@ export const mockChatService = {
     })),
     editMessage: vi.fn().mockResolvedValue(undefined),
     deleteMessage: vi.fn().mockResolvedValue(undefined),
-    subscribeToMessages: vi.fn().mockReturnValue(() => { }),
+    subscribeToMessages: vi.fn().mockReturnValue(() => {}),
     getRecipients: vi.fn().mockResolvedValue([]),
     markAsRead: vi.fn().mockResolvedValue(undefined),
     getUnreadCounts: vi.fn().mockResolvedValue({}),
@@ -78,7 +93,7 @@ export const mockPresenceService = {
     cleanup: vi.fn().mockResolvedValue(undefined),
     isOnline: vi.fn().mockReturnValue(false),
     getOnlineUsers: vi.fn().mockReturnValue(new Set<string>()),
-    onOnlineUsersChange: vi.fn().mockReturnValue(() => { }),
+    onOnlineUsersChange: vi.fn().mockReturnValue(() => {}),
 };
 
 // ============================================
@@ -108,13 +123,14 @@ interface WrapperProps {
     children: React.ReactNode;
 }
 
-const createTestQueryClient = () => new QueryClient({
-    defaultOptions: {
-        queries: {
-            retry: false,
+const createTestQueryClient = () =>
+    new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+            },
         },
-    },
-});
+    });
 
 const AllProviders: React.FC<WrapperProps> = ({ children }) => {
     const queryClient = createTestQueryClient();
@@ -127,10 +143,8 @@ const AllProviders: React.FC<WrapperProps> = ({ children }) => {
     );
 };
 
-const customRender = (
-    ui: ReactElement,
-    options?: Omit<RenderOptions, 'wrapper'>
-) => render(ui, { wrapper: AllProviders, ...options });
+const customRender = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+    render(ui, { wrapper: AllProviders, ...options });
 
 function customRenderHook<Result, Props>(
     callback: (props: Props) => Result,
@@ -149,5 +163,5 @@ export {
     screen,
     fireEvent,
     within,
-    userEvent
+    userEvent,
 };

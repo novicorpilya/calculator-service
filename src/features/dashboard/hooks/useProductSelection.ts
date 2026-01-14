@@ -3,18 +3,37 @@ import { toast } from 'sonner';
 import { useServices } from '@/core/di/ServiceContainer';
 import type { InventoryItemMaster } from '@/services/inventory.service';
 import type { CalculationEntity } from '@/core/domain/CalculationEntity';
-import type { CalculationStatus, CalculationResults } from '../dashboard.types';
-import { logger } from '@/app/services';
+import type {
+    CalculationStatus,
+    CalculationResults,
+    ZoneResult,
+    InventoryItem,
+} from '../dashboard.types';
+import { logger } from '@/core/logging';
 import { CalculationEngine } from '@/utils/calculation-engine';
 
 interface UseProductSelectionProps {
-    user: { role?: string } | null;
+    user: { id?: string; role?: string } | null;
     entity: CalculationEntity;
-    onUpdateStatus: (id: number | string, status: CalculationStatus, additional?: { results?: CalculationResults }) => void;
-    onAdjustExpert?: (id: string | number, results: CalculationResults, adjustments: Record<string, any>, version: number) => Promise<void>;
+    onUpdateStatus: (
+        id: number | string,
+        status: CalculationStatus,
+        additional?: { results?: CalculationResults }
+    ) => void;
+    onAdjustExpert?: (
+        id: string | number,
+        results: CalculationResults,
+        adjustments: Record<string, unknown>,
+        version: number
+    ) => Promise<void>;
 }
 
-export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpert }: UseProductSelectionProps) {
+export function useProductSelection({
+    user,
+    entity,
+    onUpdateStatus,
+    onAdjustExpert,
+}: UseProductSelectionProps) {
     const { inventoryService } = useServices();
 
     // State
@@ -25,13 +44,26 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
     // Fetch catalog for managers/admins
     useEffect(() => {
         if (user?.role === 'manager' || user?.role === 'admin') {
-            inventoryService.getGlobalItems({ pageSize: 100 })
-                .then(res => setCatalog(res.data))
-                .catch(error => {
-                    logger.error('Failed to load inventory catalog', {
-                        role: user.role,
-                        userId: (user as any)?.id
-                    }, error);
+            inventoryService
+                .getGlobalItems({ pageSize: 100 })
+                .then((res) => {
+                    if (res.success && res.data) {
+                        setCatalog(res.data.data); // Extract array from paginated result
+                    } else {
+                        logger.warn('Failed to load inventory catalog', { error: res.error });
+                        setCatalog([]);
+                    }
+                })
+                .catch((error) => {
+                    logger.error(
+                        'Failed to load inventory catalog',
+                        {
+                            role: user.role,
+                            userId: user?.id,
+                        },
+                        error
+                    );
+                    setCatalog([]);
                 });
         }
     }, [user, inventoryService]);
@@ -52,7 +84,7 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
                     dailyVisitors: String(entity.dailyVisitors),
                     sanitaryLevel: entity.sanitaryLevel,
                     replacementCycle: entity.replacementCycle,
-                    intensityLevel: entity.rawData.intensityLevel
+                    intensityLevel: entity.rawData.intensityLevel,
                 }
             );
 
@@ -60,8 +92,8 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
             newResults.summary[auditItemIndex] = calculatedItem;
 
             // Update byZone items (global replace logic)
-            newResults.byZone.forEach((zone: any) => {
-                zone.items.forEach((item: any, idx: number) => {
+            newResults.byZone.forEach((zone: ZoneResult) => {
+                zone.items.forEach((item: InventoryItem, idx: number) => {
                     if (item.inventory === oldItem.inventory && item.sku === oldItem.sku) {
                         zone.items[idx] = { ...calculatedItem };
                     }
@@ -69,18 +101,27 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
             });
 
             if (onAdjustExpert) {
-                await onAdjustExpert(entity.id, newResults, entity.managerAdjustments, entity.versionNumber);
+                await onAdjustExpert(
+                    entity.id,
+                    newResults,
+                    entity.managerAdjustments,
+                    entity.versionNumber
+                );
             } else {
                 onUpdateStatus(entity.id, entity.status, { results: newResults });
             }
             setAuditItemIndex(null);
             toast.success(`Товар заменен на ${master.name}`);
         } catch (error) {
-            logger.error('Failed to swap product in calculation', {
-                calculationId: entity.id,
-                targetIndex: auditItemIndex,
-                masterSku: master.sku
-            }, error);
+            logger.error(
+                'Failed to swap product in calculation',
+                {
+                    calculationId: entity.id,
+                    targetIndex: auditItemIndex,
+                    masterSku: master.sku,
+                },
+                error
+            );
             toast.error('Ошибка замены товара');
         }
     };
@@ -93,12 +134,17 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
             newResults.summary.splice(index, 1);
 
             if (onAdjustExpert) {
-                await onAdjustExpert(entity.id, newResults, entity.managerAdjustments, entity.versionNumber);
+                await onAdjustExpert(
+                    entity.id,
+                    newResults,
+                    entity.managerAdjustments,
+                    entity.versionNumber
+                );
             } else {
                 onUpdateStatus(entity.id, entity.status, { results: newResults });
             }
             toast.success(`Товар ${removedItem.inventory} удален`);
-        } catch (error) {
+        } catch {
             toast.error('Ошибка удаления');
         }
     };
@@ -115,7 +161,7 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
                 dailyVisitors: String(entity.dailyVisitors),
                 sanitaryLevel: entity.sanitaryLevel,
                 replacementCycle: entity.replacementCycle,
-                intensityLevel: entity.rawData.intensityLevel
+                intensityLevel: entity.rawData.intensityLevel,
             }
         );
 
@@ -124,27 +170,32 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
 
         try {
             if (onAdjustExpert) {
-                await onAdjustExpert(entity.id, newResults, entity.managerAdjustments, entity.versionNumber);
+                await onAdjustExpert(
+                    entity.id,
+                    newResults,
+                    entity.managerAdjustments,
+                    entity.versionNumber
+                );
             } else {
                 onUpdateStatus(entity.id, entity.status, { results: newResults });
             }
             setAuditItemIndex(null);
             toast.success(`Добавлена позиция: ${master.name}`);
-        } catch (error) {
+        } catch {
             toast.error('Ошибка при добавлении товара');
         }
     };
 
-    const handleUpdateAdjustments = async (adjustments: Record<string, any>) => {
+    const handleUpdateAdjustments = async (adjustments: Record<string, unknown>) => {
         if (!entity.results) return;
         try {
             if (onAdjustExpert) {
                 await onAdjustExpert(entity.id, entity.results, adjustments, entity.versionNumber);
             } else {
-                onUpdateStatus(entity.id, entity.status, { manager_adjustments: adjustments } as any);
+                onUpdateStatus(entity.id, entity.status, { results: entity.results });
             }
             toast.success('Параметры обновлены');
-        } catch (error) {
+        } catch {
             toast.error('Ошибка обновления параметров');
         }
     };
@@ -158,6 +209,6 @@ export function useProductSelection({ user, entity, onUpdateStatus, onAdjustExpe
         handleProductSelect,
         handleAddItem,
         handleRemoveItem,
-        handleUpdateAdjustments
+        handleUpdateAdjustments,
     };
 }
