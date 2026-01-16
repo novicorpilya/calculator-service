@@ -1,80 +1,70 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/core/di/ServiceContainer';
-import { useAuth } from '@/features/auth/hooks/useAuth';
-import { type ChatEventPayload } from '../types';
+import type { UnreadCounts, MessageEventType, ChatEventPayload } from '../types';
 
-export function useUnreadCount(userId?: string) {
+/**
+ * useUnreadCount Hook
+ * 
+ * Provides global unread message counts for both direct and project chats.
+ * Synchronized via Realtime.
+ */
+export function useUnreadCount(userId: string | undefined) {
     const { chatService } = useServices();
     const queryClient = useQueryClient();
-    const { user } = useAuth();
+    const queryKey = useMemo(() => ['unread-counts', userId], [userId]);
 
-    // Use passed userId or fallback to current user
-    const effectiveUserId = userId || user?.id;
-
-    const queryKey = useMemo(() => ['unread-counts', effectiveUserId], [effectiveUserId]);
-
-    const { data, isLoading, refetch } = useQuery({
+    const { data: counts = { total: 0, perSender: {}, perProject: {} } } = useQuery<UnreadCounts>({
         queryKey,
         queryFn: async () => {
-            const res = await chatService.getUnreadCounts(effectiveUserId!);
-            if (!res.success)
-                throw new Error(res.error?.message || 'Failed to fetch unread counts');
+            if (!userId) return { total: 0, perSender: {}, perProject: {} };
+            const res = await chatService.getUnreadCounts(userId);
+            if (!res.success) throw new Error(res.error?.message || 'Failed to fetch unread counts');
             return res.data || { total: 0, perSender: {}, perProject: {} };
         },
-        enabled: !!effectiveUserId,
-        staleTime: 0,
-        refetchOnWindowFocus: true,
+        enabled: !!userId,
+        staleTime: 30000, 
     });
 
     useEffect(() => {
-        if (!effectiveUserId) return;
+        if (!userId) return;
 
-        // Subscribe to all incoming messages for this user to update counts
-        const unsubscribe = chatService.subscribeToMessages(
-            (_payload: ChatEventPayload, eventType) => {
-                // Listen for INSERT (new msg), UPDATE (read status/edit), or READ (custom broadcast)
-                if (eventType === 'INSERT' || eventType === 'UPDATE' || eventType === 'READ') {
-                    // Invalidate to fetch fresh counts
-                    queryClient.invalidateQueries({ queryKey });
-                }
-            },
-            undefined,
-            effectiveUserId
-        );
+        // 1. Subscribe to ALL messages involving this user (Direct Chats)
+        const unsubscribeMsgs = chatService.subscribeToMessages((_payload: ChatEventPayload, evt: MessageEventType) => {
+            if (evt === 'INSERT' || evt === 'READ' || evt === 'DELETE') {
+                queryClient.invalidateQueries({ queryKey });
+            }
+        }, undefined, userId);
 
-        // Also listen for "read" events (broadcasted specially)
-        // Note: ChatService handles 'broadcastMessagesRead' but access to raw channel might be needed
-        // if subscribeToMessages doesn't cover custom events.
-        // Assuming 'subscribeToMessages' covers standard DB changes.
-        // For custom 'read' events, we might need a separate subscription if they are not just DB updates.
-        // But usually marking as read updates the 'messages' or 'read_markers' table, which triggers DB changes?
-        // Actually, Realtime often listens to Postgres changes.
-        // If 'markAsRead' updates 'messages' (is_read=true), we get UPDATE event.
-        // If 'markAsRead' inserts 'chat_read_markers', we might need to listen to that table too.
+        // 2. Subscribe to Project Pulses (Project Chats)
+        // This ensures that when someone else sends a message in a project, 
+        // or a project is marked as read, we refresh the counts.
+        const unsubscribeProjects = chatService.subscribeToProjects(() => {
+            queryClient.invalidateQueries({ queryKey });
+        });
 
         return () => {
-            unsubscribe();
+            unsubscribeMsgs();
+            unsubscribeProjects();
         };
-    }, [effectiveUserId, queryClient, queryKey, chatService]);
+    }, [userId, chatService, queryClient, queryKey]);
 
-    const projectUnread = useMemo(
-        () => Object.values(data?.perProject || {}).reduce((a, b) => a + b, 0),
-        [data?.perProject]
-    );
+    const directUnread = useMemo(() => {
+        if (!counts.perSender) return 0;
+        return Object.values(counts.perSender).reduce((acc, val) => acc + val, 0);
+    }, [counts.perSender]);
 
-    const directUnread = useMemo(
-        () => Object.values(data?.perSender || {}).reduce((a, b) => a + b, 0),
-        [data?.perSender]
-    );
+    const projectUnread = useMemo(() => {
+        if (!counts.perProject) return 0;
+        return Object.values(counts.perProject).reduce((acc, val) => acc + val, 0);
+    }, [counts.perProject]);
 
     return {
-        totalUnread: data?.total || 0,
-        projectUnread,
         directUnread,
-        projectCounts: data?.perProject || {},
-        senderCounts: data?.perSender || {},
-        isLoading,
-        refetch,
+        projectUnread,
+        total: counts.total,
+        directCounts: counts.perSender || {},
+        projectCounts: counts.perProject || {},
+        counts
     };
 }

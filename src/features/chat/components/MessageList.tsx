@@ -1,6 +1,5 @@
 /**
  * MessageList Component - Production Optimized
- * Renders the scrollable list of messages with virtualization potential and bubble memoization.
  */
 
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
@@ -16,16 +15,20 @@ interface MessageListProps {
     searchQuery: string;
     onContextMenu: (e: React.MouseEvent, message: Message) => void;
     onImageClick: (imageUrl: string) => void;
+    onMessageRead?: (messageId: string) => void;
 }
 
-const MessageBubble = React.memo<{
+interface MessageBubbleProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onContextMenu'> {
     msg: Message;
     isOwn: boolean;
     replyTo?: Message;
     searchQuery: string;
     onContextMenu: (e: React.MouseEvent, message: Message) => void;
     onImageClick: (imageUrl: string) => void;
-}>(({ msg, isOwn, replyTo, searchQuery, onContextMenu, onImageClick }) => {
+    innerRef?: React.Ref<HTMLDivElement>;
+}
+
+const MessageBubble = React.memo<MessageBubbleProps>(({ msg, isOwn, replyTo, searchQuery, onContextMenu, onImageClick, innerRef, ...rest }) => {
     const highlightText = useCallback((text: string, query: string) => {
         if (!query) return text;
         const parts = text.split(new RegExp(`(${query})`, 'gi'));
@@ -45,9 +48,29 @@ const MessageBubble = React.memo<{
     }, []);
 
     const isTemp = msg.id.startsWith('temp-');
+    
+    // Restore logic: Hide message until image is fully loaded to prevent empty blocks/loaders
+    const mustLoad = msg.image_url && !msg.image_url.startsWith('blob:') && !isTemp;
+    const [imageLoaded, setImageLoaded] = React.useState(!mustLoad);
 
+    // DEBUG LOGS removed by request
+    
+    if (mustLoad && !imageLoaded) {
+        // Return invisible container so flex gap handles it correctly (no gap)
+        return (
+            <div style={{ display: 'none' }}>
+                 <ChatImage 
+                    src={msg.image_url!} 
+                    onReady={() => setImageLoaded(true)} 
+                 />
+            </div>
+        );
+    }
+    
     return (
-        <div
+        <div 
+            ref={innerRef}
+            {...rest}
             className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}
         >
             <div
@@ -66,7 +89,6 @@ const MessageBubble = React.memo<{
                     }
                 `}
             >
-                {/* Reply Context */}
                 {replyTo && (
                     <div className="mb-2 pl-3 border-l-2 border-white/50 opacity-70 text-[11px] font-medium truncate">
                         <span className="font-bold">Ответ на сообщение</span>
@@ -74,22 +96,16 @@ const MessageBubble = React.memo<{
                     </div>
                 )}
 
-                {/* Image */}
                 {msg.image_url && (
                     <ChatImage
-                        key={msg.client_message_id || msg.id}
                         src={msg.image_url}
-                        isTemp={isTemp}
                         altText={msg.content || 'Изображение в сообщении'}
                         onImageClick={() => msg.image_url && onImageClick(msg.image_url)}
+
+                        isTemp={isTemp}
                         footer={
                             !msg.content ? (
                                 <div className="flex items-center gap-1 justify-end">
-                                    {msg.is_edited && (
-                                        <span className="text-[9px] text-white/70 leading-none">
-                                            изм.
-                                        </span>
-                                    )}
                                     <span className="text-[10px] text-white/80 leading-none tabular-nums">
                                         {formatTime(msg.created_at)}
                                     </span>
@@ -110,7 +126,6 @@ const MessageBubble = React.memo<{
                     />
                 )}
 
-                {/* Voice */}
                 {msg.voice_url && (
                     <VoicePlayer
                         voiceUrl={msg.voice_url}
@@ -123,24 +138,19 @@ const MessageBubble = React.memo<{
                     />
                 )}
 
-                {/* Text Content */}
                 {msg.content && (
                     <div className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap">
                         {highlightText(msg.content, searchQuery)}
                     </div>
                 )}
 
-                {/* Footer (only for text/voice messages) */}
                 {(msg.content || msg.voice_url) && (
                     <div className="flex items-center gap-1 mt-1 justify-end select-none">
-                        {msg.is_edited && (
-                            <span className="text-[9px] opacity-40 leading-none">изм.</span>
-                        )}
                         <span className="text-[10px] opacity-40 leading-none tabular-nums">
+                            {msg.is_edited && <span className="mr-1">изм.</span>}
                             {formatTime(msg.created_at)}
                         </span>
-
-                        {isOwn && msg.content && (
+                        {isOwn && (
                             <div className="flex items-center ml-0.5 text-primary-foreground/60">
                                 {isTemp ? (
                                     <Clock size={10} className="opacity-70" />
@@ -158,20 +168,72 @@ const MessageBubble = React.memo<{
     );
 });
 
-MessageBubble.displayName = 'MessageBubble';
-
 export const MessageList: React.FC<MessageListProps> = React.memo(
-    ({ messages, currentUserId, isLoading, searchQuery, onContextMenu, onImageClick }) => {
+    ({
+        messages,
+        currentUserId,
+        isLoading,
+        searchQuery,
+        onContextMenu,
+        onImageClick,
+        onMessageRead,
+    }) => {
         const messagesEndRef = useRef<HTMLDivElement>(null);
         const lastMessageCountRef = useRef(messages.length);
+        const observerRef = useRef<IntersectionObserver | null>(null);
+        
+        // Batch read events with debounce
+        const pendingReadsRef = useRef<Set<string>>(new Set());
+        const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        // Optimized Scroll logic
+        const flushPendingReads = useCallback(() => {
+            if (pendingReadsRef.current.size > 0 && onMessageRead) {
+                // Call onMessageRead once with the first ID (backend marks all as read)
+                const firstId = pendingReadsRef.current.values().next().value;
+                if (firstId) onMessageRead(firstId);
+                pendingReadsRef.current.clear();
+            }
+        }, [onMessageRead]);
+
+        const setRef = useCallback(
+            (node: HTMLDivElement | null) => {
+                if (!node || !onMessageRead) return;
+                if (!observerRef.current) {
+                    observerRef.current = new IntersectionObserver(
+                        (entries) => {
+                            entries.forEach((entry) => {
+                                if (entry.isIntersecting) {
+                                    const id = entry.target.getAttribute('data-message-id');
+                                    const isRead = entry.target.getAttribute('data-is-read') === 'true';
+                                    const senderId = entry.target.getAttribute('data-sender-id');
+                                    if (id && !isRead && senderId !== currentUserId) {
+                                        pendingReadsRef.current.add(id);
+                                        observerRef.current?.unobserve(entry.target);
+                                        
+                                        // Debounce: flush after 500ms of no new reads
+                                        if (flushTimeoutRef.current) clearTimeout(flushTimeoutRef.current);
+                                        flushTimeoutRef.current = setTimeout(flushPendingReads, 500);
+                                    }
+                                }
+                            });
+                        },
+                        { threshold: 0.5 }
+                    );
+                }
+                observerRef.current.observe(node);
+            },
+            [onMessageRead, currentUserId, flushPendingReads]
+        );
+
+        useEffect(() => {
+            return () => observerRef.current?.disconnect();
+        }, []);
+
         useEffect(() => {
             const hasNewMessages = messages.length > lastMessageCountRef.current;
             if (hasNewMessages) {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             } else if (messages.length > 0 && lastMessageCountRef.current === 0) {
-                // Initial load
                 messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
             }
             lastMessageCountRef.current = messages.length;
@@ -199,9 +261,7 @@ export const MessageList: React.FC<MessageListProps> = React.memo(
             return (
                 <div className="h-full flex flex-col items-center justify-center text-foreground/10 space-y-4">
                     <MessageSquare size={64} />
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">
-                        Начните общение первым
-                    </p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">Начните общение первым</p>
                 </div>
             );
         }
@@ -211,6 +271,10 @@ export const MessageList: React.FC<MessageListProps> = React.memo(
                 {filteredMessages.map((msg) => (
                     <MessageBubble
                         key={msg.client_message_id || msg.id}
+                        innerRef={msg.is_read || msg.sender_id === currentUserId ? undefined : setRef}
+                        data-message-id={msg.id}
+                        data-is-read={msg.is_read}
+                        data-sender-id={msg.sender_id}
                         msg={msg}
                         isOwn={msg.sender_id === currentUserId}
                         replyTo={msg.reply_to_id ? messageMap.get(msg.reply_to_id) : undefined}

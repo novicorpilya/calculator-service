@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabase';
 import { authStorage } from '@/services/supabase/storage';
+import { logger } from '@/core/logging';
 import type {
     AuthResponse,
     LoginCredentials,
@@ -11,13 +12,7 @@ import type {
 } from './auth.types';
 import { dbProfileSchema } from './auth.validation';
 
-const wrapError = (err: unknown): { message: string } => {
-    if (err instanceof Error) return { message: err.message };
-    if (typeof err === 'object' && err !== null && 'message' in err) {
-        return { message: String((err as { message: unknown }).message) };
-    }
-    return { message: String(err) };
-};
+import { wrapError } from '@/core/utils/errors';
 
 export const authService = {
     login: async (credentials: LoginCredentials): Promise<ActionResult<AuthResponse>> => {
@@ -219,11 +214,11 @@ export const authService = {
 
             const parsed = dbProfileSchema.safeParse(data);
             if (!parsed.success) {
-                console.error('Failed to parse profile from DB', parsed.error);
+                logger.error('Failed to parse profile from DB', { error: parsed.error });
                 return { success: false, error: { message: 'Data corruption in profile' } };
             }
 
-            const { organization_name, first_name, last_name, created_at, ...other } = parsed.data;
+            const { organization_name, first_name, last_name, avatar_url, created_at, ...other } = parsed.data;
 
             return {
                 success: true,
@@ -232,11 +227,12 @@ export const authService = {
                     organizationName: organization_name || undefined,
                     firstName: first_name || undefined,
                     lastName: last_name || undefined,
+                    avatarUrl: avatar_url || undefined,
                     createdAt: created_at,
                 },
             };
         } catch (e) {
-            console.error('Error in getUserProfile:', e);
+            logger.error('Error in getUserProfile', { error: e, userId: id });
             return { success: false, error: wrapError(e) };
         }
     },
@@ -277,13 +273,14 @@ export const authService = {
 
     updateProfile: async (userId: string, data: UpdateProfileData): Promise<ActionResult<User>> => {
         try {
-            const updateObj: Record<string, string | undefined> = {};
+            const updateObj: Record<string, string | null | undefined> = {};
             if (data.organizationName !== undefined)
                 updateObj.organization_name = data.organizationName;
             if (data.firstName !== undefined) updateObj.first_name = data.firstName;
             if (data.lastName !== undefined) updateObj.last_name = data.lastName;
             if (data.phone !== undefined) updateObj.phone = data.phone;
             if (data.address !== undefined) updateObj.address = data.address;
+            if (data.avatarUrl !== undefined) updateObj.avatar_url = data.avatarUrl;
 
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', userId);
 
@@ -295,6 +292,29 @@ export const authService = {
                     error: { message: res.error?.message || 'Ошибка получения профиля' },
                 };
             return { success: true, data: res.data };
+        } catch (err) {
+            return { success: false, error: wrapError(err) };
+        }
+    },
+
+    uploadAvatar: async (userId: string, file: File): Promise<ActionResult<string>> => {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
+            const filePath = `chat/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('attachments')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: true
+                });
+
+            if (uploadError) return { success: false, error: { message: uploadError.message } };
+
+            const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
+
+            return { success: true, data: data.publicUrl };
         } catch (err) {
             return { success: false, error: wrapError(err) };
         }

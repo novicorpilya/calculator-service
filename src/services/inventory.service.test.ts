@@ -51,7 +51,17 @@ describe('InventoryService', () => {
     describe('getGlobalItems', () => {
         it('should return paginated data', async () => {
             const mockData = [{ id: '1', name: 'Item 1' }] as InventoryItemMaster[];
-            mockSupabase.mocks.select.mockReturnThis();
+            
+            // Mock sequence:
+            // 1. Initial query building: .from().select() -> returns this
+            // 2. isDbEmpty check: .from().select() -> resolves with count
+            mockSupabase.mocks.select
+                .mockReturnValueOnce(mockSupabase) // for let query = ...
+                .mockResolvedValueOnce({
+                    count: 1,
+                    error: null
+                });
+
             mockSupabase.mocks.order.mockReturnThis();
             mockSupabase.mocks.range.mockResolvedValue({
                 data: mockData,

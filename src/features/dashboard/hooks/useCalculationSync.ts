@@ -22,7 +22,7 @@ interface CalculationDB {
  */
 export function useCalculationSync(userId: string | null) {
     const queryClient = useQueryClient();
-    const { logger } = useServices();
+    const { logger, chatService } = useServices();
     const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
     useEffect(() => {
@@ -138,4 +138,28 @@ export function useCalculationSync(userId: string | null) {
             }
         };
     }, [userId, queryClient, logger]);
+
+    // Listen to Broadcast Pulses (New Messages -> Bump Sorting)
+    useEffect(() => {
+        if (!userId) return;
+
+        // Subscribe to real-time chat updates (Global Sync)
+        const cleanup = chatService.subscribeToProjects((payload) => {
+             // When a new message arrives, the backend trigger bumps updated_at.
+             // We must invalidate queries to re-fetch the sorted list and update badges.
+             
+             logger.info('[RealtimeSync] Received project pulse', payload);
+
+             queryClient.invalidateQueries({
+                 queryKey: ['calculations'], 
+                 refetchType: 'active',
+             });
+             
+             queryClient.invalidateQueries({
+                 queryKey: ['unread-counts', userId],
+             });
+        });
+
+        return () => cleanup();
+    }, [userId, chatService, queryClient, logger]);
 }

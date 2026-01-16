@@ -8,7 +8,6 @@ import { ClientCalculationDetails } from '@/features/dashboard/client/components
 import { NewCalculationWizard } from '@/features/dashboard/client/components/NewCalculationWizard';
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
 import { ClientOverview } from '@/features/dashboard/client/components/ClientOverview';
-import { InventoryManager } from '@/features/dashboard/client/components/InventoryManager';
 import { VenuePage } from '../Venue/Venue.page';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
 import type { Calculation } from '@/features/dashboard/dashboard.types';
@@ -341,9 +340,7 @@ export const ClientDashboard: React.FC = () => {
                         ? 'Профиль'
                         : currentPage === 'venue'
                           ? 'Заведения'
-                          : currentPage === 'inventory'
-                            ? 'Инвентарь'
-                            : currentPage === 'chat'
+                          : currentPage === 'chat'
                               ? 'Чат'
                               : currentPage === 'overview'
                                 ? 'Обзор'
@@ -400,9 +397,6 @@ export const ClientDashboard: React.FC = () => {
                                 )}
                                 {currentPage === 'venue' && <VenuePage />}
                                 {currentPage === 'profile' && <ClientProfile />}
-                                {currentPage === 'inventory' && (
-                                    <InventoryManager calculations={calculations} venues={venues} />
-                                )}
                                 {currentPage === 'chat' && <GlobalChatHub />}
                             </ErrorBoundary>
                         )}

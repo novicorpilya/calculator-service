@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { IconInput } from '@/components/ui/IconInput';
 import { Building2, Mail, Phone, MapPin, Loader2, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProfileAvatar } from '../../components/ProfileAvatar';
 
 interface ProfileFormData {
     organizationName: string;
@@ -42,21 +43,26 @@ export const ClientProfile = React.memo(() => {
 
     const onSubmit = async (data: ProfileFormData) => {
         const result = await updateProfile({
-            organizationName: isManager ? undefined : data.organizationName,
-            firstName: isManager ? data.firstName : undefined,
-            lastName: isManager ? data.lastName : undefined,
+            organizationName: isInternalUser ? undefined : data.organizationName,
+            firstName: isInternalUser ? data.firstName : undefined,
+            lastName: isInternalUser ? data.lastName : undefined,
             phone: data.phone,
-            address: isManager ? undefined : data.address,
+            address: isInternalUser ? undefined : data.address,
         });
 
-        if (result.success) {
-            toast.success('Профиль успешно обновлен');
-        } else {
+        if (!result.success) {
             toast.error(result.error?.message || 'Ошибка при обновлении профиля');
         }
     };
 
-    const isManager = user?.role === 'manager';
+    const handleAvatarUpdate = async (url: string | null) => {
+        const result = await updateProfile({ avatarUrl: url });
+        if (!result.success) {
+            toast.error(result.error?.message || 'Ошибка при обновлении аватара');
+        }
+    };
+
+    const isInternalUser = user?.role === 'manager' || user?.role === 'admin';
 
     if (!user) {
         return (
@@ -73,7 +79,7 @@ export const ClientProfile = React.memo(() => {
                     Настройки профиля
                 </h1>
                 <p className="text-foreground/60 font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] sm:tracking-[0.3em]">
-                    {isManager
+                    {isInternalUser
                         ? 'Персональные данные сотрудника'
                         : 'Управление корпоративными данными'}
                 </p>
@@ -83,9 +89,14 @@ export const ClientProfile = React.memo(() => {
                 onSubmit={handleSubmit(onSubmit)}
                 className="glass-card !p-5 sm:!p-8 space-y-8 sm:space-y-10 border-border-theme bg-card shadow-xl"
             >
+                <ProfileAvatar 
+                    avatarUrl={user.avatarUrl} 
+                    onUpdate={handleAvatarUpdate} 
+                />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                     {/* Role-based fields */}
-                    {!isManager ? (
+                    {!isInternalUser ? (
                         <>
                             <div className="space-y-3">
                                 <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
@@ -151,7 +162,7 @@ export const ClientProfile = React.memo(() => {
                         />
                     </div>
 
-                    {!isManager && (
+                    {!isInternalUser && (
                         <div className="space-y-3">
                             <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
                                 Юридический адрес

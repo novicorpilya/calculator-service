@@ -1,7 +1,6 @@
 import {
     type SupabaseClient,
     type RealtimeChannel,
-    type RealtimePostgresChangesPayload,
 } from '@supabase/supabase-js';
 import {
     CHAT_CHANNELS,
@@ -11,49 +10,56 @@ import {
     type TypingEventPayload,
     type ChatEventPayload,
     type HistoryClearedPayload,
+    type MessageAckPayload,
 } from '../types';
 
 export interface IBroadcastService {
     broadcastNewMessage(message: Message): Promise<boolean>;
+    broadcastMessageUpdate(message: Message): Promise<boolean>;
+    broadcastMessageDelete(message: Message): Promise<boolean>;
     broadcastMessagesRead(
         receiverId: string,
         calculationId?: string,
         readerId?: string
     ): Promise<boolean>;
     broadcastClearHistory(userId: string, contactId: string): Promise<boolean>;
+    broadcastMessageAck(ack: MessageAckPayload): Promise<boolean>;
+    broadcastNewMessageWithRetry(message: Message): Promise<boolean>;
     subscribeToMessages(
         callback: (payload: ChatEventPayload, eventType: MessageEventType) => void,
         calculationId?: string,
         userId?: string
     ): () => void;
-
-    // Sync Signals (Master Projects Stream)
     broadcastProjectPulse(calcId: string | number, type: string): Promise<boolean>;
     subscribeToProjects(
         callback: (payload: { id: string; type: string; ts: number; isSignal?: boolean }) => void
     ): () => void;
+    releaseChannel(channelName: string): void;
 }
 
 /**
- * BroadcastService - High Efficiency Implementation
+ * BroadcastService 2.1 - Unified Channel Management & Reliable Delivery
  */
 export class BroadcastService implements IBroadcastService {
     private client: SupabaseClient;
-    private channelCache: Map<string, RealtimeChannel> = new Map();
+    // Unified cache for all channel objects
+    private channelCache: Map<string, { channel: RealtimeChannel; refCount: number }> = new Map();
     private pendingSubscriptions: Map<string, Promise<RealtimeChannel>> = new Map();
+    private ackHandlers: Map<string, (payload: MessageAckPayload) => void> = new Map();
 
     constructor(client: SupabaseClient) {
         this.client = client;
     }
 
-    private async getOrCreateChannel(channelName: string): Promise<RealtimeChannel> {
-        if (this.channelCache.has(channelName)) {
-            const cached = this.channelCache.get(channelName)!;
-            if (cached.state === 'joined') return cached;
-
-            if (cached.state === 'closed' || cached.state === 'errored') {
-                this.channelCache.delete(channelName);
-                this.client.removeChannel(cached);
+    private async getOrCreateChannel(channelName: string, attempt = 1): Promise<RealtimeChannel> {
+        const existing = this.channelCache.get(channelName);
+        if (existing) {
+            if (['joined', 'joining'].includes(existing.channel.state)) {
+                return existing.channel;
+            }
+            // If closed/errored, cleanup and restart
+            if (['closed', 'errored'].includes(existing.channel.state)) {
+                this.cleanupChannel(channelName);
             }
         }
 
@@ -62,33 +68,82 @@ export class BroadcastService implements IBroadcastService {
         }
 
         const connectionPromise = new Promise<RealtimeChannel>((resolve, reject) => {
-            const channel = this.client.channel(channelName);
+            // Optimize: Disable presence for all broadcast channels.
+            // Presence is handled by PresenceService (global_presence) separately.
+            const channel = this.client.channel(channelName, {
+                config: {
+                    broadcast: { self: false },
+                }
+            });
+
+            // Setup basic listeners
+            channel.on(
+                'broadcast',
+                { event: 'delivery_ack' },
+                ({ payload }: { payload: MessageAckPayload }) => {
+                    const handler = this.ackHandlers.get(payload.messageId);
+                    if (handler) {
+                        handler(payload);
+                    }
+                }
+            );
 
             const timeout = setTimeout(() => {
-                cleanup();
-                reject(new Error(`Subscription TIMED_OUT for ${channelName}`));
-            }, 5000);
-
-            const cleanup = () => {
-                clearTimeout(timeout);
                 this.pendingSubscriptions.delete(channelName);
-            };
+                this.client.removeChannel(channel);
+                reject(new Error(`Subscription TIMED_OUT for ${channelName} after 15s`));
+            }, 15000);
 
             channel.subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
-                    cleanup();
-                    this.channelCache.set(channelName, channel);
+                    clearTimeout(timeout);
+                    this.pendingSubscriptions.delete(channelName);
+                    this.channelCache.set(channelName, { channel, refCount: (existing?.refCount || 0) });
                     resolve(channel);
                 } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                    cleanup();
+                    clearTimeout(timeout);
+                    this.pendingSubscriptions.delete(channelName);
                     this.client.removeChannel(channel);
-                    reject(new Error(`Channel ${status} on ${channelName}`));
+                    
+                    if (attempt < 4) {
+                        const delay = attempt * 1500;
+                        console.warn(`[Broadcast] Re-trying subscription for ${channelName} (attempt ${attempt + 1}) in ${delay}ms...`);
+                        setTimeout(() => {
+                            this.getOrCreateChannel(channelName, attempt + 1).then(resolve).catch(reject);
+                        }, delay);
+                    } else {
+                        reject(new Error(`Channel ${status} on ${channelName}`));
+                    }
                 }
             });
         });
 
         this.pendingSubscriptions.set(channelName, connectionPromise);
         return connectionPromise;
+    }
+
+    /**
+     * Release a channel reference. When refCount drops to 0, the channel is cleaned up.
+     * Should be called by unsubscribe callbacks.
+     */
+    releaseChannel(channelName: string): void {
+        const entry = this.channelCache.get(channelName);
+        if (!entry) return;
+
+        entry.refCount = Math.max(0, entry.refCount - 1);
+        
+        if (entry.refCount === 0) {
+            console.debug(`[Broadcast] Releasing channel ${channelName} (no more refs)`);
+            this.cleanupChannel(channelName);
+        }
+    }
+
+    private cleanupChannel(channelName: string) {
+        const entry = this.channelCache.get(channelName);
+        if (entry) {
+            this.client.removeChannel(entry.channel);
+            this.channelCache.delete(channelName);
+        }
     }
 
     private async sendBroadcast(
@@ -104,21 +159,102 @@ export class BroadcastService implements IBroadcastService {
                 payload,
             });
             return true;
-        } catch {
+        } catch (err) {
+            console.error(`[Broadcast] Failed to send ${event} to ${channelName}`, err);
             return false;
         }
     }
 
     async broadcastNewMessage(message: Message): Promise<boolean> {
+        if (message.calculation_id) {
+            // 1. Send to the project room (for those who have it open)
+            this.sendBroadcast(`${CHAT_CHANNELS.CHAT_PREFIX}${message.calculation_id}`, 'new_message', message);
+            
+            // 2. Trigger global pulse (for generic list updates)
+            this.broadcastProjectPulse(message.calculation_id, 'NEW_MESSAGE');
+
+            // 3. IMPORTANT: If there is a specific receiver, send to their private channel too!
+            // This makes the notification "Mgnovenno" (Instant) just like in Direct Chat.
+            if (message.receiver_id) {
+                this.sendBroadcast(`user_updates_${message.receiver_id}`, 'new_message', message);
+            }
+            return true;
+        }
+
+        // Direct message sync
+        if (message.sender_id) {
+            this.sendBroadcast(`user_updates_${message.sender_id}`, 'new_message', message);
+        }
+
+        return this.sendBroadcast(`user_updates_${message.receiver_id}`, 'new_message', message);
+    }
+
+    async broadcastMessageUpdate(message: Message): Promise<boolean> {
         const channelName = message.calculation_id
             ? `${CHAT_CHANNELS.CHAT_PREFIX}${message.calculation_id}`
             : `user_updates_${message.receiver_id}`;
 
-        if (!message.calculation_id && message.sender_id) {
-            this.sendBroadcast(`user_updates_${message.sender_id}`, 'new_message', message);
+        if (message.sender_id) {
+            this.sendBroadcast(`user_updates_${message.sender_id}`, 'message_updated', message);
         }
 
-        return this.sendBroadcast(channelName, 'new_message', message);
+        return this.sendBroadcast(channelName, 'message_updated', message);
+    }
+
+    async broadcastMessageDelete(message: Message): Promise<boolean> {
+        const channelName = message.calculation_id
+            ? `${CHAT_CHANNELS.CHAT_PREFIX}${message.calculation_id}`
+            : `user_updates_${message.receiver_id}`;
+
+        if (message.sender_id) {
+            this.sendBroadcast(`user_updates_${message.sender_id}`, 'message_deleted', message);
+        }
+
+        return this.sendBroadcast(channelName, 'message_deleted', message);
+    }
+
+    async broadcastMessageAck(ack: MessageAckPayload): Promise<boolean> {
+        const channelName = `user_updates_${ack.senderId}`;
+        console.debug(`[Broadcast] Sending ACK to ${channelName} for ${ack.messageId}`);
+        return this.sendBroadcast(channelName, 'delivery_ack', ack);
+    }
+
+    async broadcastNewMessageWithRetry(message: Message, maxRetries = 2): Promise<boolean> {
+        const attempt = async (retryCount: number): Promise<boolean> => {
+            let acknowledged = false;
+            const ackPromise = new Promise<void>((resolve) => {
+                const handler = (payload: MessageAckPayload) => {
+                    if (payload.messageId === message.id) {
+                        acknowledged = true;
+                        resolve();
+                    }
+                };
+                this.ackHandlers.set(message.id, handler);
+                // 5s wait for ACK
+                setTimeout(() => resolve(), 5000);
+            });
+
+            const sent = await this.broadcastNewMessage(message);
+            if (!sent) return false;
+
+            await ackPromise;
+            this.ackHandlers.delete(message.id);
+
+            if (acknowledged) {
+                console.debug(`[Broadcast] Message ${message.id} delivered successfully.`);
+                return true;
+            }
+
+            if (retryCount < maxRetries) {
+                console.warn(`[Broadcast] No ACK for ${message.id}. Retrying (${retryCount + 1}/${maxRetries})...`);
+                return attempt(retryCount + 1);
+            }
+
+            console.error(`[Broadcast] Message ${message.id} failed after ${maxRetries} retries.`);
+            return false;
+        };
+
+        return attempt(0);
     }
 
     async broadcastMessagesRead(
@@ -126,10 +262,36 @@ export class BroadcastService implements IBroadcastService {
         calculationId?: string,
         readerId?: string
     ): Promise<boolean> {
-        const channelName = calculationId
-            ? `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`
-            : `user_updates_${receiverId}`;
-        return this.sendBroadcast(channelName, 'messages_read', {
+        if (calculationId) {
+            // 1. Notify the project room
+            this.sendBroadcast(`${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`, 'messages_read', {
+                readerId,
+                calculationId,
+                receiverId,
+            });
+            
+            // 2. Identify the other participant to notify their personal channel (for count sync)
+            if (readerId) {
+                // Signal to the reader's other tabs
+                this.sendBroadcast(`user_updates_${readerId}`, 'messages_read', {
+                    readerId,
+                    calculationId,
+                    receiverId,
+                });
+            }
+            
+            // 3. Signal to the receiver (the one whose messages were read) for instant double-ticks
+            if (receiverId && receiverId !== readerId) {
+                this.sendBroadcast(`user_updates_${receiverId}`, 'messages_read', {
+                    readerId,
+                    calculationId,
+                    receiverId,
+                });
+            }
+            return true;
+        }
+
+        return this.sendBroadcast(`user_updates_${receiverId}`, 'messages_read', {
             readerId,
             calculationId,
             receiverId,
@@ -143,105 +305,73 @@ export class BroadcastService implements IBroadcastService {
         });
     }
 
-    private subscriptionCache: Map<string, { channel: RealtimeChannel; count: number }> = new Map();
-
     subscribeToMessages(
         callback: (payload: ChatEventPayload, eventType: MessageEventType) => void,
         calculationId?: string,
         userId?: string
     ): () => void {
-        let channelName: string = CHAT_CHANNELS.GLOBAL_SYNC;
-        if (calculationId) {
-            channelName = `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`;
-        } else if (userId) {
-            channelName = `user_updates_${userId}`;
+        const channelName = calculationId
+            ? `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`
+            : userId
+            ? `user_updates_${userId}`
+            : CHAT_CHANNELS.GLOBAL_SYNC;
+
+        // If a specific user is specified, also subscribe to Global Sync for project-wide events
+        if (userId && channelName !== CHAT_CHANNELS.GLOBAL_SYNC) {
+            this.subscribeToMessages(callback, undefined, undefined); // Recursive call for Global Sync
         }
 
-        let cacheEntry = this.subscriptionCache.get(channelName);
+        let isInitialJoin = true;
 
-        if (!cacheEntry) {
-            let isInitialJoin = true;
-            const channel = this.client.channel(channelName);
+        this.getOrCreateChannel(channelName).then((channel) => {
+            const entry = this.channelCache.get(channelName);
+            if (entry) {
+                entry.refCount++;
+            }
 
             channel
                 .on('broadcast', { event: 'new_message' }, ({ payload }: { payload: Message }) =>
                     callback(payload, 'INSERT')
                 )
-                .on(
-                    'broadcast',
-                    { event: 'message_updated' },
-                    ({ payload }: { payload: Message }) => callback(payload, 'UPDATE')
+                .on('broadcast', { event: 'message_updated' }, ({ payload }: { payload: Message }) =>
+                    callback(payload, 'UPDATE')
                 )
-                .on(
-                    'broadcast',
-                    { event: 'message_deleted' },
-                    ({ payload }: { payload: Message }) => callback(payload, 'DELETE')
+                .on('broadcast', { event: 'message_deleted' }, ({ payload }: { payload: Message }) =>
+                    callback(payload, 'DELETE')
                 )
-                .on(
-                    'broadcast',
-                    { event: 'history_cleared' },
-                    ({ payload }: { payload: HistoryClearedPayload }) =>
-                        callback(payload as unknown as Message, 'DELETE')
+                .on('broadcast', { event: 'history_cleared' }, ({ payload }: { payload: HistoryClearedPayload }) =>
+                    callback(payload as unknown as Message, 'DELETE')
                 )
-                .on(
-                    'broadcast',
-                    { event: 'messages_read' },
-                    ({ payload }: { payload: ReadEventPayload }) => callback(payload, 'READ')
+                .on('broadcast', { event: 'messages_read' }, ({ payload }: { payload: ReadEventPayload }) =>
+                    callback(payload, 'READ')
                 )
-                .on(
-                    'broadcast',
-                    { event: 'typing' },
-                    ({ payload }: { payload: TypingEventPayload }) =>
-                        callback({ id: 'typing-signal', ...payload } as ChatEventPayload, 'TYPING')
-                );
+                .on('broadcast', { event: 'typing' }, ({ payload }: { payload: TypingEventPayload }) =>
+                    callback({ id: 'typing-signal', ...payload } as ChatEventPayload, 'TYPING')
+                )
+                .on('broadcast', { event: 'delivery_ack' }, ({ payload }: { payload: MessageAckPayload }) => {
+                    // This is also handled in getOrCreateChannel for the retry logic, 
+                    // but we pass it to the UI here to show "Delivered" status.
+                    callback(payload, 'ACK');
+                });
 
-            channel.on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'chat_read_markers',
-                },
-                (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-                    if (payload.new) {
-                        callback(
-                            { id: 'marker-update', ...payload.new } as ChatEventPayload,
-                            'UPDATE'
-                        );
-                    }
-                }
-            );
-
-            channel.subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    if (!isInitialJoin)
-                        callback({ id: 'reconnect-signal' } as ChatEventPayload, 'RECONNECT');
-                    isInitialJoin = false;
-                }
-            });
-
-            cacheEntry = { channel, count: 0 };
-            this.subscriptionCache.set(channelName, cacheEntry);
-        }
-
-        cacheEntry.count++;
+            if (isInitialJoin && channel.state === 'joined') {
+                // Already joined, trigger initial signal if needed
+                isInitialJoin = false;
+            }
+        });
 
         return () => {
-            const currentEntry = this.subscriptionCache.get(channelName);
-            if (!currentEntry) return;
-
-            currentEntry.count--;
-            if (currentEntry.count <= 0) {
-                this.client.removeChannel(currentEntry.channel);
-                this.subscriptionCache.delete(channelName);
+            const entry = this.channelCache.get(channelName);
+            if (entry) {
+                entry.refCount--;
+                if (entry.refCount <= 0) {
+                    this.cleanupChannel(channelName);
+                }
             }
         };
     }
 
-    async broadcastProjectPulse(
-        calcId: string | number,
-        type: string = 'UPDATE'
-    ): Promise<boolean> {
+    async broadcastProjectPulse(calcId: string | number, type: string = 'UPDATE'): Promise<boolean> {
         return this.sendBroadcast(CHAT_CHANNELS.GLOBAL_SYNC, 'project_pulse', {
             id: String(calcId),
             type,
@@ -252,40 +382,24 @@ export class BroadcastService implements IBroadcastService {
     subscribeToProjects(
         callback: (payload: { id: string; type: string; ts: number; isSignal?: boolean }) => void
     ): () => void {
-        const channelName = `sync_stream_${Date.now()}`;
+        const channelName = CHAT_CHANNELS.GLOBAL_SYNC;
+        
+        this.getOrCreateChannel(channelName).then(channel => {
+            const entry = this.channelCache.get(channelName);
+            if (entry) {
+                entry.refCount++;
+            }
 
-        const subscriptionChannel = this.client
-            .channel(channelName)
-            .on('broadcast', { event: 'project_pulse' }, ({ payload }) => {
-                callback({
-                    ...(payload as { id: string; type: string; ts: number }),
-                    isSignal: true,
+            channel
+                .on('broadcast', { event: 'project_pulse' }, ({ payload }) => {
+                    callback({ ...(payload as { id: string; type: string; ts: number }), isSignal: true });
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'calculations' }, (payload) => {
+                    const id = (payload.new as { id?: string | number })?.id || (payload.old as { id?: string | number })?.id;
+                    if (id) callback({ id: String(id), type: payload.eventType, ts: Date.now() });
                 });
-            })
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'calculations',
-                },
-                (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-                    const newRecord = payload.new as { id?: string | number };
-                    const oldRecord = payload.old as { id?: string | number };
-                    const id = newRecord?.id || oldRecord?.id;
-                    if (id) {
-                        callback({
-                            id: String(id),
-                            type: payload.eventType,
-                            ts: Date.now(),
-                        });
-                    }
-                }
-            )
-            .subscribe();
+        });
 
-        return () => {
-            this.client.removeChannel(subscriptionChannel);
-        };
+        return () => this.releaseChannel(channelName);
     }
 }

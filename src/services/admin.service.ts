@@ -5,6 +5,8 @@ import { generateSecureToken } from '@/core/utils/crypto';
 import type { User } from '@/features/auth/auth.types';
 import { userSchema } from '@/features/auth/auth.validation';
 import type { ActionResult, VoidResult } from '@/core/types/results';
+import { logger } from '@/core/logging';
+import { wrapError } from '@/core/utils/errors';
 
 export const InvitationSchema = z.object({
     id: z.string().uuid(),
@@ -73,9 +75,6 @@ export class AdminService implements IAdminService {
         this.auditService = auditService;
     }
 
-    private wrapError(error: unknown): { message: string } {
-        return { message: error instanceof Error ? error.message : String(error) };
-    }
 
     async getInvitations(): Promise<ActionResult<Invitation[]>> {
         try {
@@ -84,11 +83,11 @@ export class AdminService implements IAdminService {
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             const validated = z.array(InvitationSchema).safeParse(data);
             if (!validated.success) {
-                console.error('[AdminService:Invitations:Validation]', validated.error);
+                logger.error('[AdminService:Invitations:Validation]', { error: validated.error });
                 return {
                     success: false,
                     error: { message: 'Data format error in invitations list' },
@@ -97,7 +96,7 @@ export class AdminService implements IAdminService {
 
             return { success: true, data: validated.data };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -108,7 +107,7 @@ export class AdminService implements IAdminService {
                 .select('id, email, role, organization_name, phone, address, created_at, status')
                 .order('created_at', { ascending: false });
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             const rawUsers = (data || []).map((p) => ({
                 id: p.id,
@@ -123,13 +122,13 @@ export class AdminService implements IAdminService {
 
             const validated = z.array(userSchema).safeParse(rawUsers);
             if (!validated.success) {
-                console.error('[AdminService:Users:Validation]', validated.error);
+                logger.error('[AdminService:Users:Validation]', { error: validated.error });
                 return { success: false, error: { message: 'Data format error in users list' } };
             }
 
             return { success: true, data: validated.data };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -155,11 +154,11 @@ export class AdminService implements IAdminService {
                 .select()
                 .single();
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             const validated = InvitationSchema.safeParse(data);
             if (!validated.success) {
-                console.error('[AdminService:CreateInvitation:Validation]', validated.error);
+                logger.error('[AdminService:CreateInvitation:Validation]', { error: validated.error });
                 return {
                     success: false,
                     error: { message: 'Format error after invitation creation' },
@@ -174,7 +173,7 @@ export class AdminService implements IAdminService {
             );
             return { success: true, data: validated.data };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -182,12 +181,12 @@ export class AdminService implements IAdminService {
         try {
             const { error } = await this.supabase.from('invitations').delete().eq('id', id);
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction('invitation_deleted', 'invitation', id);
             return { success: true };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -201,14 +200,14 @@ export class AdminService implements IAdminService {
                 .update({ role: newRole })
                 .eq('id', userId);
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction('role_updated', 'profile', userId, {
                 new_role: newRole,
             });
             return { success: true };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -219,11 +218,11 @@ export class AdminService implements IAdminService {
                 .select('id, organization_name, status, total_area, results, created_at')
                 .order('created_at', { ascending: false });
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             const validated = z.array(AdminCalculationSchema).safeParse(data);
             if (!validated.success) {
-                console.error('[AdminService:Calculations:Validation]', validated.error);
+                logger.error('[AdminService:Calculations:Validation]', { error: validated.error });
                 return {
                     success: false,
                     error: { message: 'Data format error in administrative calculation view' },
@@ -232,7 +231,7 @@ export class AdminService implements IAdminService {
 
             return { success: true, data: validated.data };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -242,7 +241,7 @@ export class AdminService implements IAdminService {
                 .from('calculations')
                 .select('status, results');
 
-            if (calcError) return { success: false, error: this.wrapError(calcError) };
+            if (calcError) return { success: false, error: wrapError(calcError) };
 
             const stats: SystemStats = {
                 totalProjects: calculations?.length || 0,
@@ -274,7 +273,7 @@ export class AdminService implements IAdminService {
 
             const validated = SystemStatsSchema.safeParse(stats);
             if (!validated.success) {
-                console.error('[AdminService:Stats:Validation]', validated.error);
+                logger.error('[AdminService:Stats:Validation]', { error: validated.error });
                 return {
                     success: false,
                     error: { message: 'Logic error in system stats calculation' },
@@ -283,7 +282,7 @@ export class AdminService implements IAdminService {
 
             return { success: true, data: validated.data };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -293,12 +292,12 @@ export class AdminService implements IAdminService {
                 user_id_param: userId,
             });
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction('user_deleted_permanently', 'profile', userId);
             return { success: true };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -309,7 +308,7 @@ export class AdminService implements IAdminService {
                 new_status: status,
             });
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction(
                 status === 'blocked' ? 'user_blocked' : 'user_unblocked',
@@ -318,7 +317,7 @@ export class AdminService implements IAdminService {
             );
             return { success: true };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -326,7 +325,7 @@ export class AdminService implements IAdminService {
         try {
             const { error } = await this.supabase.from('calculations').delete().eq('id', id);
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction(
                 'calculation_deleted_by_admin',
@@ -335,7 +334,7 @@ export class AdminService implements IAdminService {
             );
             return { success: true };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 
@@ -346,7 +345,7 @@ export class AdminService implements IAdminService {
                 .update({ status, updated_at: new Date().toISOString() })
                 .eq('id', id);
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction(
                 'calculation_status_force_updated',
@@ -356,7 +355,7 @@ export class AdminService implements IAdminService {
             );
             return { success: true };
         } catch (error) {
-            return { success: false, error: this.wrapError(error) };
+            return { success: false, error: wrapError(error) };
         }
     }
 }

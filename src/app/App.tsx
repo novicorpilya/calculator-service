@@ -9,6 +9,7 @@ import { Toaster } from 'sonner';
 
 import { ServiceProvider } from '@/core/di/ServiceContainer';
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
+import { ConnectivityBanner } from '@/components/common/ConnectivityBanner';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -27,6 +28,7 @@ const queryClient = new QueryClient({
 export const App: React.FC = () => {
     return (
         <ErrorBoundary>
+            <ConnectivityBanner />
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
                     <AuthProvider>

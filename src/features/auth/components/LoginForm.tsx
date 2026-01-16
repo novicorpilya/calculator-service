@@ -91,14 +91,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
 
             <div className="flex items-center justify-between py-1 px-1">
-                <div
-                    className="flex items-center gap-3 group cursor-pointer"
-                    onClick={() => {
-                        const el = document.getElementById('rememberMe') as HTMLInputElement;
-                        if (el) el.click();
-                    }}
-                >
-                    <div className="relative flex items-center">
+                <div className="flex items-center gap-3">
+                    <div className="relative flex items-center h-5">
                         <input
                             {...register('rememberMe')}
                             type="checkbox"
@@ -118,7 +112,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                     </div>
-                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest cursor-pointer group-hover:text-foreground/60 transition-colors">
+                    <label 
+                        htmlFor="rememberMe"
+                        className="text-[10px] font-black text-foreground/40 uppercase tracking-widest cursor-pointer hover:text-foreground/60 transition-colors"
+                    >
                         Запомнить меня
                     </label>
                 </div>
@@ -127,7 +124,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <button
                 type="submit"
                 disabled={loading || !isValid}
-                className="btn-premium w-full !text-[12px] py-6"
+                className="btn-premium w-full !text-[12px] py-6 group"
             >
                 <span className="relative z-10">{loading ? 'Вход...' : 'Войти в систему'}</span>
                 {!loading && (

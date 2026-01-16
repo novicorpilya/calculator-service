@@ -58,6 +58,7 @@ export const userSchema = z.object({
     lastName: z.string().optional().nullable(),
     phone: z.string().optional().nullable(),
     address: z.string().optional().nullable(),
+    avatarUrl: z.string().optional().nullable(),
     status: z.enum(['active', 'blocked']).default('active'),
     createdAt: z.string(),
 });
@@ -71,6 +72,7 @@ export const dbProfileSchema = z.object({
     last_name: z.string().optional().nullable(),
     phone: z.string().optional().nullable(),
     address: z.string().optional().nullable(),
+    avatar_url: z.string().optional().nullable(),
     status: z.enum(['active', 'blocked']).default('active'),
     created_at: z.string(),
 });

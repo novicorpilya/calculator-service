@@ -44,6 +44,7 @@ export interface UpdateProfileData {
     lastName?: string;
     phone?: string;
     address?: string;
+    avatarUrl?: string | null;
 }
 
 export type { ActionResult };

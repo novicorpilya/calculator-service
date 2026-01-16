@@ -12,6 +12,11 @@ export const ROUTES = {
         CLIENT: '/dashboard/client',
         ADMIN: '/dashboard/admin',
     },
+    ERRORS: {
+        NOT_FOUND: '/404',
+        FORBIDDEN: '/403',
+        MAINTENANCE: '/maintenance',
+    },
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES] | string;

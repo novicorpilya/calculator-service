@@ -11,13 +11,19 @@ import {
     AlertCircle,
     Trash2,
     Mic,
+    Truck,
+    MapPin,
+    Copy,
+    Star,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
+import { VoicePlayer } from '@/components/ui/VoicePlayer';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 import { logger } from '@/core/logging';
 import type { Message } from '@/features/chat/types';
-import { ChatImage } from '@/features/chat/components/ChatImage';
+import { ChatImage } from '@/features/chat/components';
 
 const ProjectMessageItem = React.memo<{
     msg: Message;
@@ -59,65 +65,222 @@ const ProjectMessageItem = React.memo<{
                     <ChatImage
                         key={msg.client_message_id || msg.id}
                         src={msg.image_url}
-                        isTemp={msg.id.startsWith('temp-') || msg.status === 'pending'}
                         onImageClick={() => onImageClick(msg.image_url!)}
-                        onRetry={() => onResend?.(msg)}
+                    />
+                )}
+                {msg.voice_url && (
+                    <VoicePlayer
+                        voiceUrl={msg.voice_url}
+                        duration={msg.voice_duration || undefined}
+                        isOwn={isOwn}
+                        showLoading={msg.status === 'pending'}
+                        isTemp={msg.status === 'pending'}
+                        isRead={msg.is_read}
+                        className="min-w-[200px]"
                     />
                 )}
                 {msg.content && (
-                    <p className={`text-[13px] leading-relaxed ${msg.image_url ? 'mt-3' : ''}`}>
+                    <p className={`text-[13px] leading-relaxed ${msg.image_url || msg.voice_url ? 'mt-3' : ''}`}>
                         {msg.content}
                     </p>
                 )}
 
                 {/* Action Card Renderers */}
-                {msg.message_type === 'roadmap_card' && (
-                    <div
-                        className={`mt-4 p-4 rounded-2xl border space-y-4 shadow-sm ${
-                            isOwn ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/10'
-                        }`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div
-                                className={`p-2 rounded-lg ${
-                                    isOwn ? 'bg-white/20 text-white' : 'bg-primary/20 text-primary'
-                                }`}
-                            >
-                                <Clock size={14} />
-                            </div>
-                            <span
-                                className={`text-[10px] font-black uppercase tracking-widest ${
-                                    isOwn ? 'text-white/80' : 'text-primary/80'
-                                }`}
-                            >
-                                Статус реализации
-                            </span>
-                        </div>
-                        <div className="flex gap-1">
-                            {[1, 2, 3, 4].map((step) => (
-                                <div
-                                    key={step}
-                                    className={`h-1.5 flex-1 rounded-full ${
-                                        step === 1
-                                            ? isOwn
-                                                ? 'bg-white'
-                                                : 'bg-primary'
-                                            : isOwn
-                                              ? 'bg-white/10'
-                                              : 'bg-primary/10'
-                                    }`}
-                                />
-                            ))}
-                        </div>
+                {msg.message_type === 'roadmap_card' && (() => {
+                    // Parse metadata for dynamic roadmap state
+                    const metadata = msg.metadata as {
+                        currentStep?: number;
+                        statusTitle?: string;
+                        description?: string;
+                    } | null;
+                    const currentStep = metadata?.currentStep ?? 1;
+                    const statusTitle = metadata?.statusTitle ?? 'Статус реализации';
+                    const description = metadata?.description ?? 'Команда закупки начала работу над вашим заказом';
+
+                    return (
                         <div
-                            className={`text-[11px] font-medium italic ${
-                                isOwn ? 'text-white/70' : 'text-foreground/70'
+                            className={`mt-4 p-4 rounded-2xl border space-y-4 shadow-sm ${
+                                isOwn ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/10'
                             }`}
                         >
-                            Команда закупки начала работу над вашим заказом
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className={`p-2 rounded-lg ${
+                                        isOwn ? 'bg-white/20 text-white' : 'bg-primary/20 text-primary'
+                                    }`}
+                                >
+                                    <Clock size={14} />
+                                </div>
+                                <span
+                                    className={`text-[10px] font-black uppercase tracking-widest ${
+                                        isOwn ? 'text-white/80' : 'text-primary/80'
+                                    }`}
+                                >
+                                    {statusTitle}
+                                </span>
+                            </div>
+                            <div className="flex gap-1">
+                                {[1, 2, 3, 4].map((step) => (
+                                    <div
+                                        key={step}
+                                        className={`h-1.5 flex-1 rounded-full ${
+                                            step <= currentStep
+                                                ? isOwn
+                                                    ? 'bg-white'
+                                                    : 'bg-primary'
+                                                : isOwn
+                                                  ? 'bg-white/10'
+                                                  : 'bg-primary/10'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                            <div
+                                className={`text-[11px] font-medium italic ${
+                                    isOwn ? 'text-white/70' : 'text-foreground/70'
+                                }`}
+                            >
+                                {description}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
+
+                {msg.message_type === 'shipping_card' && (() => {
+                    const metadata = msg.metadata as {
+                        tracker?: string;
+                        deliveryDate?: string;
+                        deliveryTime?: string;
+                        arrivalEstimate?: string;
+                    } | null;
+
+                    const handleCopyTracker = () => {
+                        if (metadata?.tracker) {
+                            navigator.clipboard.writeText(metadata.tracker);
+                            toast.success('Трек-номер скопирован');
+                        }
+                    };
+
+                    return (
+                        <div
+                            className={`mt-4 p-5 rounded-3xl border-2 space-y-4 shadow-xl overflow-hidden relative group ${
+                                isOwn 
+                                    ? 'bg-gradient-to-br from-white/20 to-white/5 border-white/20 text-white' 
+                                    : 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 text-foreground'
+                            }`}
+                        >
+                            {/* Decorative background pulse */}
+                            <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 animate-pulse ${isOwn ? 'bg-white' : 'bg-primary'}`} />
+
+                            <div className="flex items-center justify-between relative">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2.5 rounded-2xl shadow-lg border border-white/10 ${isOwn ? 'bg-white/20' : 'bg-primary/20 text-primary'}`}>
+                                        <Truck size={18} className="animate-bounce" />
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] block ${isOwn ? 'text-white/60' : 'text-primary/60'}`}>
+                                            Доставка в пути
+                                        </span>
+                                        <h4 className="text-sm font-bold">Ваш заказ на пути к вам</h4>
+                                    </div>
+                                </div>
+                                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${
+                                    isOwn ? 'bg-white/10 border-white/20 text-white' : 'bg-primary/10 border-primary/20 text-primary'
+                                }`}>
+                                    {metadata?.arrivalEstimate ?? 'Скоро'}
+                                </div>
+                            </div>
+
+                            <div className={`grid grid-cols-2 gap-3 p-4 rounded-2xl border ${
+                                isOwn ? 'bg-black/20 border-white/10' : 'bg-white/50 border-primary/10 dark:bg-black/20'
+                            }`}>
+                                <div className="space-y-1">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}>Дата</span>
+                                    <p className="text-xs font-bold leading-none">{metadata?.deliveryDate ?? '--.--.----'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}>Время</span>
+                                    <p className="text-xs font-bold leading-none">{metadata?.deliveryTime ?? '--:--'}</p>
+                                </div>
+                            </div>
+
+                            <div 
+                                onClick={handleCopyTracker}
+                                className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer group/tracker transition-all active:scale-[0.98] ${
+                                    isOwn ? 'bg-white/10 border-white/10 hover:bg-white/20' : 'bg-primary/5 border-primary/10 hover:bg-primary/10'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-1.5 rounded-lg ${isOwn ? 'bg-white/10 text-white' : 'bg-primary/10 text-primary'}`}>
+                                        <MapPin size={14} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}>Трек-номер</span>
+                                        <p className="text-xs font-mono font-bold">{metadata?.tracker ?? 'Не указан'}</p>
+                                    </div>
+                                </div>
+                                <Copy size={14} className={`transition-opacity opacity-40 group-hover/tracker:opacity-100`} />
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {msg.message_type === 'rating_card' && (() => {
+                    const metadata = msg.metadata as {
+                        title?: string;
+                        subtitle?: string;
+                    } | null;
+
+                    return (
+                        <div
+                            className={`mt-4 p-6 rounded-3xl border-2 space-y-5 shadow-2xl relative overflow-hidden group ${
+                                isOwn 
+                                    ? 'bg-gradient-to-br from-white/20 to-white/5 border-white/20 text-white' 
+                                    : 'bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/20 text-foreground'
+                            }`}
+                        >
+                            {/* Animated background glow */}
+                            <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-green-500/10 rounded-full blur-3xl animate-pulse" />
+                            
+                            <div className="text-center space-y-2 relative">
+                                <div className={`mx-auto w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-lg ${
+                                    isOwn ? 'bg-white/20' : 'bg-green-500/20 text-green-600'
+                                }`}>
+                                    <Star size={24} />
+                                </div>
+                                <h4 className="text-base font-black tracking-tight">{metadata?.title ?? 'Заказ завершен!'}</h4>
+                                <p className={`text-xs font-medium opacity-70`}>{metadata?.subtitle ?? 'Будем рады вашей оценке'}</p>
+                            </div>
+
+                            <div className="flex justify-center gap-2 py-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <div 
+                                        key={star}
+                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95 border ${
+                                            isOwn 
+                                                ? 'bg-white/10 border-white/10 hover:bg-white/30' 
+                                                : 'bg-white border-primary/5 hover:border-green-500/30 shadow-sm'
+                                        }`}
+                                    >
+                                        <Star 
+                                            size={20} 
+                                            className={star <= 4 ? (isOwn ? 'text-white' : 'text-green-500') : (isOwn ? 'text-white/20' : 'text-gray-200')} 
+                                            fill={star <= 4 ? 'currentColor' : 'none'} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button className={`w-full py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all active:scale-[0.98] border shadow-lg ${
+                                isOwn 
+                                    ? 'bg-white text-primary border-transparent hover:bg-white/90' 
+                                    : 'bg-green-500 text-white border-green-600 hover:bg-green-600'
+                            }`}>
+                                Оставить отзыв
+                            </button>
+                        </div>
+                    );
+                })()}
 
                 {msg.message_type === 'welcome_card' && (
                     <div
@@ -193,7 +356,7 @@ interface ProjectChatSectionProps {
         text: string,
         attachments: { file: File; preview: string }[]
     ) => Promise<unknown>;
-    onSendVoice: (blob: Blob, duration: number) => Promise<unknown>;
+    onSendVoice?: (blob: Blob, duration: number) => Promise<unknown>;
     onResendMessage?: (msg: Message) => void;
     isTyping?: boolean;
 }
@@ -269,6 +432,7 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
         const handleVoiceComplete = React.useCallback(
             async (audioBlob: Blob, duration: number) => {
                 setIsRecordingVoice(false);
+                if (!onSendVoice) return;
                 try {
                     await onSendVoice(audioBlob, duration);
                 } catch (err) {
@@ -342,8 +506,16 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
 
                 <form
                     onSubmit={handleSubmit}
-                    className="pt-6 border-t border-border-theme space-y-4"
+                    className="pt-6 border-t border-border-theme space-y-4 relative"
                 >
+                    {isRecordingVoice && (
+                        <div className="absolute inset-0 bg-background z-50 flex items-center pt-6">
+                            <VoiceRecorder
+                                onRecordingComplete={handleVoiceComplete}
+                                onCancel={handleCancelVoice}
+                            />
+                        </div>
+                    )}
                     {pendingAttachments.length > 0 && (
                         <div className="flex gap-4 overflow-x-auto pb-6 px-2 custom-scrollbar-hide animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {pendingAttachments.map((att, i) => (
@@ -354,7 +526,6 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                                     <div className="w-20 h-20 sm:w-24 sm:h-24 relative group">
                                         <ChatImage
                                             src={att.preview}
-                                            variant="thumbnail"
                                             className="w-full h-full !rounded-2xl border-2 border-primary/20 group-hover:border-primary/50 transition-colors"
                                             onImageClick={handleImagePreviewClose}
                                         />
@@ -419,13 +590,6 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                                 >
                                     <ArrowRight size={20} />
                                 </button>
-                            ) : isRecordingVoice ? (
-                                <div className="absolute right-1 top-1/2 -translate-y-1/2 translate-x-[4px]">
-                                    <VoiceRecorder
-                                        onRecordingComplete={handleVoiceComplete}
-                                        onCancel={handleCancelVoice}
-                                    />
-                                </div>
                             ) : (
                                 <button
                                     type="button"

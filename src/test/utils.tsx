@@ -78,6 +78,7 @@ export const mockChatService = {
     uploadAttachment: vi.fn().mockResolvedValue('https://example.com/image.jpg'),
     uploadVoiceMessage: vi.fn().mockResolvedValue('https://example.com/voice.webm'),
     clearHistory: vi.fn().mockResolvedValue(undefined),
+    processOutbox: vi.fn().mockResolvedValue(undefined),
 };
 
 export const mockBroadcastService = {

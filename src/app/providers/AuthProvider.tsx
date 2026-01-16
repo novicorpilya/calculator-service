@@ -23,6 +23,7 @@ export interface AuthContextType {
     resetPassword: (email: string) => Promise<ActionResult<void>>;
     updatePassword: (password: string) => Promise<ActionResult<void>>;
     updateProfile: (updates: UpdateProfileData) => Promise<ActionResult<User>>;
+    uploadAvatar: (file: File) => Promise<ActionResult<string>>;
     setIsAuthenticated: (value: boolean) => void;
     setIsRecoveryFlow: (value: boolean) => void;
     error: string | null;
@@ -221,6 +222,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return result;
     };
+    const uploadAvatar = async (file: File): Promise<ActionResult<string>> => {
+        if (!user) return { success: false, error: { message: 'Пользователь не авторизован' } };
+        setLoading(true);
+        const result = await authService.uploadAvatar(user.id, file);
+        setLoading(false);
+        return result;
+    };
 
     return (
         <AuthContext.Provider
@@ -234,6 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 resetPassword,
                 updatePassword,
                 updateProfile,
+                uploadAvatar,
                 setIsAuthenticated,
                 setIsRecoveryFlow,
                 error,

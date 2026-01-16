@@ -102,7 +102,8 @@ export class CalculationEntity {
             invoice: ['payment_review', 'changes'],
             payment_review: ['paid', 'changes', 'invoice'],
             paid: ['processing'],
-            processing: ['ready'],
+            processing: ['sent_to_warehouse'],
+            sent_to_warehouse: ['ready'],
             ready: ['shipping'],
             shipping: ['completed'],
             completed: ['closed'],
@@ -237,6 +238,13 @@ export class CalculationEntity {
      */
     isProcessing(): boolean {
         return this.data.status === 'processing';
+    }
+
+    /**
+     * Is the order sent to warehouse?
+     */
+    isSentToWarehouse(): boolean {
+        return this.data.status === 'sent_to_warehouse';
     }
 
     /**

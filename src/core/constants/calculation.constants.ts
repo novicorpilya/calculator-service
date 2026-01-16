@@ -13,6 +13,7 @@ export const CALCULATION_STATUS = {
     PAYMENT_REVIEW: 'payment_review',
     PAID: 'paid',
     PROCESSING: 'processing',
+    SENT_TO_WAREHOUSE: 'sent_to_warehouse',
     READY: 'ready',
     SHIPPING: 'shipping',
     COMPLETED: 'completed',
@@ -28,5 +29,10 @@ export const CALCULATION_ACTION = {
     ACCEPT_PAYMENT: 'accept_payment',
     SUBMIT_PAYMENT: 'submit_payment',
     REJECT_PAYMENT: 'reject_payment',
+    START_PROCESSING: 'start_processing',
+    SEND_TO_WAREHOUSE: 'send_to_warehouse',
+    MARK_READY: 'mark_ready',
+    START_SHIPPING: 'start_shipping',
+    FINISH_PROJECT: 'finish_project',
     LOG_ERROR: 'log_error',
 } as const;

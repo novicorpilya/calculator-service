@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import {
     Calculator,
     Building2,
-    TrendingUp,
     ArrowRight,
     History,
     Sparkles,
@@ -27,7 +26,6 @@ interface ClientOverviewProps {
 export const ClientOverview = React.memo<ClientOverviewProps>(
     ({
         calculations,
-        venuesCount,
         onNewCalculation,
         onViewAllCalculations,
         onNavigateToVenues,
@@ -42,19 +40,7 @@ export const ClientOverview = React.memo<ClientOverviewProps>(
             [calculations]
         );
 
-        const stats = useMemo(
-            () => ({
-                totalBudget: calculations.reduce((sum, c) => sum + (c.totalCost || 0), 0),
-                activeProjects: calculations.filter(
-                    (c) => !['draft', 'invoice', 'completed', 'closed'].includes(c.status)
-                ).length,
-                completedProjects: calculations.filter((c) =>
-                    ['invoice', 'paid', 'shipping', 'completed'].includes(c.status)
-                ).length,
-                draftsCount: calculations.filter((c) => c.status === 'draft').length,
-            }),
-            [calculations]
-        );
+
 
         return (
             <div className="space-y-12 animate-in fade-in duration-700">
@@ -108,82 +94,7 @@ export const ClientOverview = React.memo<ClientOverviewProps>(
                     </div>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="glass-card p-8 flex flex-col justify-between group hover:border-primary/30 transition-all">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="p-4 rounded-2xl bg-primary/5 text-primary">
-                                <TrendingUp size={24} />
-                            </div>
-                            <span className="text-[10px] font-black text-foreground/20 uppercase tracking-widest">
-                                Всего
-                            </span>
-                        </div>
-                        <div>
-                            <p className="text-[28px] font-black tracking-tighter">
-                                {stats.totalBudget.toLocaleString()} ₽
-                            </p>
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] mt-2">
-                                Общая стоимость
-                            </p>
-                        </div>
-                    </div>
 
-                    <div className="glass-card p-8 flex flex-col justify-between group hover:border-emerald-500/30 transition-all">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="p-4 rounded-2xl bg-emerald-500/5 text-emerald-500">
-                                <History size={24} />
-                            </div>
-                            <span className="text-[10px] font-black text-foreground/20 uppercase tracking-widest">
-                                Активно
-                            </span>
-                        </div>
-                        <div>
-                            <p className="text-[28px] font-black tracking-tighter">
-                                {stats.activeProjects}
-                            </p>
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] mt-2">
-                                Проектов в работе
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="glass-card p-8 flex flex-col justify-between group hover:border-blue-500/30 transition-all">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="p-4 rounded-2xl bg-blue-500/5 text-blue-500">
-                                <Building2 size={24} />
-                            </div>
-                            <span className="text-[10px] font-black text-foreground/20 uppercase tracking-widest">
-                                Объекты
-                            </span>
-                        </div>
-                        <div>
-                            <p className="text-[28px] font-black tracking-tighter">{venuesCount}</p>
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] mt-2">
-                                Зарегистрировано
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="glass-card p-8 flex flex-col justify-between group hover:border-orange-500/30 transition-all">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="p-4 rounded-2xl bg-slate-500/5 text-foreground/40">
-                                <History size={24} />
-                            </div>
-                            <span className="text-[10px] font-black text-foreground/20 uppercase tracking-widest">
-                                Черновики
-                            </span>
-                        </div>
-                        <div>
-                            <p className="text-[28px] font-black tracking-tighter">
-                                {stats.draftsCount}
-                            </p>
-                            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] mt-2">
-                                Не на проверке
-                            </p>
-                        </div>
-                    </div>
-                </div>
 
                 {/* Recent Section */}
                 <div className="space-y-8">

@@ -49,6 +49,24 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
         const [isRecordingVoice, setIsRecordingVoice] = useState(false);
         const fileInputRef = useRef<HTMLInputElement>(null);
         const textInputRef = useRef<HTMLInputElement>(null);
+        const emojiContainerRef = useRef<HTMLDivElement>(null);
+
+        // Click outside to close emoji picker
+        useEffect(() => {
+            const handleClickOutside = (event: MouseEvent) => {
+                if (
+                    emojiContainerRef.current &&
+                    !emojiContainerRef.current.contains(event.target as Node)
+                ) {
+                    setShowEmojiPicker(false);
+                }
+            };
+
+            if (showEmojiPicker) {
+                document.addEventListener('mousedown', handleClickOutside);
+            }
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, [showEmojiPicker]);
 
         // Auto-focus when editing or replying
         useEffect(() => {
@@ -162,7 +180,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
                             <Paperclip size={24} />
                         </button>
 
-                        <div className="flex-1 relative">
+                        <div className="flex-1">
                             <input
                                 ref={textInputRef}
                                 type="text"
@@ -185,7 +203,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
 
                             {/* Emoji Picker Popup */}
                             {showEmojiPicker && (
-                                <div className="absolute bottom-full right-0 mb-2 z-50">
+                                <div ref={emojiContainerRef} className="absolute bottom-full right-0 mb-2 z-50">
                                     <Suspense
                                         fallback={
                                             <div className="w-80 h-96 bg-card rounded-2xl animate-pulse" />

@@ -90,12 +90,20 @@ export const STATUS_UI_CONFIG: Record<CalculationStatus | 'exported', StatusUI> 
         description: 'Оплата успешно подтверждена менеджером.',
     },
     processing: {
-        label: 'Комплектация',
+        label: 'Собираем заказ',
         bg: 'bg-sky-500/10',
         text: 'text-sky-600',
         dot: 'bg-sky-500',
         icon: Package,
-        description: 'Заказ собирается на складе и готовится к отгрузке.',
+        description: 'Собираем все товары по накладной для отправки.',
+    },
+    sent_to_warehouse: {
+        label: 'Отправлен на склад',
+        bg: 'bg-violet-500/10',
+        text: 'text-violet-600',
+        dot: 'bg-violet-500',
+        icon: Truck,
+        description: 'Ваш заказ отправлен на склад для финальной подготовки.',
     },
     ready: {
         label: 'Готово к отгрузке',

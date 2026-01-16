@@ -57,6 +57,19 @@ export default defineConfig({
           if (id.includes('/zod/') || id.includes('zod@')) {
             return 'vendor-zod';
           }
+
+          // Charts (Recharts & dependencies)
+          if (id.includes('recharts') || id.includes('d3-')) {
+            return 'vendor-charts';
+          }
+
+          // PDF & Excel (Reports)
+          if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('canvg')) {
+            return 'vendor-pdf';
+          }
+          if (id.includes('xlsx') || id.includes('cpexcel')) {
+            return 'vendor-excel';
+          }
           
           // Icons (lucide is large)
           if (id.includes('lucide-react')) {

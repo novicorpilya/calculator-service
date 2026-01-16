@@ -25,8 +25,10 @@ export const GlobalChatHub = React.memo(() => {
         messages,
         isLoading: isLoadingMessages,
         sendMessage,
+        editMessage,
         sendImageMessage,
         sendVoiceMessage,
+        deleteMessage,
         clearHistory,
         handleIncomingMessage,
         handleHistoryCleared,
@@ -73,20 +75,20 @@ export const GlobalChatHub = React.memo(() => {
         selectedUser?.id,
     ]);
 
-    // 5. Automatic Read Marker on window focus
-    useEffect(() => {
-        const handleFocus = () => {
-            if (document.visibilityState === 'visible' && selectedUser?.id && user?.id) {
-                clearUnread(selectedUser.id);
-            }
-        };
-        window.addEventListener('focus', handleFocus);
-        window.addEventListener('visibilitychange', handleFocus);
-        return () => {
-            window.removeEventListener('focus', handleFocus);
-            window.removeEventListener('visibilitychange', handleFocus);
-        };
-    }, [selectedUser?.id, user?.id, clearUnread]);
+    // 5. Read Status Management (Event-driven via IntersectionObserver)
+    const handleMessageRead = React.useCallback(async (messageId: string) => {
+        const selectedId = selectedUser?.id;
+        const currentUserId = user?.id;
+        if (!selectedId || !currentUserId) return;
+
+        // Mark as read in repository/service
+        const res = await chatService.markDirectAsRead(selectedId, currentUserId);
+        if (res.success) {
+            handlersRef.current.clearUnread(selectedId);
+            // Optionally logs messageId for future individual read markers
+            console.debug(`Message seen: ${messageId}`);
+        }
+    }, [selectedUser?.id, user?.id, chatService]);
 
     // 6. Global Realtime Subscription
     useEffect(() => {
@@ -110,21 +112,12 @@ export const GlobalChatHub = React.memo(() => {
                             msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
                         handlersRef.current.updateRecipientLastMessage(msg, contactId);
 
-                        // Increment unread if message from others and not in active chat
+                        // Auto-increment unread if NOT the active chat
                         if (
                             msg.sender_id !== user.id &&
-                            (!currentSelectedId || msg.sender_id !== currentSelectedId)
+                            msg.sender_id !== currentSelectedId
                         ) {
                             handlersRef.current.incrementUnread(msg.sender_id);
-                        }
-
-                        // Auto-read if window is active and chat is open
-                        if (
-                            currentSelectedId &&
-                            msg.sender_id === currentSelectedId &&
-                            document.visibilityState === 'visible'
-                        ) {
-                            handlersRef.current.clearUnread(currentSelectedId);
                         }
                     } else if (evt === 'UPDATE' && msg.sender_id && msg.receiver_id) {
                         // Update recipient list if the updated message was the last one
@@ -161,9 +154,18 @@ export const GlobalChatHub = React.memo(() => {
         return () => unsubscribe();
     }, [user?.id, chatService]);
 
+    const handleEditMessage = React.useCallback(async (id: string, content: string) => {
+        await editMessage({ id, content });
+    }, [editMessage]);
+
+    const handleDeleteMessage = React.useCallback(async (id: string) => {
+        await deleteMessage(id);
+    }, [deleteMessage]);
+
     const handleClearHistory = React.useCallback(async () => {
-        await clearHistory(undefined);
+        await clearHistory();
     }, [clearHistory]);
+
     const handleBack = React.useCallback(() => setSelectedUser(null), []);
 
     if (!user) return null;
@@ -190,11 +192,22 @@ export const GlobalChatHub = React.memo(() => {
                     selectedUser={selectedUser}
                     messages={messages}
                     isLoading={isLoadingMessages}
-                    onSendMessage={sendMessage}
-                    onSendImage={sendImageMessage}
-                    onSendVoice={sendVoiceMessage}
+                    onSendMessage={async (params) => sendMessage(params)}
+                    onSendImage={async (params) => {
+                        if (params.sender_id) {
+                            sendImageMessage({ ...params, sender_id: params.sender_id });
+                        }
+                    }}
+                    onSendVoice={async (params) => {
+                        if (params.sender_id) {
+                            sendVoiceMessage({ ...params, sender_id: params.sender_id });
+                        }
+                    }}
+                    onEditMessage={handleEditMessage}
+                    onDeleteMessage={handleDeleteMessage}
                     onClearHistory={handleClearHistory}
                     onBack={handleBack}
+                    onMarkAsRead={handleMessageRead}
                 />
             </div>
         </div>

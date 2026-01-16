@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { type SupabaseClient } from '@supabase/supabase-js';
 import { type Supplier } from '../features/dashboard/dashboard.types';
 import type { ActionResult } from '@/core/types/results';
+import { logger } from '@/core/logging';
 
 /**
  * Zod schema for Supplier validation
@@ -86,13 +87,32 @@ export class SupplierService implements ISupplierService {
                         integration_type: 'api_1c',
                         status: 'active',
                     },
+                    {
+                        id: '88888888-8888-8888-8888-888888888888',
+                        name: 'Karcher',
+                        description: 'Мировой лидер в области уборочной техники и технологий очистки.',
+                        logo: 'https://www.kaercher.com/media/logo.svg',
+                        rating: 4.9,
+                        integration_type: 'api_custom',
+                        status: 'active',
+                    },
+                    {
+                        id: '99999999-9999-9999-9999-999999999999',
+                        name: 'Kimberly-Clark',
+                        description:
+                            'Лидер по производству продукции для здравоохранения и профессиональной гигиены.',
+                        logo: 'https://www.kimberly-clark.com/-/media/images/brand-logos/kc-professional-logo.png',
+                        rating: 4.7,
+                        integration_type: 'internal',
+                        status: 'active',
+                    },
                 ];
                 return { success: true, data: mockSuppliers };
             }
 
             const parseResult = z.array(SupplierSchema).safeParse(data);
             if (!parseResult.success) {
-                console.error('Supplier Validation Error:', parseResult.error);
+                logger.error('Supplier Validation Error:', { error: parseResult.error });
                 return { success: true, data: (data || []) as Supplier[] }; // Fallback to raw if logic allows
             }
 
@@ -117,7 +137,7 @@ export class SupplierService implements ISupplierService {
 
             const parseResult = SupplierSchema.safeParse(data);
             if (!parseResult.success) {
-                console.error(`Supplier ${id} Validation Error:`, parseResult.error);
+                logger.error(`Supplier ${id} Validation Error:`, { error: parseResult.error });
                 return { success: true, data: data as Supplier };
             }
 

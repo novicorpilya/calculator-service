@@ -20,8 +20,8 @@ export function useRecipients({ currentUserId }: UseRecipientsOptions) {
     const { chatService } = useServices();
     const queryClient = useQueryClient();
 
-    const RECIPIENTS_CACHE_KEY = `hrc_chat_recipients_v1_${currentUserId}`;
-    const UNREAD_CACHE_KEY = `hrc_unread_counts_v1_${currentUserId}`;
+    const RECIPIENTS_CACHE_KEY = `hrc_chat_recipients_v5_${currentUserId}`;
+    const UNREAD_CACHE_KEY = `hrc_unread_counts_v5_${currentUserId}`;
     const UNREAD_QUERY_KEY = useMemo(() => ['unread-counts', currentUserId], [currentUserId]);
 
     // Queries

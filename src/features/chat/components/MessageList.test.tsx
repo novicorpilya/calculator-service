@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/utils';
+import { render, screen, waitFor } from '@/test/utils';
 import { MessageList } from '@/features/chat/components/MessageList';
 import type { Message } from '../types';
 
@@ -132,7 +132,7 @@ describe('MessageList', () => {
     });
 
     describe('image messages', () => {
-        it('should render image messages', () => {
+        it('should render image messages', async () => {
             const messages = [
                 createMessage({
                     content: '',
@@ -142,7 +142,7 @@ describe('MessageList', () => {
 
             render(<MessageList {...defaultProps} messages={messages} />);
 
-            const img = screen.getByAltText('Изображение в сообщении');
+            const img = await screen.findByAltText('Изображение в сообщении');
             expect(img).toBeTruthy();
             expect(img.getAttribute('src')).toBe('https://example.com/image.jpg');
         });
@@ -160,13 +160,13 @@ describe('MessageList', () => {
                 <MessageList {...defaultProps} messages={messages} onImageClick={onImageClick} />
             );
 
-            const img = screen.getByAltText('Изображение в сообщении');
+            const img = await screen.findByAltText('Изображение в сообщении');
             img.click();
 
             expect(onImageClick).toHaveBeenCalledWith('https://example.com/image.jpg');
         });
 
-        it('should show loading state for temp images', () => {
+        it('should show loading state for temp images', async () => {
             const messages = [
                 createMessage({
                     id: 'temp-12345',
@@ -180,8 +180,10 @@ describe('MessageList', () => {
             // In our implementation, ChatImage might be blurred.
             // In MessageList.tsx, ChatImage component is passed isTemp={true}.
             // We check for blur class in the rendered output.
-            const blurredImg = container.querySelector('img.blur-2xl'); // ChatImage uses blur-2xl
-            expect(blurredImg).toBeTruthy();
+            await waitFor(() => {
+                const blurredImg = container.querySelector('img.blur-sm'); // ChatImage uses blur-sm
+                expect(blurredImg).toBeTruthy();
+            });
         });
     });
 

@@ -9,7 +9,6 @@ import {
     FolderSearch,
     Library,
     Calculator,
-    ClipboardList,
     Building2,
     Shield,
     MessageSquare,
@@ -70,7 +69,6 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
                     badge: projectUnread,
                 },
                 { id: 'chat', label: 'Сообщения', icon: MessageSquare, badge: directUnread },
-                { id: 'inventory', label: 'Инвентарь', icon: ClipboardList },
                 { id: 'venue', label: 'Заведение', icon: Building2 },
             ];
         }, [user?.role, projectUnread, directUnread]);
@@ -99,12 +97,12 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
                         {/* Mobile Header in Sidebar */}
                         <div className="flex items-center justify-between mb-8 lg:hidden">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-primary/10 rounded-[1.25rem] flex items-center justify-center">
-                                    <ShieldCheck className="w-6 h-6 text-primary" />
+                                <div className="w-10 h-10 bg-white rounded-[1rem] flex items-center justify-center shadow-lg">
+                                    <ShieldCheck className="w-6 h-6 text-[#050506]" />
                                 </div>
                                 <div>
-                                    <span className="text-xl font-black tracking-tighter uppercase leading-none block">
-                                        Hics
+                                    <span className="text-xl font-[1000] tracking-tighter italic uppercase leading-none block">
+                                        HORECA<span className="text-primary tracking-tighter">CALC</span>
                                     </span>
                                 </div>
                             </div>
@@ -130,13 +128,21 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
                         >
                             <div
                                 className={`
-                            w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 transition-colors
+                            w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 transition-colors overflow-hidden
                             ${isProfileActive ? 'bg-white text-primary' : 'bg-primary/10 text-primary'}
                         `}
                             >
-                                {user?.role !== 'client' && user?.firstName
-                                    ? user.firstName[0]
-                                    : user?.organizationName?.[0] || 'U'}
+                                {user?.avatarUrl ? (
+                                    <img
+                                        src={user.avatarUrl}
+                                        alt="Avatar"
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : user?.role !== 'client' && user?.firstName ? (
+                                    user.firstName[0]
+                                ) : (
+                                    user?.organizationName?.[0] || 'U'
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p

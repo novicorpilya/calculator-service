@@ -1,3 +1,5 @@
+import { logger } from '@/core/logging';
+
 /**
  * Переводит технические сообщения об ошибках от Supabase на русский язык
  */
@@ -5,7 +7,7 @@ export const translateAuthError = (error: unknown): string => {
     const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
     // DEBUG: Log raw error for troubleshooting
-    console.error('[AUTH ERROR RAW]:', error, '| Message:', message);
+    logger.error('[AUTH ERROR RAW]', { error, message });
 
     if (!message) {
         return 'Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.';

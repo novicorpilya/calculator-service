@@ -1,136 +1,147 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Square, X } from 'lucide-react';
-import { logger } from '@/core/logging';
-import { toast } from 'sonner';
+import React, { useState, useEffect, useRef } from 'react';
+import { Trash2, Send } from 'lucide-react';
 
-export interface VoiceRecorderProps {
-    onRecordingComplete: (audioBlob: Blob, duration: number) => void;
-    onCancel?: () => void;
+interface VoiceRecorderProps {
+    onRecordingComplete: (blob: Blob, duration: number) => void;
+    onCancel: () => void;
 }
 
-export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplete, onCancel }) => {
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordingTime, setRecordingTime] = useState(0);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const chunksRef = useRef<Blob[]>([]);
-    const timerRef = useRef<number | null>(null);
+export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
+    onRecordingComplete,
+    onCancel,
+}) => {
+    const [elapsedTime, setElapsedTime] = useState(0); // in milliseconds
+    const [isBlocked, setIsBlocked] = useState(false);
+    const mediaRecorder = useRef<MediaRecorder | null>(null);
+    const audioChunks = useRef<Blob[]>([]);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const startTimeRef = useRef<number>(0);
 
-    const startRecording = useCallback(async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm;codecs=opus',
-            });
-
-            mediaRecorderRef.current = mediaRecorder;
-            chunksRef.current = [];
-
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) {
-                    chunksRef.current.push(e.data);
-                }
-            };
-
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                const duration = Math.floor((Date.now() - startTimeRef.current) / 1000);
-                onRecordingComplete(audioBlob, duration);
-                stream.getTracks().forEach((track) => track.stop());
-                setIsRecording(false);
-                setRecordingTime(0);
-            };
-
-            mediaRecorder.start();
-            setIsRecording(true);
-            startTimeRef.current = Date.now();
-            setRecordingTime(0);
-
-            // Update timer based on actual elapsed time
-            timerRef.current = window.setInterval(() => {
-                const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-                setRecordingTime(elapsed);
-            }, 100); // Update every 100ms for smooth display, but show only full seconds
-        } catch (error) {
-            logger.error('Error accessing microphone', { error });
-            toast.error('Не удалось получить доступ к микрофону. Проверьте разрешения.');
-        }
-    }, [onRecordingComplete]);
-
     useEffect(() => {
-        // Auto-start recording when component mounts
-        const timer = setTimeout(() => {
-            startRecording();
-        }, 0);
+        // Request microphone access and start recording
+        const startRecording = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const recorder = new MediaRecorder(stream);
+                mediaRecorder.current = recorder;
 
-        return () => {
-            clearTimeout(timer);
-            if (timerRef.current) clearInterval(timerRef.current);
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
+                recorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        audioChunks.current.push(e.data);
+                    }
+                };
+
+                recorder.onstop = () => {
+                    // Cleanup stream tracks
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                recorder.start();
+                startTimeRef.current = Date.now();
+                
+                // Start Timer with higher precision
+                timerRef.current = setInterval(() => {
+                    setElapsedTime(Date.now() - startTimeRef.current);
+                }, 100);
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                setIsBlocked(true);
             }
         };
-    }, [startRecording]);
 
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
+        startRecording();
+
+        return () => {
             if (timerRef.current) clearInterval(timerRef.current);
-        }
+            if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+                mediaRecorder.current.stop();
+            }
+        };
+    }, []);
+
+    const formatTime = (ms: number) => {
+        const totalSeconds = Math.floor(ms / 1000);
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        const tenths = Math.floor((ms % 1000) / 100);
+        
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${tenths}`;
     };
 
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const stopRecording = () => {
+        if (!mediaRecorder.current || mediaRecorder.current.state === 'inactive') return;
+
+        mediaRecorder.current.onstop = () => {
+            const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+            onRecordingComplete(audioBlob, elapsedTime / 1000);
+        };
+
+        mediaRecorder.current.stop();
+        if (timerRef.current) clearInterval(timerRef.current);
     };
 
     const handleCancel = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
+        if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+            mediaRecorder.current.onstop = () => {}; // Ignore the result
+            mediaRecorder.current.stop();
         }
         if (timerRef.current) clearInterval(timerRef.current);
-        onCancel?.();
+        onCancel();
     };
 
-    if (isRecording) {
+    if (isBlocked) {
         return (
-            <div className="flex items-center gap-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl animate-pulse">
-                <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                    <span className="text-[11px] font-black uppercase tracking-widest text-red-500">
-                        {formatTime(recordingTime)}
-                    </span>
-                </div>
-                {onCancel && (
-                    <button
-                        onClick={handleCancel}
-                        className="p-2 text-foreground/40 hover:text-foreground transition-colors rounded-lg"
-                        aria-label="Отменить запись"
-                    >
-                        <X size={16} />
-                    </button>
-                )}
-                <button
-                    onClick={stopRecording}
-                    className="ml-auto p-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all flex items-center gap-2"
-                >
-                    <Square size={16} fill="currentColor" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">
-                        Остановить
-                    </span>
+            <div className="flex-1 flex items-center justify-between bg-red-500/10 border border-red-500/20 px-6 py-4 rounded-[2.5rem] animate-in slide-in-from-bottom-2">
+                <span className="text-[11px] font-black uppercase tracking-widest text-red-500">
+                    Доступ к микрофону запрещен
+                </span>
+                <button onClick={onCancel} className="text-red-500/60 hover:text-red-500 transition-colors">
+                    <Trash2 size={18} />
                 </button>
             </div>
         );
     }
 
-    // Loading state while requesting microphone access
     return (
-        <div className="flex items-center gap-3 px-4 py-3">
-            <div className="w-3 h-3 bg-primary rounded-full animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/40">
-                Запрос доступа к микрофону...
-            </span>
+        <div className="flex-1 flex items-center justify-between bg-card/60 backdrop-blur-xl border border-border-theme rounded-[2rem] p-1.5 animate-in slide-in-from-bottom-4 duration-500 shadow-xl shadow-black/5">
+            {/* Left side: Trash/Cancel Action */}
+            <div className="flex items-center pl-2">
+                <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="w-11 h-11 hover:bg-red-500/10 text-foreground/20 hover:text-red-500 transition-all rounded-full flex items-center justify-center group"
+                    title="Удалить"
+                >
+                    <Trash2 size={20} className="group-hover:scale-110 transition-transform duration-300" />
+                </button>
+            </div>
+
+            {/* Center: Recording indicator and Telegram-style Timer */}
+            <div className="flex items-center gap-3">
+                <div className="relative flex items-center justify-center w-2.5 h-2.5">
+                    <span className="absolute w-full h-full bg-red-500 rounded-full animate-ping opacity-40" />
+                    <span className="relative w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                </div>
+                <div className="flex items-baseline gap-1">
+                    <span className="text-[16px] font-bold font-mono text-foreground leading-none tabular-nums tracking-tight">
+                        {formatTime(elapsedTime)}
+                    </span>
+                </div>
+            </div>
+
+            {/* Right side: Send Action */}
+            <div className="pr-1">
+                <button
+                    type="button"
+                    onClick={stopRecording}
+                    className="w-11 h-11 bg-primary text-white rounded-full shadow-lg shadow-primary/20 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group overflow-hidden relative"
+                    title="Отправить"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Send size={18} className="relative z-10 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
+                </button>
+            </div>
         </div>
     );
 };

@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicRoute } from './PublicRoute';
 import { ROUTES } from './routes.constants';
+import { GlobalLoader } from '@/components/common/GlobalLoader';
 
 // ============================================================
 // LAZY LOADED COMPONENTS (Code Splitting)
@@ -35,28 +36,19 @@ const AdminDashboard = React.lazy(() =>
     }))
 );
 
-// ============================================================
-// LOADING FALLBACKS
-// ============================================================
-
-const PageLoader = () => (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">
-                Загрузка...
-            </p>
-        </div>
-    </div>
+// Error pages
+const NotFoundPage = React.lazy(() =>
+    import('@/pages/Error/NotFoundPage').then((m) => ({ default: m.NotFoundPage }))
+);
+const ForbiddenPage = React.lazy(() =>
+    import('@/pages/Error/ForbiddenPage').then((m) => ({ default: m.ForbiddenPage }))
+);
+const MaintenancePage = React.lazy(() =>
+    import('@/pages/Error/MaintenancePage').then((m) => ({ default: m.MaintenancePage }))
 );
 
-const InitLoader = () => (
-    <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
-        <div className="text-white text-xl animate-pulse font-light tracking-widest">
-            HORECA CALCULATOR
-        </div>
-    </div>
-);
+// Fallback component for Suspense and Initial Loading
+const Loader = () => <GlobalLoader />;
 
 // ============================================================
 // APP ROUTES
@@ -76,17 +68,23 @@ export const AppRoutes: React.FC = () => {
 
     // Global initialization loader
     if (isInitializing) {
-        return <InitLoader />;
+        return <Loader />;
+    }
+
+    // Maintenance Mode Check
+    const isMaintenance = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+    if (isMaintenance && location.pathname !== ROUTES.ERRORS.MAINTENANCE) {
+        return <Navigate to={ROUTES.ERRORS.MAINTENANCE} replace />;
     }
 
     return (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<Loader />}>
             <Routes>
                 {/* Public routes */}
                 <Route
                     path={ROUTES.LANDING}
                     element={
-                        <Suspense fallback={<PageLoader />}>
+                        <Suspense fallback={<Loader />}>
                             <Landing onStart={() => navigate(ROUTES.AUTH.LOGIN)} />
                         </Suspense>
                     }
@@ -97,7 +95,7 @@ export const AppRoutes: React.FC = () => {
                     <Route
                         path={ROUTES.AUTH.LOGIN}
                         element={
-                            <Suspense fallback={<PageLoader />}>
+                            <Suspense fallback={<Loader />}>
                                 <HoRecaAuth initialMode="login" />
                             </Suspense>
                         }
@@ -105,7 +103,7 @@ export const AppRoutes: React.FC = () => {
                     <Route
                         path={ROUTES.AUTH.REGISTER}
                         element={
-                            <Suspense fallback={<PageLoader />}>
+                            <Suspense fallback={<Loader />}>
                                 <HoRecaAuth initialMode="register" />
                             </Suspense>
                         }
@@ -113,7 +111,7 @@ export const AppRoutes: React.FC = () => {
                     <Route
                         path={ROUTES.AUTH.FORGOT_PASSWORD}
                         element={
-                            <Suspense fallback={<PageLoader />}>
+                            <Suspense fallback={<Loader />}>
                                 <HoRecaAuth initialMode="forgot-password" />
                             </Suspense>
                         }
@@ -125,7 +123,7 @@ export const AppRoutes: React.FC = () => {
                     path={ROUTES.AUTH.RESET_PASSWORD}
                     element={
                         isRecoveryFlow || window.location.hash.includes('access_token') ? (
-                            <Suspense fallback={<PageLoader />}>
+                            <Suspense fallback={<Loader />}>
                                 <HoRecaAuth initialMode="reset-password" />
                             </Suspense>
                         ) : (
@@ -153,7 +151,7 @@ export const AppRoutes: React.FC = () => {
                         <Route
                             path={ROUTES.DASHBOARD.MANAGER}
                             element={
-                                <Suspense fallback={<PageLoader />}>
+                                <Suspense fallback={<Loader />}>
                                     <ManagerDashboard />
                                 </Suspense>
                             }
@@ -164,7 +162,7 @@ export const AppRoutes: React.FC = () => {
                         <Route
                             path={ROUTES.DASHBOARD.CLIENT}
                             element={
-                                <Suspense fallback={<PageLoader />}>
+                                <Suspense fallback={<Loader />}>
                                     <ClientDashboard />
                                 </Suspense>
                             }
@@ -175,7 +173,7 @@ export const AppRoutes: React.FC = () => {
                         <Route
                             path={ROUTES.DASHBOARD.ADMIN}
                             element={
-                                <Suspense fallback={<PageLoader />}>
+                                <Suspense fallback={<Loader />}>
                                     <AdminDashboard />
                                 </Suspense>
                             }
@@ -183,8 +181,41 @@ export const AppRoutes: React.FC = () => {
                     </Route>
                 </Route>
 
-                {/* Catch-all redirect */}
-                <Route path="*" element={<Navigate to={ROUTES.LANDING} replace />} />
+                {/* Error pages */}
+                <Route
+                    path={ROUTES.ERRORS.FORBIDDEN}
+                    element={
+                        <Suspense fallback={<Loader />}>
+                            <ForbiddenPage />
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path={ROUTES.ERRORS.NOT_FOUND}
+                    element={
+                        <Suspense fallback={<Loader />}>
+                            <NotFoundPage />
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path={ROUTES.ERRORS.MAINTENANCE}
+                    element={
+                        <Suspense fallback={<Loader />}>
+                            <MaintenancePage />
+                        </Suspense>
+                    }
+                />
+
+                {/* Catch-all to 404 page */}
+                <Route
+                    path="*"
+                    element={
+                        <Suspense fallback={<Loader />}>
+                            <NotFoundPage />
+                        </Suspense>
+                    }
+                />
             </Routes>
         </Suspense>
     );

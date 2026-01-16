@@ -113,6 +113,21 @@ export class CalculationService implements ICalculationService {
                     case CALCULATION_STATUS.PAYMENT_REVIEW:
                         action = CALCULATION_ACTION.SUBMIT_PAYMENT;
                         break;
+                    case CALCULATION_STATUS.PROCESSING:
+                        action = CALCULATION_ACTION.START_PROCESSING;
+                        break;
+                    case CALCULATION_STATUS.SENT_TO_WAREHOUSE:
+                        action = CALCULATION_ACTION.SEND_TO_WAREHOUSE;
+                        break;
+                    case CALCULATION_STATUS.READY:
+                        action = CALCULATION_ACTION.MARK_READY;
+                        break;
+                    case CALCULATION_STATUS.SHIPPING:
+                        action = CALCULATION_ACTION.START_SHIPPING;
+                        break;
+                    case CALCULATION_STATUS.COMPLETED:
+                        action = CALCULATION_ACTION.FINISH_PROJECT;
+                        break;
                 }
 
                 const currentRes = await this.repository.getById(id);

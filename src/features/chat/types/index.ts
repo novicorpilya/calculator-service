@@ -25,7 +25,9 @@ export const MessageSchema = z.object({
     metadata: z.any().optional(),
     event_reference_id: z.string().nullable().optional(),
     reply_to_id: z.string().nullable().optional(),
-    // UI-only status
+    server_seq_id: z.number().optional(),
+    // UI-specific fields for optimistic updates
+    is_optimistic: z.boolean().optional(),
     status: z.enum(['pending', 'sent', 'error']).optional(),
 });
 
@@ -41,11 +43,13 @@ export const MessageCreatePayloadSchema = z.object({
     voice_duration: z.number().nullable().optional(),
     reply_to_id: z.string().nullable().optional(),
     client_message_id: z.string().nullable().optional(),
+    message_type: z.string().nullable().optional(),
+    metadata: z.any().optional(),
 });
 
 export type MessageCreatePayload = z.infer<typeof MessageCreatePayloadSchema>;
 
-export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE' | 'READ' | 'RECONNECT' | 'TYPING';
+export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE' | 'READ' | 'RECONNECT' | 'TYPING' | 'ACK';
 
 export interface BroadcastSignal {
     id: string;
@@ -56,6 +60,8 @@ export type ChatEventPayload =
     | ReadEventPayload
     | TypingEventPayload
     | HistoryClearedPayload
+    | MessageAckPayload
+    | TombstonePayload
     | BroadcastSignal;
 
 export interface MessageEvent {
@@ -81,6 +87,7 @@ export const RecipientSchema = z.object({
             sender_id: z.string().nullable(),
             image_url: z.string().nullable().optional(),
             voice_url: z.string().nullable().optional(),
+            server_seq_id: z.number().nullable().optional(),
         })
         .nullable()
         .optional(),
@@ -140,4 +147,20 @@ export interface ContextMenuState {
     message: Message;
     x: number;
     y: number;
+}
+
+export interface MessageAckPayload {
+    messageId: string;
+    clientId: string;
+    senderId: string; // The one who sent the original message
+    ackFromId: string; // The one who received and is ACKing
+}
+
+export interface TombstonePayload {
+    message_id: string;
+    sender_id?: string;
+    receiver_id?: string;
+    calculation_id?: string;
+    server_seq_id: number;
+    deleted_at: string;
 }

@@ -210,7 +210,13 @@ export class CalculationRepository implements ICalculationRepository {
                 .select(this.PROJECT_SELECT, { count: 'exact' });
 
             if (params.search) {
-                query = query.ilike('organization_name', `%${params.search}%`);
+                const isNumericSearch = /^\d+$/.test(params.search.replace('#', ''));
+                if (isNumericSearch) {
+                    const projectNum = parseInt(params.search.replace('#', ''), 10);
+                    query = query.or(`project_number.eq.${projectNum},organization_name.ilike.%${params.search}%`);
+                } else {
+                    query = query.ilike('organization_name', `%${params.search}%`);
+                }
             }
             if (params.status) {
                 query = query.eq('status', params.status);
@@ -255,6 +261,7 @@ export class CalculationRepository implements ICalculationRepository {
                     zone_details: calc.zoneDetails,
                     results: calc.results,
                     total_cost_value: calc.totalCost,
+                    status: calc.status || 'draft',
                 })
                 .select(this.PROJECT_SELECT)
                 .single();
@@ -317,7 +324,7 @@ export class CalculationRepository implements ICalculationRepository {
         payload?: Record<string, unknown>
     ): Promise<ActionResult<Calculation>> {
         try {
-            console.log('[CalculationRepository] Calling perform_calculation_action', {
+            this.logger.info('Calling perform_calculation_action', {
                 p_calculation_id: id,
                 p_action_type: action,
                 p_message: message || '',

@@ -44,15 +44,12 @@ export const DashboardHeader = React.memo<DashboardHeaderProps>(
                             className="flex items-center gap-2 sm:gap-3 group cursor-pointer shrink-0"
                             onClick={() => navigate('/')}
                         >
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl sm:rounded-[1.25rem] flex items-center justify-center transition-transform group-hover:scale-110">
-                                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-xl sm:rounded-[1.25rem] flex items-center justify-center transition-transform group-hover:scale-110 shadow-lg">
+                                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-[#050506] stroke-[2.5]" />
                             </div>
                             <div className="block">
-                                <span className="text-lg sm:text-xl font-black tracking-tighter uppercase leading-none block">
-                                    Hics
-                                </span>
-                                <span className="text-[7px] sm:text-[8px] font-black text-primary uppercase tracking-[0.3em] block mt-0.5">
-                                    Inventory
+                                <span className="text-xl sm:text-2xl font-[1000] tracking-tighter italic uppercase leading-none block text-foreground">
+                                    HICS
                                 </span>
                             </div>
                         </div>

@@ -39,6 +39,14 @@ describe('ChatService', () => {
         } as unknown as IBroadcastService;
 
         chatService = new ChatService(mockRepository, mockBroadcast);
+        
+        // Mock storage to prevent hanging on IndexedDB
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (chatService as any).storage = {
+            saveMessages: vi.fn().mockResolvedValue(undefined),
+            addToOutbox: vi.fn().mockResolvedValue(1),
+            updateMessage: vi.fn().mockResolvedValue(undefined),
+        };
     });
 
     describe('sendMessage', () => {
@@ -60,7 +68,9 @@ describe('ChatService', () => {
                 'user-1',
                 'user-2',
                 'Hello',
-                {}
+                expect.objectContaining({
+                    metadata: {},
+                })
             );
             expect(result.success).toBe(true);
             if (result.success) expect(result.data).toBe(mockMessage);
@@ -84,7 +94,9 @@ describe('ChatService', () => {
                 'user-1',
                 'calc-123',
                 'Project Update',
-                {}
+                expect.objectContaining({
+                    metadata: {},
+                })
             );
             expect(result.success).toBe(true);
             if (result.success) expect(result.data).toBe(mockMessage);
@@ -107,9 +119,9 @@ describe('ChatService', () => {
             const res = await chatService.markDirectAsRead('user-2', 'user-1');
 
             expect(mockRepository.markDirectAsRead).toHaveBeenCalledWith('user-2', 'user-1');
-            // Broadcast is sent to the receiver (user-1)
+            // Broadcast is sent to the sender (user-2) to notify them
             expect(mockBroadcast.broadcastMessagesRead).toHaveBeenCalledWith(
-                'user-1',
+                'user-2',
                 undefined,
                 'user-1'
             );
@@ -117,12 +129,17 @@ describe('ChatService', () => {
         });
 
         it('should mark project as read and broadcast on project channel', async () => {
+            vi.mocked(mockRepository.getCalculationMessages).mockResolvedValue({
+                success: true,
+                data: [createMockMessage({ sender_id: 'other-user' })]
+            });
+
             const res = await chatService.markProjectAsRead('calc-123', 'user-1');
 
             expect(mockRepository.markProjectAsRead).toHaveBeenCalledWith('calc-123', 'user-1');
-            // In project mode, broadcast goes to userId channel but includes calculationId
+            // In project mode, broadcast goes to the other user or room
             expect(mockBroadcast.broadcastMessagesRead).toHaveBeenCalledWith(
-                'user-1',
+                'other-user',
                 'calc-123',
                 'user-1'
             );

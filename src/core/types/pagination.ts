@@ -67,9 +67,10 @@ export function createPaginationParams(
 /**
  * Вычисляет offset для SQL-запроса на основе параметров пагинации.
  */
-export function calculateOffset(params: PaginationParams): { from: number; to: number } {
-    const from = (params.page - 1) * params.pageSize;
-    const to = from + params.pageSize - 1;
+export function calculateOffset(params?: PaginationParams): { from: number; to: number } {
+    const p = params || createPaginationParams();
+    const from = (p.page - 1) * p.pageSize;
+    const to = from + p.pageSize - 1;
     return { from, to };
 }
 
@@ -93,11 +94,12 @@ export function createPaginationMeta(params: PaginationParams, total: number): P
  */
 export function createPaginatedResult<T>(
     data: T[],
-    params: PaginationParams,
+    params: PaginationParams | undefined,
     total: number
 ): PaginatedResult<T> {
+    const p = params || createPaginationParams();
     return {
         data,
-        pagination: createPaginationMeta(params, total),
+        pagination: createPaginationMeta(p, total),
     };
 }

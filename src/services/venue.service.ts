@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { ActionResult, VoidResult } from '@/core/types/results';
+import { logger } from '@/core/logging';
 
 export const VenueSchema = z.object({
     id: z.string().uuid(),
@@ -48,7 +49,7 @@ export class VenueService implements IVenueService {
 
             const validated = z.array(VenueSchema).safeParse(data);
             if (!validated.success) {
-                console.error('[VenueService:Validation:Error]', validated.error);
+                logger.error('[VenueService:Validation:Error]', { error: validated.error });
                 return { success: false, error: { message: 'Data format error in venues list' } };
             }
 
@@ -78,7 +79,7 @@ export class VenueService implements IVenueService {
 
             const validated = VenueSchema.safeParse(venue);
             if (!validated.success) {
-                console.error('[VenueService:Create:Validation:Error]', validated.error);
+                logger.error('[VenueService:Create:Validation:Error]', { error: validated.error });
                 return { success: false, error: { message: 'Invalid data format after creation' } };
             }
 
@@ -101,7 +102,7 @@ export class VenueService implements IVenueService {
 
             const validated = VenueSchema.safeParse(venue);
             if (!validated.success) {
-                console.error('[VenueService:Update:Validation:Error]', validated.error);
+                logger.error('[VenueService:Update:Validation:Error]', { error: validated.error });
                 return { success: false, error: { message: 'Invalid data format after update' } };
             }
 

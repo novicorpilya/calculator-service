@@ -48,3 +48,63 @@ vi.mock('@sentry/react', () => ({
     browserTracingIntegration: vi.fn(),
     replayIntegration: vi.fn(),
 }));
+// Mock indexedDB for ChatStorage
+if (typeof window !== 'undefined') {
+    const mockDb = {
+        transaction: vi.fn().mockReturnValue({
+            objectStore: vi.fn().mockReturnValue({
+                put: vi.fn(),
+                add: vi.fn(),
+                get: vi.fn().mockReturnValue({ onsuccess: null }),
+                delete: vi.fn(),
+                index: vi.fn().mockReturnValue({
+                    openCursor: vi.fn().mockReturnValue({ onsuccess: null }),
+                }),
+            }),
+            oncomplete: null,
+            onerror: null,
+        }),
+        objectStoreNames: {
+            contains: vi.fn().mockReturnValue(true),
+        },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).indexedDB = {
+        open: vi.fn().mockImplementation(() => {
+            const request = {
+                onupgradeneeded: null,
+                onsuccess: null,
+                onerror: null,
+                result: mockDb,
+            } as unknown as IDBOpenDBRequest;
+            setTimeout(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if (request.onsuccess) request.onsuccess({ target: request } as any);
+            }, 0);
+            return request;
+        }),
+    };
+}
+
+// Mock Image for ChatImage component
+if (typeof window !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).Image = class {
+        onload: () => void = () => {};
+        src: string = '';
+        complete: boolean = true;
+        constructor() {
+            setTimeout(() => this.onload(), 0);
+        }
+    };
+}
+
+// Mock navigator.onLine
+if (typeof window !== 'undefined') {
+    Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        value: true,
+        writable: true,
+    });
+}

@@ -2,6 +2,8 @@ import React, { createContext, useEffect } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useServices } from '@/core/di/ServiceContainer';
 
+import { logger } from '@/core/logging';
+
 /**
  * PresenceProvider
  *
@@ -18,18 +20,16 @@ export const PresenceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     useEffect(() => {
         if (user) {
             // User logged in -> Track presence (WebSocket)
-            presenceService.trackUser(user.id).catch(console.error);
+            presenceService.trackUser(user.id).catch((err) => logger.error('[Presence] Track failed', err));
         } else {
             // User logged out -> Untrack
-            presenceService.untrackUser().catch(console.error);
+            presenceService.untrackUser().catch((err) => logger.error('[Presence] Untrack failed', err));
         }
 
         return () => {
             // Component unmount -> Cleanup
-            // We don't un-track here strictly because re-renders might cause flickering,
-            // but for a top-level provider it's fine.
             if (user) {
-                presenceService.untrackUser().catch(console.error);
+                presenceService.untrackUser().catch((err) => logger.error('[Presence] Cleanup untrack failed', err));
             }
         };
     }, [user, presenceService]);
