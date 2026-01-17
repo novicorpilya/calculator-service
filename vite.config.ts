@@ -31,74 +31,28 @@ export default defineConfig({
             return; // Let Rollup handle other app code
           }
           
-          // --- VENDOR SPLITTING (order matters: specific first) ---
+          // --- VENDOR SPLITTING ---
           
-          // Emoji picker (VERY heavy, ~200KB) - check BEFORE react
-          if (id.includes('emoji-picker-react') || id.includes('emoji-mart')) {
-            return 'vendor-emoji';
-          }
+          // 1. Huge Libraries (keep separate)
+          if (id.includes('emoji-picker-react') || id.includes('emoji-mart')) return 'vendor-emoji';
+          if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('canvg')) return 'vendor-pdf';
+          if (id.includes('xlsx') || id.includes('cpexcel')) return 'vendor-excel';
+          if (id.includes('recharts') || id.includes('active-win')) return 'vendor-charts';
           
-          // Forms - check BEFORE react
-          if (id.includes('react-hook-form') || id.includes('@hookform')) {
-            return 'vendor-forms';
-          }
-          
-          // Supabase (heavy, ~150KB)
-          if (id.includes('@supabase')) {
-            return 'vendor-supabase';
-          }
-          
-          // TanStack (Query + Virtual)
-          if (id.includes('@tanstack')) {
-            return 'vendor-tanstack';
-          }
-          
-          // Zod validation
-          if (id.includes('/zod/') || id.includes('zod@')) {
-            return 'vendor-zod';
+          // 2. Core Infrastructure (Supabase + Auth + Query)
+          if (id.includes('@supabase') || id.includes('@tanstack')) {
+            return 'vendor-infra';
           }
 
-          // Charts (Recharts & dependencies)
-          if (id.includes('recharts') || id.includes('d3-')) {
-            return 'vendor-charts';
+          // 3. UI Framework (React + Router + Icons + UI libs)
+          // Grouping React, Router, Lucide, Radix/Sonner together prevents symbol resolution errors
+          if (id.includes('react') || id.includes('router') || id.includes('lucide') || id.includes('sonner') || id.includes('next-themes')) {
+            return 'vendor-ui-core';
           }
+          
+          // 4. Feature modules are handled above
 
-          // PDF & Excel (Reports)
-          if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('canvg')) {
-            return 'vendor-pdf';
-          }
-          if (id.includes('xlsx') || id.includes('cpexcel')) {
-            return 'vendor-excel';
-          }
-          
-          // Icons (lucide is large)
-          if (id.includes('lucide-react')) {
-            return 'vendor-icons';
-          }
-          
-          // UI helpers
-          if (id.includes('sonner') || id.includes('next-themes')) {
-            return 'vendor-ui';
-          }
-          
-          // Router - check BEFORE core react
-          if (id.includes('react-router')) {
-            return 'vendor-router';
-          }
-          
-          // Core React (react, react-dom only)
-          if (id.includes('/react@') || id.includes('/react-dom@') || 
-              id.match(/node_modules[\\/]react[\\/]/) || 
-              id.match(/node_modules[\\/]react-dom[\\/]/)) {
-            return 'vendor-react';
-          }
-          
-          // Scheduler (React dependency)
-          if (id.includes('scheduler')) {
-            return 'vendor-react';
-          }
-          
-          // Everything else
+          // Everything else is vendor-misc
           return 'vendor-misc';
         },
       },
