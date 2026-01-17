@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, Building2, Factory, Stethoscope, GraduationCap, Store, ChefHat, Briefcase } from 'lucide-react';
+import { Utensils, Building2, Factory, Store } from 'lucide-react';
 
 export const LandingAreas: React.FC = () => {
     return (
@@ -39,38 +39,11 @@ export const LandingAreas: React.FC = () => {
                             color: 'from-emerald-500/10 to-transparent'
                         },
                         {
-                            icon: Stethoscope,
-                            title: 'MEDICAL',
-                            subtitle: 'Чистота и регламент',
-                            items: ['Клиники', 'Аптеки', 'SPA-центры'],
-                            color: 'from-indigo-500/10 to-transparent'
-                        },
-                        {
-                            icon: GraduationCap,
-                            title: 'EDUCATION',
-                            subtitle: 'Знания и питание',
-                            items: ['Школы', 'ВУЗы', 'Кампусы'],
-                            color: 'from-yellow-500/10 to-transparent'
-                        },
-                        {
                             icon: Store,
                             title: 'RETAIL',
                             subtitle: 'Торговые сети',
-                            items: ['Супермаркеты', 'Кулинария', 'Маркеты'],
-                        },
-                        {
-                            icon: ChefHat,
-                            title: 'CATERING',
-                            subtitle: 'Выездной сервис',
-                            items: ['Кейтеринг', 'Банкеты', 'Доставка'],
-                            color: 'from-amber-500/10 to-transparent'
-                        },
-                        {
-                            icon: Briefcase,
-                            title: 'BUSINESS',
-                            subtitle: 'Корпоративный комфорт',
-                            items: ['Бизнес-центры', 'Офисные кухни', 'Коворкинги'],
-                            color: 'from-gray-500/10 to-transparent'
+                            items: ['Супермаркеты', 'Кулинария', 'Ритейл'],
+                            color: 'from-indigo-500/10 to-transparent'
                         }
                     ].map((area, i) => (
                         <div

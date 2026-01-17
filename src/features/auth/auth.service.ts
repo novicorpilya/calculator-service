@@ -251,10 +251,34 @@ export const authService = {
 
     resetPassword: async (email: string): Promise<AuthVoidResult> => {
         try {
+            // 1. Сначала проверяем, существует ли такой пользователь
+            // Используем таблицу profiles, так как к ней у нас есть доступ
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (!profile) {
+                // Пользователь не найден - явно сообщаем об этом
+                return { 
+                    success: false, 
+                    error: { message: 'Пользователь с таким email не найден' } 
+                };
+            }
+
+            // 2. Если пользователь есть, отправляем сброс
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/auth/reset-password`,
             });
-            if (error) return { success: false, error: { message: error.message } };
+            
+            if (error) {
+                 // Обработка лимита
+                if (error.message.includes('rate limit')) {
+                    return { success: false, error: { message: 'Слишком много попыток. Подождите минуту.' } };
+                }
+                return { success: false, error: { message: error.message } };
+            }
             return { success: true, data: undefined };
         } catch (err) {
             return { success: false, error: wrapError(err) };
