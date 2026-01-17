@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import demoVideo from '@/assets/videos/calc-demo.webm';
 
 interface LandingHeroProps {
     onStart: () => void;
@@ -76,9 +77,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
                                 muted 
                                 playsInline
                                 className="w-full h-full object-cover"
-                                poster="/assets/videos/calc-demo-poster.jpg" // Optional poster image
                             >
-                                <source src="/assets/videos/calc-demo.webm" type="video/webm" />
+                                <source src={demoVideo} type="video/webm" />
                                 {/* Fallback text */}
                                 Ваш браузер не поддерживает видео.
                             </video>

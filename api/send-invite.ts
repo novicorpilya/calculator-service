@@ -23,10 +23,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validate environment configuration
     const envCheck = validateEnv();
     if (!envCheck.valid) {
-        console.error('[send-invite] Missing env variables:', envCheck.missing);
+        // TypeScript narrowing requires explicit access in the false branch
+        const missingVars = envCheck.missing; 
+        console.error('[send-invite] Missing env variables:', missingVars);
         return res.status(500).json({
             error: 'Server misconfiguration',
-            details: `Missing: ${envCheck.missing.join(', ')}`
+            details: `Missing: ${missingVars.join(', ')}`
         });
     }
 
