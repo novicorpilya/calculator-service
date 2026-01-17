@@ -31,16 +31,36 @@ export default defineConfig({
             return; // Let Rollup handle other app code
           }
           
-          // --- VENDOR SPLITTING ---
-          // FIX: We only split TRULY isolated, heavy libraries to avoiding cyclic dependency issues in production.
-          // Everything else (React, UI, Supabase) stays in the main vendor chunk to ensure correct execution order.
-
-          if (id.includes('emoji-picker-react') || id.includes('emoji-mart')) return 'vendor-emoji';
-          if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('canvg')) return 'vendor-pdf';
-          if (id.includes('xlsx') || id.includes('cpexcel')) return 'vendor-excel';
+          // --- VENDOR SPLITTING V3 (Safe & Optimized) ---
           
-          // Let Vite/Rollup handle the rest automatically
-          return 'vendor';
+          // 1. ISOLATED HEAVY LIBS (Safe to split, no shared state)
+          if (id.includes('emoji-picker-react')) return 'vendor-emoji';
+          if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
+          if (id.includes('xlsx')) return 'vendor-excel';
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+
+          // 2. INFRASTRUCTURE (Supabase, Auth, Query)
+          // Often updated independently, large enough to split
+          if (id.includes('@supabase') || id.includes('@tanstack')) {
+              return 'vendor-infra';
+          }
+
+          // 3. UI & CORE (React, Router, Icons, Components)
+          // MUST be together to avoid "undefined" runtime errors
+          if (
+              id.includes('react') || 
+              id.includes('router') || 
+              id.includes('lucide') || 
+              id.includes('sonner') || 
+              id.includes('next-themes') ||
+              id.includes('@radix-ui') ||
+              id.includes('class-variance-authority')
+          ) {
+              return 'vendor-ui';
+          }
+
+          // 4. Everything else
+          return 'vendor-misc';
         },
       },
     },
