@@ -46,6 +46,9 @@ const ForbiddenPage = React.lazy(() =>
 const MaintenancePage = React.lazy(() =>
     import('@/pages/Error/MaintenancePage').then((m) => ({ default: m.MaintenancePage }))
 );
+const PrivacyPolicy = React.lazy(() =>
+    import('@/pages/Privacy/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy }))
+);
 
 // Fallback component for Suspense and Initial Loading
 const Loader = () => <GlobalLoader />;
@@ -203,6 +206,14 @@ export const AppRoutes: React.FC = () => {
                     element={
                         <Suspense fallback={<Loader />}>
                             <MaintenancePage />
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path={ROUTES.ERRORS.PRIVACY}
+                    element={
+                        <Suspense fallback={<Loader />}>
+                            <PrivacyPolicy />
                         </Suspense>
                     }
                 />

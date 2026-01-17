@@ -6,7 +6,9 @@ import {
     Users, 
     ArrowRight, 
     PackageSearch,
-    BrainCircuit
+    BrainCircuit,
+    LineChart,
+    Webhook
 } from 'lucide-react';
 
 interface LandingFeaturesProps {
@@ -56,6 +58,20 @@ export const LandingFeatures: React.FC<LandingFeaturesProps> = ({ onStart }) => 
             description: 'Прозрачное взаимодействие между закупщиком, управляющим и штатным экспертом в чате.',
             color: 'from-violet-500/20 to-violet-600/20',
             iconColor: 'text-violet-500'
+        },
+        {
+            icon: LineChart,
+            title: 'Прогнозирование износа',
+            description: 'Предиктивная аналитика сроков замены инвентаря на основе интенсивности эксплуатации.',
+            color: 'from-cyan-500/20 to-cyan-600/20',
+            iconColor: 'text-cyan-500'
+        },
+        {
+            icon: Webhook,
+            title: 'API Интеграция',
+            description: 'Бесшовная синхронизация с 1С и iiko для автоматического обновления складских остатков.',
+            color: 'from-fuchsia-500/20 to-fuchsia-600/20',
+            iconColor: 'text-fuchsia-500'
         }
     ];
 

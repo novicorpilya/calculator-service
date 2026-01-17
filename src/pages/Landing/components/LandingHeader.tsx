@@ -59,6 +59,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ onStart }) => {
                         <NavLink id="problems">Риски</NavLink>
                         <NavLink id="features">Платформа</NavLink>
                         <NavLink id="areas">Сферы</NavLink>
+                        <NavLink id="faq">Вопросы-ответы</NavLink>
+                        <NavLink id="contacts">Контакты</NavLink>
                     </nav>
                     
                     <div className="flex items-center gap-3 sm:gap-6">

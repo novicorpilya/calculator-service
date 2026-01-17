@@ -26,7 +26,6 @@ export const CalculatorConfigProvider: React.FC<{ children: React.ReactNode }> =
 
         // Realtime Subscription
         const channel = SettingsService.subscribeToConfigChanges((newConfig) => {
-            console.log('Received remote config update:', newConfig);
             setConfig(newConfig);
             toast.info('Calculator config updated externally');
         });

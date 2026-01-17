@@ -16,6 +16,7 @@ export const ROUTES = {
         NOT_FOUND: '/404',
         FORBIDDEN: '/403',
         MAINTENANCE: '/maintenance',
+        PRIVACY: '/privacy',
     },
 } as const;
 

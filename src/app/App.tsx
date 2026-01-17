@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryProvider } from '@/app/providers/QueryProvider';
 import { AuthProvider } from '@/app/providers/AuthProvider';
 import { ThemeProvider } from '@/app/providers/ThemeProvider';
 import { AppRoutes } from '@/app/routes/AppRoutes';
@@ -12,15 +12,6 @@ import { ErrorBoundary } from '@/core/components/ErrorBoundary';
 import { ConnectivityBanner } from '@/components/common/ConnectivityBanner';
 import { CalculatorConfigProvider } from '@/features/calculator/CalculatorConfigContext';
 
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            retry: 1,
-            refetchOnWindowFocus: false,
-        },
-    },
-});
-
 /**
  * Корневой компонент приложения.
  * Структура провайдеров организована по принципу "снаружи внутрь".
@@ -30,7 +21,7 @@ export const App: React.FC = () => {
     return (
         <ErrorBoundary>
             <ConnectivityBanner />
-            <QueryClientProvider client={queryClient}>
+            <QueryProvider>
                 <ThemeProvider>
                     <CalculatorConfigProvider>
                         <AuthProvider>
@@ -57,7 +48,7 @@ export const App: React.FC = () => {
                         </AuthProvider>
                     </CalculatorConfigProvider>
                 </ThemeProvider>
-            </QueryClientProvider>
+            </QueryProvider>
         </ErrorBoundary>
     );
 };

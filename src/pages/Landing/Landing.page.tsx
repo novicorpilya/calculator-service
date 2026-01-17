@@ -4,6 +4,8 @@ import { LandingHero } from './components/LandingHero';
 import { LandingProblems } from './components/LandingProblems';
 import { LandingAreas } from './components/LandingAreas';
 import { LandingFeatures } from './components/LandingFeatures';
+import { LandingFAQ } from './components/LandingFAQ';
+import { LandingContact } from './components/LandingContact';
 import { LandingFooter } from './components/LandingFooter';
 
 interface LandingProps {
@@ -24,6 +26,8 @@ export const Landing: React.FC<LandingProps> = memo(({ onStart }) => {
                 <LandingProblems />
                 <LandingAreas />
                 <LandingFeatures onStart={onStart} />
+                <LandingFAQ />
+                <LandingContact />
             </main>
 
             <LandingFooter />

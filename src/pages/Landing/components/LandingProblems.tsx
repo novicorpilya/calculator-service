@@ -59,7 +59,7 @@ export const LandingProblems: React.FC = () => {
                     {/* Infographic Card */}
                     <div className="relative flex justify-center lg:justify-end">
                         <div className="absolute inset-0 bg-primary/20 blur-[100px] -z-10 rounded-full" />
-                        <div className="w-full max-w-lg aspect-square bg-card/40 backdrop-blur-2xl border border-white/10 rounded-[4rem] p-12 flex flex-col justify-between shadow-3xl rotate-2 hover:rotate-0 transition-all duration-1000 group">
+                        <div className="w-full max-w-lg aspect-square bg-zinc-900 backdrop-blur-2xl border border-white/10 rounded-[4rem] p-12 flex flex-col justify-between shadow-3xl rotate-2 hover:rotate-0 transition-all duration-1000 group">
                             <div className="flex justify-between items-start">
                                 <div className="space-y-2">
                                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Efficiency Audit</p>

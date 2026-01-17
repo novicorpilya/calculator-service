@@ -30,12 +30,12 @@ export const LandingFooter: React.FC = () => {
                     {/* Minimal Links */}
                     <div className="flex flex-col items-center md:items-end gap-6 text-center md:text-right">
                         <div className="flex flex-wrap justify-center gap-12">
-                            <a
-                                href="#"
+                            <button
+                                onClick={() => navigate('/privacy')}
                                 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] hover:text-primary transition-all hover:tracking-[0.3em] duration-300"
                             >
                                 Конфиденциальность
-                            </a>
+                            </button>
                         </div>
                         <div className="text-[10px] font-bold text-foreground/20 uppercase tracking-[0.2em]">
                             &copy; {new Date().getFullYear()} HICS. Все права защищены.
