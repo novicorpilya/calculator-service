@@ -7,7 +7,13 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-function validateEnv(): { valid: true } | { valid: false; missing: string[] } {
+// Simple interface instead of union type to simplify checks
+interface EnvValidationResult {
+    valid: boolean;
+    missing?: string[];
+}
+
+function validateEnv(): EnvValidationResult {
     const missing: string[] = [];
     if (!SUPABASE_URL) missing.push('VITE_SUPABASE_URL');
     if (!SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
@@ -23,8 +29,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validate environment configuration
     const envCheck = validateEnv();
     if (!envCheck.valid) {
-        // TypeScript narrowing requires explicit access in the false branch
-        const missingVars = envCheck.missing; 
+        // Safe access with fallback, satisfying TS strictly
+        const missingVars = envCheck.missing || []; 
         console.error('[send-invite] Missing env variables:', missingVars);
         return res.status(500).json({
             error: 'Server misconfiguration',
