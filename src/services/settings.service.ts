@@ -11,6 +11,12 @@ export const SettingsService = {
      */
     async getCalculatorConfig(): Promise<CalculatorConfig> {
         try {
+            // 1. Check if we have a session first to avoid 406/401 network errors
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                return DEFAULT_CALCULATOR_CONFIG;
+            }
+
             const { data, error } = await supabase
                 .from('system_settings')
                 .select('value')
