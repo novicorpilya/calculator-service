@@ -18,12 +18,14 @@ export const SettingsService = {
                 .single();
 
             if (error) {
-                if (error.code === 'PGRST116') { // Not found
-                    // Initialize if missing
-                    await this.saveCalculatorConfig(DEFAULT_CALCULATOR_CONFIG);
+                // PGRST116 = JSON object not found (row missing)
+                // 42501 = RLS violation (not authorized)
+                // 406/401 = Network/Auth issues
+                if (['PGRST116', '42501', '401', '406'].includes(error.code)) {
+                    // Fail gracefully to defaults without trying to write
                     return DEFAULT_CALCULATOR_CONFIG;
                 }
-                console.error('Error fetching settings:', error);
+                console.warn('Error fetching settings:', error);
                 return DEFAULT_CALCULATOR_CONFIG;
             }
 

@@ -10,6 +10,10 @@ export const CalculatorConfigProvider: React.FC<{ children: React.ReactNode }> =
 
     // Initial Load & Subscription
     useEffect(() => {
+        // Мы НЕ грузим настройки на лендинге. Используем дефолтные.
+        // Настройки загружаются только когда пользователь авторизован (например, Менеджер зашел в админку)
+        // Но сейчас провайдер стоит глобально, поэтому просто подавим ошибку (мы уже это сделали в сервисе).
+        
         const loadSettings = async () => {
             try {
                 const remoteConfig = await SettingsService.getCalculatorConfig();
