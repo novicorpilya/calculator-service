@@ -92,6 +92,7 @@ export const rawDBCalculationSchema = z.object({
     locked_by: z.string().nullable().optional(),
     lock_expires_at: z.string().nullable().optional(),
     final_snapshot: calculationResultsSchema.nullable().optional().catch(null),
+    calculator_config_snapshot: z.any().nullable().optional(),
     receipt_path: z.string().nullable().optional(),
     project_number: z.number().nullable().optional(),
     manager_info: z.any().optional(), // Joined data

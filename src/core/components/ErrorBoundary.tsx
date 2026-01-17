@@ -6,6 +6,7 @@ interface Props {
     children: ReactNode;
     fallback?: ReactNode;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+    text?: string;
 }
 
 interface State {
@@ -78,7 +79,7 @@ export class ErrorBoundary extends Component<Props, State> {
                         {/* Title */}
                         <div className="space-y-2">
                             <h1 className="text-2xl font-black uppercase tracking-tight">
-                                Произошла ошибка
+                                {this.props.text || 'Произошла ошибка'}
                             </h1>
                             <p className="text-sm text-foreground/60">
                                 Что-то пошло не так. Мы уже получили уведомление и работаем над

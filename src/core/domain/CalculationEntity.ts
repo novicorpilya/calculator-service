@@ -86,6 +86,9 @@ export class CalculationEntity {
     get finalSnapshot() {
         return this.data.final_snapshot;
     }
+    get configSnapshot() {
+        return this.data.calculator_config_snapshot;
+    }
 
     // ===== STATUS MACHINE =====
 

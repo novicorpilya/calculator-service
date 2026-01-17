@@ -10,6 +10,8 @@ import { CalculationEngine } from '@/utils/calculation-engine';
 import { useVenues } from '@/hooks/useVenues';
 import { useGlobalInventory } from '@/hooks/useGlobalInventory';
 import { type Venue } from '@/services/venue.service';
+import { useCalculatorConfig } from '@/features/calculator/useCalculatorConfig';
+import { type CalculatorConfig } from '@/features/calculator/calculator-config.types';
 
 export interface ObjectData {
     name: string;
@@ -24,6 +26,7 @@ export interface ObjectData {
 }
 
 export const useCalculationWizard = (initialData?: Calculation) => {
+    const { config } = useCalculatorConfig();
     // React Query Hooks
     const { data: venues = [], isLoading: isLoadingVenues } = useVenues();
     const { data: inventoryData, isLoading: isLoadingInventory } = useGlobalInventory({
@@ -93,7 +96,8 @@ export const useCalculationWizard = (initialData?: Calculation) => {
         const calculationResults = CalculationEngine.calculateInventory(
             zones,
             objectData,
-            globalInventory
+            globalInventory,
+            (initialData?.calculator_config_snapshot as unknown as CalculatorConfig) || config
         );
         setResults(calculationResults);
         setStep(3);
@@ -115,5 +119,6 @@ export const useCalculationWizard = (initialData?: Calculation) => {
         calculate,
         showZoneModal,
         setShowZoneModal,
+        config,
     };
 };

@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IAuditLogService } from './audit.service';
 import { generateSecureToken } from '@/core/utils/crypto';
 import type { User } from '@/features/auth/auth.types';
-import { userSchema } from '@/features/auth/auth.validation';
+
 import type { ActionResult, VoidResult } from '@/core/types/results';
 import { logger } from '@/core/logging';
 import { wrapError } from '@/core/utils/errors';
@@ -27,6 +27,11 @@ export const AdminCalculationSchema = z.object({
     organization_name: z.string(),
     status: z.string(),
     total_area: z.number().nonnegative(),
+    manager_id: z.string().uuid().nullable().optional(),
+    manager: z.object({
+        email: z.string(),
+        first_name: z.string().nullable().optional(),
+    }).nullable().optional(),
     results: z
         .object({
             summary: z.array(z.unknown()).optional(),
@@ -35,6 +40,7 @@ export const AdminCalculationSchema = z.object({
         .nullable()
         .optional(),
     created_at: z.string(),
+    updated_at: z.string(),
 });
 
 export type AdminCalculation = z.infer<typeof AdminCalculationSchema>;
@@ -44,6 +50,7 @@ export const SystemStatsSchema = z.object({
     revenuePipeline: z.number(),
     activeProjects: z.number().int(),
     totalProjects: z.number().int(),
+    budgetGrowth: z.number(),
     stages: z.record(z.string(), z.number()),
 });
 
@@ -51,19 +58,23 @@ export type SystemStats = z.infer<typeof SystemStatsSchema>;
 
 export interface IAdminService {
     getInvitations(): Promise<ActionResult<Invitation[]>>;
-    getUsers(): Promise<ActionResult<User[]>>;
+    getUsers(): Promise<ActionResult<(User & { projectsCount: number })[]>>;
     createInvitation(
         email: string,
         role: 'client' | 'manager' | 'admin'
     ): Promise<ActionResult<Invitation>>;
     deleteInvitation(id: string): Promise<VoidResult>;
     updateUserRole(userId: string, newRole: 'client' | 'manager' | 'admin'): Promise<VoidResult>;
-    getAllCalculations(): Promise<ActionResult<AdminCalculation[]>>;
+    getAllCalculations(page?: number, pageSize?: number): Promise<ActionResult<{ data: AdminCalculation[], total: number }>>;
+    getExportData(): Promise<ActionResult<AdminCalculation[]>>;
     getSystemStats(): Promise<ActionResult<SystemStats>>;
     deleteUser(userId: string): Promise<VoidResult>;
     setUserStatus(userId: string, status: 'active' | 'blocked'): Promise<VoidResult>;
     adminDeleteCalculation(id: string | number): Promise<VoidResult>;
     adminUpdateCalculationStatus(id: string | number, status: string): Promise<VoidResult>;
+    assignManager(calculationId: string, managerId: string | null): Promise<VoidResult>;
+    bulkDeleteCalculations(ids: string[]): Promise<VoidResult>;
+    bulkUpdateCalculationStatus(ids: string[], status: string): Promise<VoidResult>;
 }
 
 export class AdminService implements IAdminService {
@@ -100,33 +111,40 @@ export class AdminService implements IAdminService {
         }
     }
 
-    async getUsers(): Promise<ActionResult<User[]>> {
+    async getUsers(): Promise<ActionResult<(User & { projectsCount: number })[]>> {
         try {
+            // We need to be specific about the relationship because there are two:
+            // 1. calculations.user_id -> profiles.id (via auth.users)
+            // 2. calculations.manager_id -> profiles.id (via auth.users)
             const { data, error } = await this.supabase
                 .from('profiles')
-                .select('id, email, role, organization_name, phone, address, created_at, status')
+                .select(`
+                    id, email, role, organization_name, phone, address, created_at, status,
+                    owned:calculations!user_id(count),
+                    managed:calculations!manager_id(count)
+                `)
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: wrapError(error) };
 
-            const rawUsers = (data || []).map((p) => ({
-                id: p.id,
-                email: p.email,
-                role: p.role,
-                organizationName: p.organization_name,
-                phone: p.phone,
-                address: p.address,
-                createdAt: p.created_at,
-                status: p.status || 'active',
-            }));
+            const dataWithCount = (data || []).map((p) => {
+                const ownedCount = (p.owned as { count: number }[])?.[0]?.count || 0;
+                const managedCount = (p.managed as { count: number }[])?.[0]?.count || 0;
+                
+                return {
+                    id: p.id,
+                    email: p.email,
+                    role: p.role,
+                    organizationName: p.organization_name,
+                    phone: p.phone,
+                    address: p.address,
+                    createdAt: p.created_at,
+                    status: p.status || 'active',
+                    projectsCount: ownedCount + managedCount,
+                };
+            });
 
-            const validated = z.array(userSchema).safeParse(rawUsers);
-            if (!validated.success) {
-                logger.error('[AdminService:Users:Validation]', { error: validated.error });
-                return { success: false, error: { message: 'Data format error in users list' } };
-            }
-
-            return { success: true, data: validated.data };
+            return { success: true, data: dataWithCount };
         } catch (error) {
             return { success: false, error: wrapError(error) };
         }
@@ -211,12 +229,29 @@ export class AdminService implements IAdminService {
         }
     }
 
-    async getAllCalculations(): Promise<ActionResult<AdminCalculation[]>> {
+    async getAllCalculations(page = 1, pageSize = 20): Promise<ActionResult<{ data: AdminCalculation[], total: number }>> {
         try {
-            const { data, error } = await this.supabase
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+
+            const { data, error, count } = await this.supabase
                 .from('calculations')
-                .select('id, organization_name, status, total_area, results, created_at')
-                .order('created_at', { ascending: false });
+                .select(`
+                    id, 
+                    organization_name, 
+                    status, 
+                    total_area, 
+                    results, 
+                    created_at,
+                    updated_at,
+                    manager_id,
+                    manager:manager_id (
+                        email,
+                        first_name
+                    )
+                `, { count: 'exact' })
+                .order('created_at', { ascending: false })
+                .range(from, to);
 
             if (error) return { success: false, error: wrapError(error) };
 
@@ -229,6 +264,42 @@ export class AdminService implements IAdminService {
                 };
             }
 
+            return { 
+                success: true, 
+                data: { 
+                    data: validated.data, 
+                    total: count || 0 
+                } 
+            };
+        } catch (error) {
+            return { success: false, error: wrapError(error) };
+        }
+    }
+
+    async getExportData(): Promise<ActionResult<AdminCalculation[]>> {
+        try {
+            const { data, error } = await this.supabase
+                .from('calculations')
+                .select(`
+                    id, 
+                    organization_name, 
+                    status, 
+                    total_area, 
+                    results, 
+                    created_at,
+                    updated_at,
+                    manager_id,
+                    manager:manager_id (
+                        email
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) return { success: false, error: wrapError(error) };
+
+            const validated = z.array(AdminCalculationSchema).safeParse(data);
+            if (!validated.success) return { success: false, error: { message: 'Export validation failed' } };
+
             return { success: true, data: validated.data };
         } catch (error) {
             return { success: false, error: wrapError(error) };
@@ -239,7 +310,7 @@ export class AdminService implements IAdminService {
         try {
             const { data: calculations, error: calcError } = await this.supabase
                 .from('calculations')
-                .select('status, results');
+                .select('status, results, created_at');
 
             if (calcError) return { success: false, error: wrapError(calcError) };
 
@@ -248,7 +319,7 @@ export class AdminService implements IAdminService {
                 activeProjects: calculations?.filter((c) => c.status !== 'draft').length || 0,
                 totalGlobalBudget: 0,
                 revenuePipeline: 0,
-                stages: {
+                 stages: {
                     draft: 0,
                     pending: 0,
                     expert: 0,
@@ -256,7 +327,15 @@ export class AdminService implements IAdminService {
                     invoice: 0,
                     completed: 0,
                 },
+                budgetGrowth: 0,
             };
+
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+            let currentMonthBudget = 0;
+            let previousMonthBudget = 0;
 
             calculations?.forEach((calc) => {
                 if (stats.stages[calc.status] !== undefined) {
@@ -269,7 +348,20 @@ export class AdminService implements IAdminService {
                 if (calc.status === 'invoice' || calc.status === 'completed') {
                     stats.revenuePipeline += annualBudget;
                 }
+
+                const createdAt = new Date(calc.created_at);
+                if (createdAt >= thirtyDaysAgo) {
+                    currentMonthBudget += annualBudget;
+                } else if (createdAt >= sixtyDaysAgo) {
+                    previousMonthBudget += annualBudget;
+                }
             });
+
+            if (previousMonthBudget > 0) {
+                stats.budgetGrowth = ((currentMonthBudget - previousMonthBudget) / previousMonthBudget) * 100;
+            } else if (currentMonthBudget > 0) {
+                stats.budgetGrowth = 100;
+            }
 
             const validated = SystemStatsSchema.safeParse(stats);
             if (!validated.success) {
@@ -352,6 +444,71 @@ export class AdminService implements IAdminService {
                 'calculation',
                 id.toString(),
                 { new_status: status }
+            );
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: wrapError(error) };
+        }
+    }
+
+    async assignManager(calculationId: string, managerId: string | null): Promise<VoidResult> {
+        try {
+            const { error } = await this.supabase
+                .from('calculations')
+                .update({ 
+                    manager_id: managerId,
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('id', calculationId);
+
+            if (error) return { success: false, error: wrapError(error) };
+
+            await this.auditService.logAction(
+                'calculation_manager_assigned',
+                'calculation',
+                calculationId,
+                { manager_id: managerId }
+            );
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: wrapError(error) };
+        }
+    }
+    async bulkDeleteCalculations(ids: string[]): Promise<VoidResult> {
+        try {
+            const { error } = await this.supabase
+                .from('calculations')
+                .delete()
+                .in('id', ids);
+
+            if (error) return { success: false, error: wrapError(error) };
+
+            await this.auditService.logAction(
+                'calculations_bulk_deleted',
+                'p_calculation',
+                undefined, 
+                { count: ids.length, ids }
+            );
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: wrapError(error) };
+        }
+    }
+
+    async bulkUpdateCalculationStatus(ids: string[], status: string): Promise<VoidResult> {
+        try {
+            const { error } = await this.supabase
+                .from('calculations')
+                .update({ status, updated_at: new Date().toISOString() })
+                .in('id', ids);
+
+            if (error) return { success: false, error: wrapError(error) };
+
+            await this.auditService.logAction(
+                'calculations_bulk_status_update',
+                'calculation',
+                undefined,
+                { count: ids.length, ids, new_status: status }
             );
             return { success: true };
         } catch (error) {

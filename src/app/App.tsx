@@ -10,6 +10,7 @@ import { Toaster } from 'sonner';
 import { ServiceProvider } from '@/core/di/ServiceContainer';
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
 import { ConnectivityBanner } from '@/components/common/ConnectivityBanner';
+import { CalculatorConfigProvider } from '@/features/calculator/CalculatorConfigContext';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -31,27 +32,30 @@ export const App: React.FC = () => {
             <ConnectivityBanner />
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
-                    <AuthProvider>
-                        <ServiceProvider>
-                            <BrowserRouter>
-                                <AppRoutes />
-                                <Toaster
-                                    position="top-right"
-                                    expand={false}
-                                    richColors
-                                    theme="dark"
-                                    toastOptions={{
-                                        style: {
-                                            background: 'rgba(23, 23, 23, 0.8)',
-                                            backdropFilter: 'blur(12px)',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '24px',
-                                        },
-                                    }}
-                                />
-                            </BrowserRouter>
-                        </ServiceProvider>
-                    </AuthProvider>
+                    <CalculatorConfigProvider>
+                        <AuthProvider>
+                            <ServiceProvider>
+                                <BrowserRouter>
+                                    <AppRoutes />
+                                    <Toaster
+                                        position="top-right"
+                                        expand={false}
+                                        richColors
+                                        closeButton
+                                        theme="dark"
+                                        toastOptions={{
+                                            style: {
+                                                background: 'rgba(23, 23, 23, 0.8)',
+                                                backdropFilter: 'blur(12px)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '24px',
+                                            },
+                                        }}
+                                    />
+                                </BrowserRouter>
+                            </ServiceProvider>
+                        </AuthProvider>
+                    </CalculatorConfigProvider>
                 </ThemeProvider>
             </QueryClientProvider>
         </ErrorBoundary>

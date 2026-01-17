@@ -1,10 +1,16 @@
 import React from 'react';
-import { Mail, RefreshCw, User as UserIcon, ArrowRightLeft, Shield, Trash2, Check, Copy } from 'lucide-react';
+import { 
+    RefreshCw, 
+    Briefcase,
+    Send
+} from 'lucide-react';
 import type { User } from '@/features/auth/auth.types';
 import type { Invitation } from '@/services/admin.service';
+import { UserTable } from './Team/UserTable';
+import { InvitationTable } from './Team/InvitationTable';
 
 interface AdminTeamManagerProps {
-    users: User[];
+    users: (User & { projectsCount: number })[];
     invitations: Invitation[];
     inviteEmail: string;
     setInviteEmail: (email: string) => void;
@@ -39,195 +45,88 @@ export const AdminTeamManager: React.FC<AdminTeamManagerProps> = ({
     onRefresh,
 }) => {
     return (
-        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Invitation Form */}
-            <section className="glass-card !p-8">
-                <h2 className="text-xl font-black mb-8 flex items-center gap-3">
-                    <Mail className="w-6 h-6 text-primary" /> Пригласить сотрудника или клиента
-                </h2>
-                <form onSubmit={handleCreateInvite} className="flex flex-wrap gap-4">
-                    <div className="flex-1 min-w-[200px] relative">
-                        <input
+        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+            {/* Toolbar */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+                <div className="flex-1 max-w-2xl">
+                    <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">
+                        <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                            <Briefcase size={24} />
+                        </div>
+                        Команда и Доступы
+                    </h2>
+                    <p className="text-muted-foreground mt-2 text-sm font-medium ml-1">
+                        Управление пользователями, ролями и приглашениями в систему управления.
+                    </p>
+                    
+                    {/* Invite Form */}
+                    <form onSubmit={handleCreateInvite} className="mt-8 flex flex-col sm:flex-row gap-3">
+                        <input 
                             type="email"
-                            placeholder="Email пользователя"
-                            className="input-premium w-full !pl-12"
+                            required
+                            placeholder="Email нового участника..."
                             value={inviteEmail}
                             onChange={(e) => setInviteEmail(e.target.value)}
-                            required
+                            className="flex-1 bg-card/50 border border-border-theme focus:border-primary/50 focus:ring-4 focus:ring-primary/5 rounded-2xl px-4 py-3 outline-none transition-all font-medium text-sm"
                         />
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground/20 w-5 h-5" />
-                    </div>
-                    <select
-                        className="input-premium w-full sm:w-48 appearance-none cursor-pointer"
-                        value={inviteRole}
-                        onChange={(e) =>
-                            setInviteRole(e.target.value as 'client' | 'manager' | 'admin')
-                        }
-                    >
-                        <option value="client">Клиент</option>
-                        <option value="manager">Менеджер</option>
-                        <option value="admin">Администратор</option>
-                    </select>
-                    <button type="submit" className="btn-premium whitespace-nowrap">
-                        Создать приглашение
-                    </button>
-                </form>
-            </section>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                {/* Users List */}
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-foreground/40">
-                            Все пользователи
-                        </h3>
-                        <button
-                            onClick={onRefresh}
-                            className="p-2 text-foreground/20 hover:text-primary transition-colors cursor-pointer"
+                        <select 
+                            value={inviteRole}
+                            onChange={(e) => setInviteRole(e.target.value as 'client' | 'manager' | 'admin')}
+                            className="bg-card/50 border border-border-theme rounded-2xl px-4 py-3 outline-none font-bold text-xs uppercase tracking-widest cursor-pointer"
                         >
-                            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                            <option value="client">Client</option>
+                            <option value="manager">Manager</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <button 
+                            type="submit"
+                            disabled={loading}
+                            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <Send size={16} />
+                            Пригласить
                         </button>
-                    </div>
-                    <div className="space-y-4">
-                        {users.map((user) => (
-                            <div
-                                key={user.id}
-                                className="glass-card flex items-center justify-between !py-4 group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                                        <UserIcon size={18} />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-black">
-                                            {user.organizationName || 'Индивидуальный'}
-                                        </p>
-                                        <p className="text-[10px] text-foreground/40 font-bold uppercase tracking-widest">
-                                            {user.email}
-                                        </p>
-                                        <p className="text-[8px] text-foreground/20 font-bold uppercase tracking-tighter mt-1 italic">
-                                            Регистрация:{' '}
-                                            {user.createdAt
-                                                ? new Date(user.createdAt).toLocaleDateString()
-                                                : '—'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => handleUpdateRole(user.id, user.role)}
-                                        className="p-2 rounded-xl hover:bg-primary/10 text-foreground/20 hover:text-primary transition-all flex items-center gap-2 group/btn"
-                                        title="Сменить роль"
-                                    >
-                                        <div
-                                            className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                                user.role === 'admin'
-                                                    ? 'bg-red-500/10 text-red-500'
-                                                    : user.role === 'manager'
-                                                      ? 'bg-indigo-500/10 text-indigo-500'
-                                                      : 'bg-emerald-500/10 text-emerald-500'
-                                            }`}
-                                        >
-                                            {user.role}
-                                        </div>
-                                        <ArrowRightLeft
-                                            size={14}
-                                            className="opacity-0 group-hover/btn:opacity-100 transition-opacity"
-                                        />
-                                    </button>
-
-                                    <button
-                                        onClick={() => handleToggleBlock(user)}
-                                        className={`p-2.5 rounded-xl border transition-all ${
-                                            user.status === 'blocked'
-                                                ? 'bg-red-500 text-white border-red-500'
-                                                : 'bg-card border-border-theme hover:border-amber-500 text-foreground/10 hover:text-amber-500'
-                                        }`}
-                                        title={
-                                            user.status === 'blocked'
-                                                ? 'Разблокировать'
-                                                : 'Заблокировать'
-                                        }
-                                    >
-                                        <Shield size={16} />
-                                    </button>
-
-                                    <button
-                                        onClick={() => handleDeleteUser(user)}
-                                        className="p-2.5 rounded-xl bg-card border border-border-theme hover:border-red-500 text-foreground/10 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
-                                        title="Удалить пользователя навсегда"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    </form>
                 </div>
 
-                {/* Active Invites List */}
-                <div className="space-y-6">
-                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-foreground/40 ml-2">
-                        Активные приглашения
-                    </h3>
-                    <div className="space-y-4">
-                        {invitations.length === 0 && (
-                            <div className="py-12 glass-card text-center border-dashed border-2 flex flex-col items-center gap-2 opacity-50">
-                                <Mail className="text-foreground/20 w-8 h-8" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">
-                                    Нет активных приглашений
-                                </p>
-                            </div>
-                        )}
-                        {invitations.map((invite) => (
-                            <div
-                                key={invite.id}
-                                className="glass-card flex items-center justify-between !py-4 group transition-all hover:translate-x-1"
-                            >
-                                <div className="space-y-1">
-                                    <p className="text-sm font-black">{invite.email}</p>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded">
-                                            {invite.role}
-                                        </span>
-                                        <span className="text-[9px] font-black text-foreground/20 uppercase tracking-widest">
-                                            •
-                                        </span>
-                                        <span
-                                            className={`text-[9px] font-black uppercase tracking-widest ${invite.status === 'pending' ? 'text-amber-500' : 'text-foreground/40'}`}
-                                        >
-                                            {invite.status === 'pending'
-                                                ? 'Ожидает'
-                                                : 'Использовано'}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {invite.status === 'pending' && (
-                                        <button
-                                            onClick={() => copyInviteLink(invite.token)}
-                                            className="p-2.5 rounded-xl bg-card border border-border-theme hover:border-primary text-foreground/40 hover:text-primary transition-all shadow-sm active:scale-90"
-                                            title="Скопировать ссылку"
-                                        >
-                                            {copiedToken === invite.token ? (
-                                                <Check size={16} />
-                                            ) : (
-                                                <Copy size={16} />
-                                            )}
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => handleDeleteInvite(invite.id)}
-                                        className="p-2.5 rounded-xl bg-card border border-border-theme hover:border-red-500 text-foreground/10 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <button 
+                    onClick={onRefresh}
+                    disabled={loading}
+                    className="p-3 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground rounded-2xl transition-all disabled:animate-spin"
+                >
+                    <RefreshCw size={20} />
+                </button>
             </div>
+
+            {/* Users Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 px-1">
+                    <div className="w-8 h-px bg-primary/30" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/60">Активные специалисты</h3>
+                </div>
+                <UserTable 
+                    users={users}
+                    handleUpdateRole={handleUpdateRole}
+                    handleToggleBlock={handleToggleBlock}
+                    handleDeleteUser={handleDeleteUser}
+                />
+            </div>
+
+            {/* Invitations Section */}
+            {invitations.length > 0 && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 px-1">
+                        <div className="w-8 h-px bg-amber-500/30" />
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500/60">Ожидают регистрации</h3>
+                    </div>
+                    <InvitationTable 
+                        invitations={invitations}
+                        copyInviteLink={copyInviteLink}
+                        handleDeleteInvite={handleDeleteInvite}
+                        copiedToken={copiedToken}
+                    />
+                </div>
+            )}
         </div>
     );
 };

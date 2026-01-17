@@ -6,11 +6,11 @@ import type { ActionResult, VoidResult } from '@/core/types/results';
 export const AuditLogSchema = z.object({
     id: z.string().uuid(),
     created_at: z.string(),
-    user_id: z.string().uuid(),
+    user_id: z.string().uuid().nullable().optional(),
     action: z.string(),
     entity_type: z.string(),
     entity_id: z.string().optional().nullable(),
-    details: z.record(z.string(), z.unknown()),
+    details: z.record(z.string(), z.unknown()).nullable().optional(),
     profiles: z
         .object({
             email: z.string().email(),
@@ -28,7 +28,12 @@ export interface IAuditLogService {
         entityId?: string,
         details?: Record<string, unknown>
     ): Promise<VoidResult>;
-    getLogs(limit?: number): Promise<ActionResult<AuditLog[]>>;
+    getLogs(params?: {
+        page?: number;
+        pageSize?: number;
+        actionFilter?: string;
+        userIdFilter?: string;
+    }): Promise<ActionResult<{ data: AuditLog[]; total: number }>>;
 }
 
 export class AuditLogService implements IAuditLogService {
@@ -72,29 +77,59 @@ export class AuditLogService implements IAuditLogService {
         }
     }
 
-    async getLogs(limit = 50): Promise<ActionResult<AuditLog[]>> {
+    async getLogs(params?: {
+        page?: number;
+        pageSize?: number;
+        actionFilter?: string;
+        userIdFilter?: string;
+    }): Promise<ActionResult<{ data: AuditLog[]; total: number }>> {
         try {
-            const { data, error } = await this.supabase
+            const page = params?.page || 1;
+            const pageSize = params?.pageSize || 20;
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+
+            let query = this.supabase
                 .from('audit_logs')
                 .select(
-                    `
-                    *,
-                    profiles:user_id (email)
-                `
+                    `*, profiles:user_id (email)`,
+                    { count: 'exact' }
                 )
                 .order('created_at', { ascending: false })
-                .limit(limit);
+                .range(from, to);
 
-            if (error) return { success: false, error: this.wrapError(error) };
+            if (params?.actionFilter && params.actionFilter !== 'all') {
+                query = query.eq('action', params.actionFilter);
+            }
+
+            if (params?.userIdFilter && params.userIdFilter !== 'all') {
+                query = query.eq('user_id', params.userIdFilter);
+            }
+
+            const { data, error, count } = await query;
+
+            if (error) {
+                console.error('[AuditLogService] Fetch error:', error);
+                return { success: false, error: this.wrapError(error) };
+            }
 
             const validated = z.array(AuditLogSchema).safeParse(data);
             if (!validated.success) {
-                logger.error('[AuditLogService:Validation:Error]', { error: validated.error });
+                console.error('[AuditLogService] Validation error:', validated.error);
+                if (data && data.length > 0) return { success: true, data: { data: data as AuditLog[], total: count || 0 } };
+                
                 return { success: false, error: { message: 'Data format error in audit logs' } };
             }
 
-            return { success: true, data: validated.data };
+            return { 
+                success: true, 
+                data: {
+                    data: validated.data,
+                    total: count || 0
+                } 
+            };
         } catch (error) {
+            console.error('[AuditLogService] Catch error:', error);
             return { success: false, error: this.wrapError(error) };
         }
     }

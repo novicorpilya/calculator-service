@@ -36,9 +36,12 @@ export interface Supplier {
         phone?: string;
         email?: string;
         website?: string;
+        address?: string;
     };
     integration_type: 'internal' | 'api_1c' | 'api_custom';
     status: 'active' | 'inactive';
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface Comment {
@@ -206,6 +209,7 @@ export interface Calculation {
     locked_by?: string;
     lock_expires_at?: string;
     final_snapshot?: CalculationResults;
+    calculator_config_snapshot?: unknown; // Snapshot of the calculator configuration at creation time
     receipt_path?: string;
     client_name?: string;
     project_number?: number;

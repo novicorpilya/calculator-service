@@ -129,6 +129,7 @@ export class CalculationRepository implements ICalculationRepository {
             locked_by: db.locked_by ?? undefined,
             lock_expires_at: db.lock_expires_at ?? undefined,
             final_snapshot: db.final_snapshot || undefined,
+            calculator_config_snapshot: db.calculator_config_snapshot || undefined,
             client_name: clientData ? clientData.first_name || 'Клиент' : 'Клиент',
         };
     }
@@ -262,6 +263,7 @@ export class CalculationRepository implements ICalculationRepository {
                     results: calc.results,
                     total_cost_value: calc.totalCost,
                     status: calc.status || 'draft',
+                    calculator_config_snapshot: calc.calculator_config_snapshot,
                 })
                 .select(this.PROJECT_SELECT)
                 .single();
@@ -291,6 +293,7 @@ export class CalculationRepository implements ICalculationRepository {
             if (updates.results) dbUpdates.results = updates.results;
             if (updates.totalCost !== undefined) dbUpdates.total_cost_value = updates.totalCost;
             if (updates.receipt_path !== undefined) dbUpdates.receipt_path = updates.receipt_path;
+            if (updates.calculator_config_snapshot !== undefined) dbUpdates.calculator_config_snapshot = updates.calculator_config_snapshot;
 
             const { data, error } = await this.client
                 .from('calculations')

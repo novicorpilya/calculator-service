@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, X, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { useTheme } from '@/app/providers/useTheme';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/app/routes/routes.constants';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
@@ -18,6 +19,7 @@ interface DashboardHeaderProps {
 export const DashboardHeader = React.memo<DashboardHeaderProps>(
     ({ sidebarOpen, setSidebarOpen, title = 'Кабинет клиента' }) => {
         const { logout } = useAuth();
+        const { theme } = useTheme();
         const navigate = useNavigate();
 
         const handleLogout = async () => {
@@ -49,7 +51,7 @@ export const DashboardHeader = React.memo<DashboardHeaderProps>(
                             </div>
                             <div className="block">
                                 <span className="text-xl sm:text-2xl font-[1000] tracking-tighter italic uppercase leading-none block text-foreground">
-                                    HICS
+                                    {theme.appName || 'HICS'}
                                 </span>
                             </div>
                         </div>

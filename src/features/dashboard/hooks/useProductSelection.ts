@@ -11,6 +11,8 @@ import type {
 } from '../dashboard.types';
 import { logger } from '@/core/logging';
 import { CalculationEngine } from '@/utils/calculation-engine';
+import { useCalculatorConfig } from '@/features/calculator/useCalculatorConfig';
+import { type CalculatorConfig } from '@/features/calculator/calculator-config.types';
 
 interface UseProductSelectionProps {
     user: { id?: string; role?: string } | null;
@@ -35,6 +37,7 @@ export function useProductSelection({
     onAdjustExpert,
 }: UseProductSelectionProps) {
     const { inventoryService } = useServices();
+    const { config } = useCalculatorConfig();
 
     // State
     const [isAuditMode, setIsAuditMode] = useState(false);
@@ -85,7 +88,8 @@ export function useProductSelection({
                     sanitaryLevel: entity.sanitaryLevel,
                     replacementCycle: entity.replacementCycle,
                     intensityLevel: entity.rawData.intensityLevel,
-                }
+                },
+                (entity.configSnapshot as unknown as CalculatorConfig) || config
             );
 
             // Update summary item
@@ -162,7 +166,8 @@ export function useProductSelection({
                 sanitaryLevel: entity.sanitaryLevel,
                 replacementCycle: entity.replacementCycle,
                 intensityLevel: entity.rawData.intensityLevel,
-            }
+            },
+            (entity.configSnapshot as unknown as CalculatorConfig) || config
         );
 
         const newResults = structuredClone(entity.results);

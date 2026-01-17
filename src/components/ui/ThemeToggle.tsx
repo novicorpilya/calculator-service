@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/app/providers/useTheme';
 
 /**
  * Переключатель темы с поддержкой View Transitions API.
@@ -19,9 +19,11 @@ export const ThemeToggle: React.FC = () => {
         return <div className="w-10 h-10 rounded-2xl bg-gray-100 dark:bg-white/5 animate-pulse" />;
 
     const toggleTheme = (event: React.MouseEvent) => {
+        const nextMode = theme.mode === 'dark' ? 'light' : 'dark';
+        
         // Проверка поддержки View Transitions API
         if (!document.startViewTransition) {
-            setTheme(theme === 'dark' ? 'light' : 'dark');
+            setTheme({ ...theme, mode: nextMode });
             return;
         }
 
@@ -34,7 +36,7 @@ export const ThemeToggle: React.FC = () => {
 
         const transition = document.startViewTransition(() => {
             document.documentElement.classList.add('view-transitioning');
-            setTheme(theme === 'dark' ? 'light' : 'dark');
+            setTheme({ ...theme, mode: nextMode });
         });
 
         transition.finished.finally(() => {
@@ -60,14 +62,16 @@ export const ThemeToggle: React.FC = () => {
         });
     };
 
+    const isDark = theme.mode === 'dark' || (theme.mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
     return (
         <button
             onClick={toggleTheme}
             className="group relative p-3 bg-card hover:bg-primary/5 border border-border-theme rounded-2xl shadow-sm transition-all active:scale-90"
-            title={`Текущая тема: ${theme === 'dark' ? 'Темная' : 'Светлая'}`}
+            title={`Текущая тема: ${isDark ? 'Темная' : 'Светлая'}`}
         >
             <div className="relative z-10 transition-transform duration-500 group-active:rotate-12">
-                {theme === 'dark' ? (
+                {isDark ? (
                     <Moon className="w-5 h-5 text-blue-400 fill-blue-400/20 animate-in zoom-in spin-in-90 duration-500" />
                 ) : (
                     <Sun className="w-5 h-5 text-amber-500 fill-amber-500/20 animate-in zoom-in spin-in-45 duration-500" />

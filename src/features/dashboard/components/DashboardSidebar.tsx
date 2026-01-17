@@ -12,8 +12,10 @@ import {
     Building2,
     Shield,
     MessageSquare,
+    Palette
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useTheme } from '@/app/providers/useTheme';
 
 import { useUnreadCount } from '@/features/chat/hooks';
 
@@ -30,6 +32,7 @@ interface DashboardSidebarProps {
 export const DashboardSidebar = React.memo<DashboardSidebarProps>(
     ({ isOpen, currentPage, onNavigate }) => {
         const { user } = useAuth();
+        const { theme } = useTheme();
 
         const { directUnread, projectUnread } = useUnreadCount(user?.id);
 
@@ -46,7 +49,11 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
                         badge: projectUnread,
                     },
                     { id: 'team', label: 'Команда', icon: Users },
-                    { id: 'history', label: 'Логи аудита', icon: HistoryIcon },
+                    { id: 'admin-inventory', label: 'Реестр товаров', icon: Library },
+                    { id: 'admin-suppliers', label: 'Поставщики', icon: Building2 },
+                    { id: 'admin-labeling', label: 'Брендирование', icon: Palette },
+                    { id: 'admin-calculator', label: 'Конфигуратор', icon: Calculator },
+                    { id: 'admin-logs', label: 'Логи аудита', icon: HistoryIcon },
                 ];
             }
 
@@ -101,8 +108,8 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
                                     <ShieldCheck className="w-6 h-6 text-[#050506]" />
                                 </div>
                                 <div>
-                                    <span className="text-xl font-[1000] tracking-tighter italic uppercase leading-none block">
-                                        HORECA<span className="text-primary tracking-tighter">CALC</span>
+                                    <span className="text-xl font-[1000] tracking-tighter italic uppercase leading-none block text-foreground">
+                                        {theme.appName || 'HORECA CALC'}
                                     </span>
                                 </div>
                             </div>

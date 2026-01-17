@@ -4,30 +4,41 @@
 ![Tech](https://img.shields.io/badge/Stack-React%20%7C%20Supabase%20%7C%20TypeScript-orange?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge)
 
-**HICS (HoReCa Inventory Calculation System)** — профессиональная система для расчета и управления закупками инвентаря в секторе HoReCa с интеллектуальным движком расчетов, real-time коммуникацией и голосовыми сообщениями.
+**HICS (HoReCa Inventory Calculation System)** — профессиональная система для
+расчета и управления закупками инвентаря в секторе HoReCa с интеллектуальным
+движком расчетов, real-time коммуникацией и голосовыми сообщениями.
 
 ---
 
 ## ✨ Основные возможности
 
 ### 🧮 Интеллектуальный расчет (Engine v2.0)
+
 - Автоматический расчет норм на основе площади, персонала и интенсивности
 - Учет HACCP-стандартов и цветового кодирования
 - Коэффициенты циклов замены и санитарных уровней
 - Экспорт спецификаций в Excel
 
 ### 💬 Real-time коммуникация
+
 - Мгновенный чат между клиентом и менеджером
 - **Голосовые сообщения** (как в Telegram)
 - Отправка изображений и файлов
 - Автоматическая синхронизация через Supabase Realtime
 
 ### 👥 Ролевая система
+
 - **Client**: Создание проектов, чат с экспертом
 - **Manager**: Аудит заявок, выставление счетов
-- **Admin**: Управление каталогом и пользователями
+- **Admin**:
+  - 🔧 **Calculator Engine Terminal**: Визуальный и Code-based конструктор
+    формул расчета
+  - 🎨 **White Label**: Полная кастомизация бренда и тем (Light/Dark)
+  - 👥 Управление командой и доступами
+  - 📦 Реестр товаров и поставщиков
 
 ### 📊 Управление проектами
+
 - Полный жизненный цикл от черновика до завершения
 - Система статусов с визуальными индикаторами
 - История изменений и обсуждений
@@ -38,22 +49,26 @@
 ## 🚀 Быстрый старт
 
 ### Требования
-- Node.js 18+ 
+
+- Node.js 18+
 - npm или yarn
 - Аккаунт Supabase
 
 ### 1. Клонирование репозитория
+
 ```bash
 git clone https://github.com/your-username/calculator-service.git
 cd calculator-service
 ```
 
 ### 2. Установка зависимостей
+
 ```bash
 npm install
 ```
 
 ### 3. Настройка переменных окружения
+
 ```bash
 # Скопируйте .env.example в .env
 cp .env.example .env
@@ -62,7 +77,9 @@ cp .env.example .env
 ```
 
 ### 4. Настройка базы данных
+
 Выполните SQL-скрипты в Supabase SQL Editor:
+
 ```sql
 -- 1. Основная схема (если еще не создана)
 -- 2. scripts/add-voice-messages.sql
@@ -70,6 +87,7 @@ cp .env.example .env
 ```
 
 ### 5. Запуск в режиме разработки
+
 ```bash
 npm run dev
 ```
@@ -77,6 +95,7 @@ npm run dev
 Приложение будет доступно по адресу: `http://localhost:5173`
 
 ### 6. Сборка для продакшена
+
 ```bash
 npm run build
 ```
@@ -86,17 +105,20 @@ npm run build
 ## 🛠 Технологический стек
 
 ### Frontend
+
 - **React 18** + **Vite** - быстрая разработка и сборка
 - **TypeScript** - строгая типизация
 - **Tailwind CSS** - современный дизайн
 - **Lucide Icons** - иконки
 
 ### Backend & Services
+
 - **Supabase** - база данных, аутентификация, real-time
 - **PostgreSQL** - надежное хранилище данных
 - **Row Level Security** - безопасность на уровне БД
 
 ### Дополнительно
+
 - **XLSX** - экспорт в Excel
 - **Sonner** - уведомления
 - **MediaRecorder API** - голосовые сообщения
@@ -127,21 +149,26 @@ calculator-service/
 ## 🔐 Безопасность
 
 ### Переменные окружения
+
 **НИКОГДА** не коммитьте файл `.env` в Git!
 
 Используйте `.env.example` как шаблон:
+
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ```
 
 ### Row Level Security (RLS)
+
 Все таблицы защищены RLS политиками:
+
 - Пользователи видят только свои данные
 - Менеджеры имеют доступ к назначенным проектам
 - Админы имеют полный доступ
 
 ### Аутентификация
+
 - JWT токены через Supabase Auth
 - Защищенные роуты
 - Проверка ролей на клиенте и сервере
@@ -151,12 +178,14 @@ VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ## 📱 Совместимость
 
 ### Браузеры
+
 - ✅ Chrome 90+
 - ✅ Firefox 88+
 - ✅ Edge 90+
 - ⚠️ Safari 14+ (голосовые сообщения могут требовать разрешений)
 
 ### Устройства
+
 - ✅ Desktop (1920x1080+)
 - ✅ Tablet (768px+)
 - ✅ Mobile (375px+)
@@ -166,16 +195,19 @@ VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ## 🚀 Деплой
 
 ### Vercel (рекомендуется)
+
 ```bash
 vercel --prod
 ```
 
 ### Netlify
+
 ```bash
 netlify deploy --prod --dir=dist
 ```
 
 ### Настройка переменных окружения
+
 Не забудьте добавить переменные окружения в настройках хостинга!
 
 ---
@@ -185,6 +217,8 @@ netlify deploy --prod --dir=dist
 - [Быстрый старт](./DEPLOY.md) - инструкция по деплою
 - [Безопасность Git](./GIT_SECURITY.md) - работа с секретами
 - [Голосовые сообщения](./VOICE_MESSAGES_README.md) - настройка аудио
+- [Admin Features](./ADMIN_FEATURES.md) - **NEW!** Полное руководство по
+  админ-панели
 - [Production Checklist](./PRODUCTION_CHECKLIST.md) - чеклист перед релизом
 - [Production Audit](./PRODUCTION_AUDIT.md) - полный аудит кода
 
@@ -193,16 +227,19 @@ netlify deploy --prod --dir=dist
 ## 🧪 Тестирование
 
 ### Запуск линтера
+
 ```bash
 npm run lint
 ```
 
 ### Проверка типов
+
 ```bash
 npm run type-check
 ```
 
 ### Сборка
+
 ```bash
 npm run build
 ```
@@ -227,8 +264,8 @@ npm run build
 
 ## 👨‍💻 Автор
 
-**Developed by Antigravity Studio**  
-📧 Email: support@example.com  
+**Developed by Antigravity Studio**\
+📧 Email: support@example.com\
 🌐 Website: https://example.com
 
 ---

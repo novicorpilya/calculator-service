@@ -18,6 +18,7 @@ import { EmailService, type IEmailService } from '@/services/email.service';
 import { VenueService, type IVenueService } from '@/services/venue.service';
 import { InventoryService, type IInventoryService } from '@/services/inventory.service';
 import { SupplierService, type ISupplierService } from '@/services/supplier.service';
+import { InventoryAdminService, type IInventoryAdminService } from '@/services/inventory-admin.service';
 
 interface IServiceContainer {
     chatService: IChatService;
@@ -30,6 +31,7 @@ interface IServiceContainer {
     venueService: IVenueService;
     inventoryService: IInventoryService;
     supplierService: ISupplierService;
+    inventoryAdminService: IInventoryAdminService;
 }
 
 const ServiceContext = createContext<IServiceContainer | null>(null);
@@ -54,7 +56,8 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
             const emailService = services.emailService || new EmailService(supabase);
             const venueService = services.venueService || new VenueService(supabase);
             const inventoryService = services.inventoryService || new InventoryService(supabase);
-            const supplierService = services.supplierService || new SupplierService(supabase);
+            const supplierService = services.supplierService || new SupplierService(supabase, auditLogService);
+            const inventoryAdminService = services.inventoryAdminService || new InventoryAdminService(supabase, auditLogService);
 
             const chatService = services.chatService || new ChatService(chatRepo, broadcastService);
             const calculationService =
@@ -71,6 +74,7 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
                 venueService,
                 inventoryService,
                 supplierService,
+                inventoryAdminService,
                 ...services,
             } as IServiceContainer;
         }
@@ -89,7 +93,8 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
         const chatService = new ChatService(chatRepo, broadcastService);
         const venueService = new VenueService(supabase);
         const inventoryService = new InventoryService(supabase);
-        const supplierService = new SupplierService(supabase);
+        const supplierService = new SupplierService(supabase, auditLogService);
+        const inventoryAdminService = new InventoryAdminService(supabase, auditLogService);
         // CalculationService - only needs repository
         const calculationService = new CalculationService(calculationRepo);
 
@@ -104,6 +109,7 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
             venueService,
             inventoryService,
             supplierService,
+            inventoryAdminService,
         };
     }, [services]);
 

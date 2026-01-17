@@ -34,6 +34,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(
             calculate,
             showZoneModal,
             setShowZoneModal,
+            config,
         } = useCalculationWizard(initialData);
 
         const [isSubmitting, setIsSubmitting] = useState<'draft' | 'sent' | null>(null);
@@ -66,6 +67,7 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(
                     comments: initialData?.comments || [],
                     unreadComments: initialData?.unreadComments || 0,
                     results: results,
+                    calculator_config_snapshot: initialData?.calculator_config_snapshot || config,
                 };
                 await onComplete(newCalc);
             } finally {
