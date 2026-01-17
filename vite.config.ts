@@ -32,28 +32,15 @@ export default defineConfig({
           }
           
           // --- VENDOR SPLITTING ---
-          
-          // 1. Huge Libraries (keep separate)
+          // FIX: We only split TRULY isolated, heavy libraries to avoiding cyclic dependency issues in production.
+          // Everything else (React, UI, Supabase) stays in the main vendor chunk to ensure correct execution order.
+
           if (id.includes('emoji-picker-react') || id.includes('emoji-mart')) return 'vendor-emoji';
           if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('canvg')) return 'vendor-pdf';
           if (id.includes('xlsx') || id.includes('cpexcel')) return 'vendor-excel';
-          if (id.includes('recharts') || id.includes('active-win')) return 'vendor-charts';
           
-          // 2. Core Infrastructure (Supabase + Auth + Query)
-          if (id.includes('@supabase') || id.includes('@tanstack')) {
-            return 'vendor-infra';
-          }
-
-          // 3. UI Framework (React + Router + Icons + UI libs)
-          // Grouping React, Router, Lucide, Radix/Sonner together prevents symbol resolution errors
-          if (id.includes('react') || id.includes('router') || id.includes('lucide') || id.includes('sonner') || id.includes('next-themes')) {
-            return 'vendor-ui-core';
-          }
-          
-          // 4. Feature modules are handled above
-
-          // Everything else is vendor-misc
-          return 'vendor-misc';
+          // Let Vite/Rollup handle the rest automatically
+          return 'vendor';
         },
       },
     },
