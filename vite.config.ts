@@ -31,36 +31,17 @@ export default defineConfig({
             return; // Let Rollup handle other app code
           }
           
-          // --- VENDOR SPLITTING V3 (Safe & Optimized) ---
+          // --- VENDOR SPLITTING (SAFE MODE) ---
+          // WARNING: Do NOT split 'react', 'lucide', 'supabase' or UI libs.
+          // Circular dependencies cause runtime "undefined" errors in production.
           
-          // 1. ISOLATED HEAVY LIBS (Safe to split, no shared state)
           if (id.includes('emoji-picker-react')) return 'vendor-emoji';
           if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
           if (id.includes('xlsx')) return 'vendor-excel';
-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
-
-          // 2. INFRASTRUCTURE (Supabase, Auth, Query)
-          // Often updated independently, large enough to split
-          if (id.includes('@supabase') || id.includes('@tanstack')) {
-              return 'vendor-infra';
-          }
-
-          // 3. UI & CORE (React, Router, Icons, Components)
-          // MUST be together to avoid "undefined" runtime errors
-          if (
-              id.includes('react') || 
-              id.includes('router') || 
-              id.includes('lucide') || 
-              id.includes('sonner') || 
-              id.includes('next-themes') ||
-              id.includes('@radix-ui') ||
-              id.includes('class-variance-authority')
-          ) {
-              return 'vendor-ui';
-          }
-
-          // 4. Everything else
-          return 'vendor-misc';
+          
+          // Keep EVERYTHING else together.
+          // 1MB file is better than a broken app.
+          return 'vendor';
         },
       },
     },
