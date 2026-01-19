@@ -12,7 +12,8 @@ import {
     Building2,
     Shield,
     MessageSquare,
-    Palette
+    Palette,
+    Target
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/app/providers/useTheme';
@@ -60,6 +61,7 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
             if (role === 'manager') {
                 return [
                     { id: 'overview', label: 'Аналитика', icon: LayoutDashboard },
+                    { id: 'kpi', label: 'Мой KPI', icon: Target },
                     { id: 'pipeline', label: 'Проекты', icon: FolderSearch, badge: projectUnread },
                     { id: 'chat', label: 'Сообщения', icon: MessageSquare, badge: directUnread },
                     { id: 'kb', label: 'Реестр товаров', icon: Library },
@@ -109,7 +111,7 @@ export const DashboardSidebar = React.memo<DashboardSidebarProps>(
                                 </div>
                                 <div>
                                     <span className="text-xl font-[1000] tracking-tighter italic uppercase leading-none block text-foreground">
-                                        {theme.appName || 'HORECA CALC'}
+                                        {theme.appName || 'HICS'}
                                     </span>
                                 </div>
                             </div>

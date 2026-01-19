@@ -14,7 +14,7 @@ import {
     Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { AdminInventoryItem } from '@/services/inventory-admin.service';
 import type { Supplier } from '@/features/dashboard/dashboard.types';
 

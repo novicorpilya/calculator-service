@@ -50,6 +50,9 @@ export class LogManager implements ILogger {
                 break;
             case LogLevel.ERROR:
                 console.error(prefix, message, context, error);
+                if (error && typeof error === 'object') {
+                    console.log(`${prefix} [DETAILS]`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+                }
                 break;
         }
 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import { type Supplier } from '@/features/dashboard/dashboard.types';
 
 export function useSuppliers() {

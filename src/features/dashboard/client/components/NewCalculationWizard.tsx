@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
 import { type Calculation, OBJECT_TYPES } from '../../dashboard.types';
-import { getTotalZonesStaff } from '@/core/domain/calculator.utils';
+import { getTotalZonesStaff, calculateTotalCost } from '@/core/domain/calculator.utils';
 import { useCalculationWizard } from './wizard/useCalculationWizard';
 import { WizardStep1_Object } from './wizard/WizardStep1_Object';
 import { WizardStep2_Zones } from './wizard/WizardStep2_Zones';
@@ -62,11 +62,12 @@ export const NewCalculationWizard = React.memo<NewCalculationWizardProps>(
                     sanitaryLevel: objectData.sanitaryLevel,
                     intensityLevel: objectData.intensityLevel,
                     replacementCycle: objectData.replacementCycle,
-                    createdDate: initialData?.createdDate || new Date().toLocaleDateString('ru-RU'),
+                    createdDate: initialData?.createdDate || new Date().toISOString(),
                     manager: initialData?.manager || 'Назначается',
                     comments: initialData?.comments || [],
                     unreadComments: initialData?.unreadComments || 0,
                     results: results,
+                    totalCost: calculateTotalCost(results.summary),
                     calculator_config_snapshot: initialData?.calculator_config_snapshot || config,
                 };
                 await onComplete(newCalc);

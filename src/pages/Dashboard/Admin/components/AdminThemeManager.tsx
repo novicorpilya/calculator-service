@@ -111,7 +111,7 @@ export const AdminThemeManager: React.FC = () => {
                                 value={theme.appName || ''}
                                 onChange={(e) => setTheme({ ...theme, appName: e.target.value })}
                                 className="w-full bg-background border border-border-theme rounded-xl px-4 py-3 font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                                placeholder="HORECA CALC"
+                                placeholder="HICS"
                             />
                         </div>
                     </section>

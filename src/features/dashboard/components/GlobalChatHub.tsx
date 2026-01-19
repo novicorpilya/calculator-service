@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { ChatSidebar } from '@/features/chat/components/ChatSidebar';
 import { ChatWindow } from '@/features/chat/components/ChatWindow';
 import { useRecipients } from '@/features/chat/hooks/useRecipients';
 import { useMessages } from '@/features/chat/hooks/useMessages';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { ChatRecipient, Message, HistoryClearedPayload } from '@/features/chat/types';
 
 /**
@@ -15,10 +16,35 @@ export const GlobalChatHub = React.memo(() => {
     const { chatService } = useServices();
     const { user } = useAuth();
     const [selectedUser, setSelectedUser] = useState<ChatRecipient | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // 1. Sidebar Data & Actions
-    const { updateRecipientLastMessage, incrementUnread, clearUnread, clearRecipientLastMessage } =
-        useRecipients({ currentUserId: user?.id || '' });
+    const { 
+        recipients, 
+        updateRecipientLastMessage, 
+        incrementUnread, 
+        clearUnread, 
+        clearRecipientLastMessage,
+        isFetched: isRecipientsFetched
+    } = useRecipients({ currentUserId: user?.id || '' });
+
+    // 1.1 AUTO-SELECT contact from URL (Deep Linking)
+    useEffect(() => {
+        const contactId = searchParams.get('contact');
+        if (contactId && isRecipientsFetched && !selectedUser) {
+            const recipient = recipients.find(r => r.id === contactId);
+            if (recipient) {
+                // Defer state updates to avoid cascading renders
+                queueMicrotask(() => {
+                    setSelectedUser(recipient);
+                    // Optional: remove contact from URL to keep it clean
+                    const next = new URLSearchParams(searchParams);
+                    next.delete('contact');
+                    setSearchParams(next, { replace: true });
+                });
+            }
+        }
+    }, [searchParams, recipients, isRecipientsFetched, selectedUser, setSearchParams]);
 
     // 2. Active Chat Data & Actions
     const {

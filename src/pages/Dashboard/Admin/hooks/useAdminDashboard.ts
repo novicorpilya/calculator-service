@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Invitation, AdminCalculation, SystemStats } from '@/services/admin.service';
 import type { AuditLog } from '@/services/audit.service';
 import type { User } from '@/features/auth/auth.types';

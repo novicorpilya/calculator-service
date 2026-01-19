@@ -9,8 +9,14 @@ export function calculateTotalCost(items: InventoryItem[] = []): number {
     if (!Array.isArray(items)) return 0;
 
     return items.reduce((acc, item) => {
-        // Prefer explicit total if available, otherwise calculate
-        const itemTotal = Number(item.total) || Number(item.price) * Number(item.quantity);
+        // Priority: 
+        // 1. item.total (should be quantity * price)
+        // 2. price * quantity (fallback calculation)
+        // 3. annualBudget (only if no quantity/price data)
+        const itemTotal = 
+            Number(item.total) || 
+            (Number(item.price) * (Number(item.quantity) || 0)) ||
+            Number(item.calculation?.annualBudget) || 0;
 
         // Handle NaN/Infinity
         if (!Number.isFinite(itemTotal)) return acc;

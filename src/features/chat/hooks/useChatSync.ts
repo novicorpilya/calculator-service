@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Message, MessageEventType, ChatEventPayload, ReadEventPayload, MessageAckPayload } from '../types';
 import { sortMessages } from '../utils/chatUtils';
 import { chatStorage } from '../services/ChatStorage';

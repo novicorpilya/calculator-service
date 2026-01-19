@@ -82,12 +82,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const data = await resend.emails.send({
-            from: 'HORECA Calculator <onboarding@resend.dev>',
+            from: 'HICS <onboarding@resend.dev>',
             to: [email],
-            subject: 'Ваше приглашение в HORECA Calculator',
+            subject: 'Ваше приглашение в HICS',
             html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #171717;">
-            <h1 style="font-size: 24px; font-weight: 800; text-transform: uppercase;">HORECA Calculator</h1>
+            <h1 style="font-size: 24px; font-weight: 800; text-transform: uppercase;">HICS</h1>
             <p style="font-size: 16px; line-height: 1.6;">Вы приглашены как <strong>${role}</strong>.</p>
             <div style="margin: 30px 0;">
                 <a href="${inviteLink}" style="background-color: #171717; color: #ffffff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">

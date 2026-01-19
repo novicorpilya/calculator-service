@@ -1,5 +1,5 @@
 /**
- * Security-Enhanced Storage Adapter for HoReCa Calculator.
+ * Security-Enhanced Storage Adapter for HICS.
  * Использует обфускацию ключей для защиты от базовых парсеров localStorage.
  * Уровень: Middle+ Production Security
  */

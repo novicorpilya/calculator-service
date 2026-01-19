@@ -1,6 +1,6 @@
 import React, { createContext, useEffect } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 
 import { logger } from '@/core/logging';
 

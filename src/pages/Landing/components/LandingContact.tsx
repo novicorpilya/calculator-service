@@ -3,7 +3,7 @@ import { Mail, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { z } from 'zod';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 
 const feedbackSchema = z.object({
     name: z.string().min(1, 'Имя обязательно'),

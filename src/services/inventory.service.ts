@@ -47,6 +47,7 @@ export interface InventoryFilterOptions {
     search?: string;
     supplierId?: string;
     category?: string;
+    color?: string;
     page?: number;
     pageSize?: number;
 }
@@ -87,7 +88,7 @@ export class InventoryService implements IInventoryService {
         options: InventoryFilterOptions = {}
     ): Promise<ActionResult<InventoryPaginatedResult<InventoryItemMaster>>> {
         try {
-            const { page = 1, pageSize = 10, search = '', supplierId, category } = options;
+            const { page = 1, pageSize = 10, search = '', supplierId, category, color } = options;
 
             let query = this.supabase
                 .from('inventory_items')
@@ -103,6 +104,10 @@ export class InventoryService implements IInventoryService {
 
             if (category) {
                 query = query.eq('category', category);
+            }
+
+            if (color) {
+                query = query.eq('color', color);
             }
 
             const from = (page - 1) * pageSize;
@@ -152,6 +157,7 @@ export class InventoryService implements IInventoryService {
                         return false;
                     if (supplierId && item.supplier_id !== supplierId) return false;
                     if (category && item.category !== category) return false;
+                    if (color && item.color !== color) return false;
                     return true;
                 });
 

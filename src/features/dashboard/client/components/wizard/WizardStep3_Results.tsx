@@ -158,7 +158,7 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
             </div>
 
             {/* Final Action - Asymmetric Layout (RECOMMENDED) */}
-            <div className="glass-card !bg-foreground !text-background relative overflow-hidden group/card p-fluid shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
+            <div className="glass-card !bg-slate-950 !text-white relative overflow-hidden group/card p-fluid shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border-none">
                 <div className="relative z-10">
                     <div className="adaptive-columns items-end">
                         {/* Left Column - Information */}
@@ -170,7 +170,7 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
                                 </span>
                             </div>
 
-                            <h3 className="text-fluid-2xl font-black leading-[1.1] tracking-tighter italic uppercase">
+                            <h3 className="text-fluid-2xl font-black leading-[1.1] tracking-tighter italic uppercase text-white">
                                 Отправить результаты эксперту на проверку
                             </h3>
 

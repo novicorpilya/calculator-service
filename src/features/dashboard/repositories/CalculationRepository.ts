@@ -1,7 +1,7 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
-import type { Calculation, CalculationStatus, CalculationResults, Zone } from '../dashboard.types';
+import type { Calculation, CalculationResults } from '../dashboard.types';
 import { type ILogger } from '@/core/logging/LogManager';
-import { rawDBCalculationSchema, type RawDBCalculation } from '../dashboard.validation';
+import { CalculationMapper } from '../mappers/CalculationMapper';
 import {
     type PaginationParams,
     type PaginatedResult,
@@ -65,73 +65,10 @@ export class CalculationRepository implements ICalculationRepository {
     }
 
     private readonly PROJECT_SELECT =
-        '*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(first_name, last_name)';
+        '*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(organization_name, first_name, last_name, inn, address)';
 
     private wrapError(error: unknown): { message: string } {
         return { message: error instanceof Error ? error.message : String(error) };
-    }
-
-    private mapToEntity(dbRaw: unknown): Calculation {
-        const raw = dbRaw as Record<string, unknown>;
-        const parseResult = rawDBCalculationSchema.safeParse(dbRaw);
-
-        if (!parseResult.success) {
-            this.logger.error(
-                `Critical: Calculation Data Corruption for ID ${raw?.id}`,
-                parseResult.error
-            );
-        }
-
-        const db = parseResult.success ? parseResult.data : (dbRaw as RawDBCalculation);
-
-        const mInfo = db.manager_info;
-        const managerData = Array.isArray(mInfo) ? mInfo[0] : mInfo || null;
-        const cInfo = db.client_info;
-        const clientData = Array.isArray(cInfo) ? cInfo[0] : cInfo || null;
-
-        let managerName = 'Назначается';
-        if (managerData) {
-            const fullName =
-                `${managerData.first_name || ''} ${managerData.last_name || ''}`.trim();
-            managerName = fullName || managerData.organization_name || 'Специалист';
-        }
-
-        const validZones = (db.zone_details || []) as Zone[];
-
-        return {
-            id: db.id,
-            user_id: db.user_id,
-            manager_id: db.manager_id || undefined,
-            organizationName: db.organization_name,
-            type: db.type || undefined,
-            status: db.status as CalculationStatus,
-            zones: validZones.map((z) => z.name || 'Zone'),
-            zoneDetails: validZones as Zone[],
-            totalArea: db.total_area,
-            zonesCount: db.zones_count,
-            staffCount: db.staff_count,
-            dailyVisitors: db.daily_visitors,
-            sanitaryLevel: db.sanitary_level,
-            intensityLevel: db.intensity_level || undefined,
-            replacementCycle: db.replacement_cycle,
-            totalCost: db.total_cost_value || 0,
-            results: db.results as CalculationResults | null,
-            createdDate: db.created_at,
-            updated_at: db.updated_at,
-            manager: managerName,
-            comments: [],
-            unreadComments: 0,
-            project_number: db.project_number ?? undefined,
-            version_number: db.version_number,
-            receipt_path: db.receipt_path ?? undefined,
-            manager_adjustments: db.manager_adjustments,
-            locked_at: db.locked_at ?? undefined,
-            locked_by: db.locked_by ?? undefined,
-            lock_expires_at: db.lock_expires_at ?? undefined,
-            final_snapshot: db.final_snapshot || undefined,
-            calculator_config_snapshot: db.calculator_config_snapshot || undefined,
-            client_name: clientData ? clientData.first_name || 'Клиент' : 'Клиент',
-        };
     }
 
     async getById(id: string | number): Promise<ActionResult<Calculation>> {
@@ -143,7 +80,7 @@ export class CalculationRepository implements ICalculationRepository {
                 .single();
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: this.mapToEntity(data) };
+            return { success: true, data: CalculationMapper.mapToEntity(data) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -158,7 +95,7 @@ export class CalculationRepository implements ICalculationRepository {
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: (data || []).map((d) => this.mapToEntity(d)) };
+            return { success: true, data: (data || []).map((d) => CalculationMapper.mapToEntity(d)) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -173,7 +110,7 @@ export class CalculationRepository implements ICalculationRepository {
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: (data || []).map((d) => this.mapToEntity(d)) };
+            return { success: true, data: (data || []).map((d) => CalculationMapper.mapToEntity(d)) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -188,7 +125,7 @@ export class CalculationRepository implements ICalculationRepository {
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: (data || []).map((d) => this.mapToEntity(d)) };
+            return { success: true, data: (data || []).map((d) => CalculationMapper.mapToEntity(d)) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -197,6 +134,7 @@ export class CalculationRepository implements ICalculationRepository {
     async getPaginated(
         params: PaginationParams & {
             status?: string;
+            excludeStatus?: string;
             search?: string;
             managerId?: string | null;
             sortBy?: string;
@@ -221,6 +159,8 @@ export class CalculationRepository implements ICalculationRepository {
             }
             if (params.status) {
                 query = query.eq('status', params.status);
+            } else if (params.excludeStatus) {
+                query = query.neq('status', params.excludeStatus);
             }
             if (params.managerId === null) {
                 query = query.is('manager_id', null);
@@ -235,7 +175,7 @@ export class CalculationRepository implements ICalculationRepository {
             if (error) return { success: false, error: this.wrapError(error) };
 
             const total = count || 0;
-            const mappedData = (data || []).map((d) => this.mapToEntity(d));
+            const mappedData = (data || []).map((d) => CalculationMapper.mapToEntity(d));
             return {
                 success: true,
                 data: createPaginatedResult(mappedData, params, total),
@@ -269,7 +209,7 @@ export class CalculationRepository implements ICalculationRepository {
                 .single();
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: this.mapToEntity(data) };
+            return { success: true, data: CalculationMapper.mapToEntity(data) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -303,7 +243,7 @@ export class CalculationRepository implements ICalculationRepository {
                 .single();
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: this.mapToEntity(data) };
+            return { success: true, data: CalculationMapper.mapToEntity(data) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -334,7 +274,7 @@ export class CalculationRepository implements ICalculationRepository {
                 p_payload: payload || {},
             });
 
-            const { error } = await this.client.rpc('perform_calculation_action', {
+            const { data, error } = await this.client.rpc('perform_calculation_action', {
                 p_calculation_id: id,
                 p_action_type: action,
                 p_message: message || '',
@@ -342,9 +282,9 @@ export class CalculationRepository implements ICalculationRepository {
             });
 
             if (error) return { success: false, error: this.wrapError(error) };
+            if (!data || data.length === 0) return { success: false, error: { message: 'Unexpected empty response from server' } };
 
-            // Refetch to get joined info
-            return this.getById(id);
+            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -357,7 +297,7 @@ export class CalculationRepository implements ICalculationRepository {
         version: number
     ): Promise<ActionResult<Calculation>> {
         try {
-            const { error } = await this.client.rpc('adjust_calculation_expert', {
+            const { data, error } = await this.client.rpc('adjust_calculation_expert', {
                 p_calculation_id: id,
                 p_results: results,
                 p_adjustments: adjustments,
@@ -365,7 +305,9 @@ export class CalculationRepository implements ICalculationRepository {
             });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return this.getById(id);
+            if (!data || data.length === 0) return { success: false, error: { message: 'Failed to adjust: No data returned' } };
+            
+            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -373,11 +315,13 @@ export class CalculationRepository implements ICalculationRepository {
 
     async acquireLock(id: string | number): Promise<ActionResult<Calculation>> {
         try {
-            const { error } = await this.client.rpc('acquire_calculation_lock', {
+            const { data, error } = await this.client.rpc('acquire_calculation_lock', {
                 p_calculation_id: id,
             });
             if (error) return { success: false, error: this.wrapError(error) };
-            return this.getById(id);
+            if (!data || data.length === 0) return { success: false, error: { message: 'Failed to acquire lock' } };
+
+            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -385,11 +329,13 @@ export class CalculationRepository implements ICalculationRepository {
 
     async releaseLock(id: string | number): Promise<ActionResult<Calculation>> {
         try {
-            const { error } = await this.client.rpc('release_calculation_lock', {
+            const { data, error } = await this.client.rpc('release_calculation_lock', {
                 p_calculation_id: id,
             });
             if (error) return { success: false, error: this.wrapError(error) };
-            return this.getById(id);
+            if (!data || data.length === 0) return { success: false, error: { message: 'Failed to release lock' } };
+
+            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }

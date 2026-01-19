@@ -1,21 +1,4 @@
-/**
- * Current lifecycle stage of a calculation project.
- */
-export type CalculationStatus =
-    | 'draft' // Черновик
-    | 'sent' // Ожидает проверки менеджера
-    | 'expert' // На экспертизе (Аудит менеджером)
-    | 'changes' // Требуют правок (Возврат клиенту)
-    | 'revision' // Правки внесены (Клиент исправил)
-    | 'invoice' // Ожидает оплаты (Счет сформирован)
-    | 'payment_review' // Оплата отправлена (Клиент нажал кнопку "Оплачено")
-    | 'paid' // Оплата подтверждена (Менеджер подтвердил)
-    | 'processing' // Собираем заказ (Комплектация)
-    | 'sent_to_warehouse' // Отправлен на склад
-    | 'ready' // Готово к отгрузке
-    | 'shipping' // Поставка в работе
-    | 'completed' // Поставка завершена
-    | 'closed'; // Закрыт
+export type { CalculationStatus, Calculation } from '@/core/types/calculation';
 
 export type SyncEventType = 'UPDATE' | 'INSERT' | 'DELETE';
 
@@ -44,11 +27,7 @@ export interface Supplier {
     updated_at?: string;
 }
 
-export interface Comment {
-    author: string;
-    text: string;
-    date: string;
-}
+export type { Comment, Zone, Interaction, CalculationResults, ZoneResult, InventoryItem, InventoryItem as DashboardInventoryItem } from '@/core/types/calculation';
 
 export type InteractionType =
     | 'created'
@@ -58,18 +37,10 @@ export type InteractionType =
     | 'invoice'
     | 'error';
 
+
 /**
  * Represents a single interaction/event in the project history trail.
  */
-export interface Interaction {
-    id: number | string;
-    type: InteractionType;
-    user: string;
-    timestamp: string;
-    text: string;
-    badge?: string;
-    avatar?: string;
-}
 
 export const OBJECT_TYPES = [
     { value: 'hotel', label: '🏨 Отель' },
@@ -121,109 +92,7 @@ export const ZONE_COEFFS: Record<string, number> = {
     '#f8fafc': 0.95, // WHITE
 };
 
-export interface InventoryItem {
-    inventory: string;
-    sku?: string;
-    color: string;
-    quantity: number;
-    price: number;
-    stock: number;
-    unit?: string;
-    supplier_id?: string;
-    norm_area: number;
-    total: number;
-    // Selection Criteria Data
-    category?: string;
-    tier?: number;
-    durability?: number;
-    series?: string;
-    compliance_level?: string;
-    // Calculation Breakdown
-    calculation?: {
-        qArea: number;
-        qStaff: number;
-        qVisitors: number;
-        qBase: number;
-        qBaseSelected?: number; // Chosen factor (area, staff, or visitors)
-        kZone: number;
-        kIntensity: number;
-        kReserve: number;
-        monthlyOrder: number;
-        annualConsumption: number;
-        annualBudget: number;
-        reorderPoint: number;
-        safetyStock: number;
-        formula: string;
-        breakdown: string;
-    };
-    norms?: {
-        area: number;
-        personnel: number;
-        intensity: number;
-        replacementCycle: number;
-    };
-}
-
-export interface ZoneResult {
-    zoneName: string;
-    area: string;
-    type: string;
-    color: string;
-    items: InventoryItem[];
-}
-
-export interface CalculationResults {
-    byZone: ZoneResult[];
-    summary: InventoryItem[];
-}
-
-/**
- * Main project entity containing all research parameters and results.
- */
-export interface Calculation {
-    id: number | string;
-    organizationName: string;
-    type?: string;
-    status: CalculationStatus;
-    zones: string[];
-    zoneDetails?: Zone[]; // Source of truth for editing
-    totalArea: number;
-    zonesCount: number;
-    staffCount: number;
-    dailyVisitors: number;
-    sanitaryLevel: string;
-    intensityLevel?: string;
-    replacementCycle: string;
-    createdDate: string;
-    manager: string;
-    comments: Comment[];
-    unreadComments: number;
-    totalCost?: number;
-    user_id?: string;
-    manager_id?: string;
-    results: CalculationResults | null;
-    history?: Interaction[];
-    version_number?: number;
-    manager_adjustments?: Record<string, unknown>;
-    locked_at?: string;
-    locked_by?: string;
-    lock_expires_at?: string;
-    final_snapshot?: CalculationResults;
-    calculator_config_snapshot?: unknown; // Snapshot of the calculator configuration at creation time
-    receipt_path?: string;
-    client_name?: string;
-    project_number?: number;
-    updated_at?: string;
-}
-
-export interface Zone {
-    id: string;
-    name: string;
-    type: string;
-    area: string;
-    staffCount: string;
-    color: string;
-}
+// Exported via core types above
 
 export const ZONE_TYPES = [
     { value: 'red_zone', label: '🔴 RED — Санузлы (Риск)', color: '#ef4444' },

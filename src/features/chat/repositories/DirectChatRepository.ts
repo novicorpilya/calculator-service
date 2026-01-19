@@ -94,8 +94,8 @@ export class DirectChatRepository extends BaseChatRepository {
                 .or(
                     `and(sender_id.eq.${userId},receiver_id.eq.${contactId}),and(sender_id.eq.${contactId},receiver_id.eq.${userId})`
                 )
-                .gt('sequence_id', afterSeqId)
-                .order('sequence_id', { ascending: true });
+                .gt('server_seq_id', afterSeqId)
+                .order('server_seq_id', { ascending: true });
 
             if (error) return { success: false, error: this.wrapError(error) };
             return this.validateMessages(data);

@@ -1,54 +1,20 @@
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
-import { QueryProvider } from '@/app/providers/QueryProvider';
-import { AuthProvider } from '@/app/providers/AuthProvider';
-import { ThemeProvider } from '@/app/providers/ThemeProvider';
+import { AppProviders } from '@/app/providers/AppProviders';
 import { AppRoutes } from '@/app/routes/AppRoutes';
-
-import { Toaster } from 'sonner';
-
-import { ServiceProvider } from '@/core/di/ServiceContainer';
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
 import { ConnectivityBanner } from '@/components/common/ConnectivityBanner';
-import { CalculatorConfigProvider } from '@/features/calculator/CalculatorConfigContext';
 
 /**
- * Корневой компонент приложения.
- * Структура провайдеров организована по принципу "снаружи внутрь".
- * Уровень: Senior Production Ready
+ * Main Application Component.
+ * Simplified structure using AppProviders for clean dependency management.
  */
 export const App: React.FC = () => {
     return (
         <ErrorBoundary>
             <ConnectivityBanner />
-            <QueryProvider>
-                <ThemeProvider>
-                    <CalculatorConfigProvider>
-                        <AuthProvider>
-                            <ServiceProvider>
-                                <BrowserRouter>
-                                    <AppRoutes />
-                                    <Toaster
-                                        position="top-right"
-                                        expand={false}
-                                        richColors
-                                        closeButton
-                                        theme="dark"
-                                        toastOptions={{
-                                            style: {
-                                                background: 'rgba(23, 23, 23, 0.8)',
-                                                backdropFilter: 'blur(12px)',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                borderRadius: '24px',
-                                            },
-                                        }}
-                                    />
-                                </BrowserRouter>
-                            </ServiceProvider>
-                        </AuthProvider>
-                    </CalculatorConfigProvider>
-                </ThemeProvider>
-            </QueryProvider>
+            <AppProviders>
+                <AppRoutes />
+            </AppProviders>
         </ErrorBoundary>
     );
 };

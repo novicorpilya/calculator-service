@@ -17,21 +17,26 @@ export const SettingsService = {
                 return DEFAULT_CALCULATOR_CONFIG;
             }
 
+            // Using maybeSingle() instead of single() to avoid 406 Not Acceptable when row is missing
             const { data, error } = await supabase
                 .from('system_settings')
                 .select('value')
                 .eq('key', SETTINGS_KEY)
-                .single();
+                .maybeSingle();
 
             if (error) {
                 // PGRST116 = JSON object not found (row missing)
                 // 42501 = RLS violation (not authorized)
-                // 406/401 = Network/Auth issues
-                if (['PGRST116', '42501', '401', '406'].includes(error.code)) {
-                    // Fail gracefully to defaults without trying to write
+                // 401 = Network/Auth issues
+                if (['PGRST116', '42501', '401'].includes(error.code)) {
+                    // Fail gracefully to defaults
                     return DEFAULT_CALCULATOR_CONFIG;
                 }
                 console.warn('Error fetching settings:', error);
+                return DEFAULT_CALCULATOR_CONFIG;
+            }
+
+            if (!data || !data.value) {
                 return DEFAULT_CALCULATOR_CONFIG;
             }
 
@@ -68,9 +73,9 @@ export const SettingsService = {
 
             await supabase.from('audit_logs').insert({
                 action: 'CONFIG_UPDATE',
-                entity_type: 'calculator_config', // Updated from entity
+                entity_type: 'calculator_config', 
                 entity_id: SETTINGS_KEY,
-                user_id: user.id,                 // Updated from performed_by
+                user_id: user.id,                 
                 details: {
                     formula_mode: newConfig.formula.isAdvanced ? 'advanced' : 'visual',
                     base_method: newConfig.formula.baseMethod
@@ -84,8 +89,8 @@ export const SettingsService = {
     async getAuditLogs(limit = 50) {
         const { data, error } = await supabase
             .from('audit_logs')
-            .select('*, profiles:user_id (email)') // Added profile join for better UI
-            .eq('entity_type', 'calculator_config') // Updated from entity
+            .select('*, profiles:user_id (email)') 
+            .eq('entity_type', 'calculator_config') 
             .order('created_at', { ascending: false })
             .limit(limit);
         
@@ -94,7 +99,7 @@ export const SettingsService = {
     },
 
     /**
-     * Subscribe to changes in configuration functionality
+     * Subscribe to changes in configuration
      */
     subscribeToConfigChanges(callback: (newConfig: CalculatorConfig) => void) {
         return supabase

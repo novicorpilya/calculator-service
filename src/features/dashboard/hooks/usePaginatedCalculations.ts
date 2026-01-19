@@ -2,7 +2,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { dashboardKeys } from './useCalculations';
 import type { CalculationStatus } from '../dashboard.types';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 
 export interface PaginationState {
     page: number;
@@ -12,6 +12,7 @@ export interface PaginationState {
     sortOrder: 'asc' | 'desc';
     status?: CalculationStatus;
     tab: 'my' | 'unassigned' | 'all';
+    hideArchived: boolean; // Hide closed projects by default
 }
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -30,6 +31,7 @@ export function usePaginatedCalculations(userId?: string) {
         sortBy: 'created_at',
         sortOrder: 'desc',
         tab: 'my',
+        hideArchived: true, // Hide archived by default
     });
 
     // Debounced search value
@@ -71,6 +73,7 @@ export function usePaginatedCalculations(userId?: string) {
                 sortBy: pagination.sortBy,
                 sortOrder: pagination.sortOrder,
                 status: pagination.status,
+                excludeStatus: pagination.hideArchived && !pagination.status ? 'closed' : undefined,
                 managerId:
                     pagination.tab === 'unassigned'
                         ? null
@@ -113,6 +116,10 @@ export function usePaginatedCalculations(userId?: string) {
         setPagination((prev) => ({ ...prev, status, page: 1 }));
     }, []);
 
+    const setHideArchived = useCallback((hideArchived: boolean) => {
+        setPagination((prev) => ({ ...prev, hideArchived, page: 1 }));
+    }, []);
+
     return {
         // Data
         calculations: data?.data || [],
@@ -133,5 +140,6 @@ export function usePaginatedCalculations(userId?: string) {
         setSort,
         setTab,
         setStatus,
+        setHideArchived,
     };
 }

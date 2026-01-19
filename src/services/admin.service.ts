@@ -432,19 +432,17 @@ export class AdminService implements IAdminService {
 
     async adminUpdateCalculationStatus(id: string | number, status: string): Promise<VoidResult> {
         try {
-            const { error } = await this.supabase
-                .from('calculations')
-                .update({ status, updated_at: new Date().toISOString() })
-                .eq('id', id);
+            // Map status to action if possible, or just use 'force_status' if we add it to the RPC
+            // For now, let's use the standard actions or a specific admin action.
+            const { error } = await this.supabase.rpc('perform_calculation_action', {
+                p_calculation_id: id,
+                p_action_type: status, // Assume status is the action for admin force
+                p_message: 'Status updated by Administrator',
+                p_payload: { is_admin_force: true }
+            });
 
             if (error) return { success: false, error: wrapError(error) };
 
-            await this.auditService.logAction(
-                'calculation_status_force_updated',
-                'calculation',
-                id.toString(),
-                { new_status: status }
-            );
             return { success: true };
         } catch (error) {
             return { success: false, error: wrapError(error) };
@@ -497,19 +495,13 @@ export class AdminService implements IAdminService {
 
     async bulkUpdateCalculationStatus(ids: string[], status: string): Promise<VoidResult> {
         try {
-            const { error } = await this.supabase
-                .from('calculations')
-                .update({ status, updated_at: new Date().toISOString() })
-                .in('id', ids);
+            // We loop and call the RPC for each to ensure all side effects (messages, audits) trigger correctly.
+            // For production, if there are hundreds, we could create a bulk RPC, but for current scale this is safer.
+            const results = await Promise.all(ids.map(id => this.adminUpdateCalculationStatus(id, status)));
+            
+            const failed = results.find(r => !r.success);
+            if (failed) return failed;
 
-            if (error) return { success: false, error: wrapError(error) };
-
-            await this.auditService.logAction(
-                'calculations_bulk_status_update',
-                'calculation',
-                undefined,
-                { count: ids.length, ids, new_status: status }
-            );
             return { success: true };
         } catch (error) {
             return { success: false, error: wrapError(error) };

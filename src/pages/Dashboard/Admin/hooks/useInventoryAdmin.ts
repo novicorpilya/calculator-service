@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { AdminInventoryItem } from '@/services/inventory-admin.service';
 import { toast } from 'sonner';
 

@@ -1,11 +1,11 @@
-# HORECA Calculator Service 📊
+# HICS 📊
 
 ### Senior-Level Business Analytics & Order Management System
 
-**HORECA Calculator Service** — это высокотехнологичная B2B-платформа,
-разработанная для автоматизации расчетов, управления заказами и глубокой
-аналитики в секторе HORECA (HoReCa: Hotels, Restaurants, Catering). Система
-объединяет в себе функционал CRM, ERP и аналитического хаба.
+**HICS** — это высокотехнологичная B2B-платформа, разработанная для
+автоматизации расчетов, управления заказами и глубокой аналитики в секторе
+HORECA (HoReCa: Hotels, Restaurants, Catering). Система объединяет в себе
+функционал CRM, ERP и аналитического хаба.
 
 ---
 

@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import { useChatActions } from './useChatActions';
 import { useChatSync } from './useChatSync';
 import type { Message, MessageEventType } from '../types';

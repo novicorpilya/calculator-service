@@ -23,6 +23,8 @@ const TIER_MAPPING: Record<string, number[]> = {
     beauty: [2, 3],
     mall: [1, 2],
     other: [1, 2],
+    cafe: [2, 3],
+    bar: [2, 3],
 };
 
 /**
@@ -35,10 +37,12 @@ const DURABILITY_THRESHOLDS: Record<string, number> = {
     critical: 200,
 };
 
+import { Parser } from 'expr-eval';
+
 /**
  * Internal helper for core calculation logic.
  * Encapsulates the MAX rule and coefficient applications.
- * UPDATED: Uses dynamic configuration from Admin Panel.
+ * UPDATED: Uses expr-eval for safe formula evaluation.
  */
 function calculateFinalQuantity(
     item: InventoryItemMaster,
@@ -59,45 +63,36 @@ function calculateFinalQuantity(
     // 3. Calculate Final Total
     let total = 0;
 
-    // 4. Advanced Custom Formula Logic
+    // 4. Advanced Custom Formula Logic (SOE: Safe Object Evaluation)
     if (config.formula.isAdvanced && config.formula.customFormula) {
         try {
-            // Safe evaluation context
-            const context = {
+            const parser = new Parser();
+            const expr = parser.parse(config.formula.customFormula);
+            
+            const result = expr.evaluate({
                 q_area: qArea,
                 q_staff: qStaff,
                 q_visitors: qVisitors,
                 k_zone: coeffs.kZone,
                 k_intensity: coeffs.kIntensity,
                 k_reserve: coeffs.kReserve,
-                max: Math.max,
-                min: Math.min,
-                sum: (...args: number[]) => args.reduce((a, b) => a + b, 0),
-                avg: (...args: number[]) => args.length ? args.reduce((a, b) => a + b, 0) / args.length : 0,
-                ceil: Math.ceil,
-                floor: Math.floor,
-                round: Math.round,
-                sqrt: Math.sqrt
-            };
-
-            // Create a function body that returns the evaluated expression
-            // NOTE: 'new Function' is used here within a strictly controlled scope.
-            // Only math keys are exposed. No access to window, DOM, or external scope.
-            const safeEval = new Function(...Object.keys(context), `return ${config.formula.customFormula};`);
-            const result = safeEval(...Object.values(context));
+                reserve: coeffs.kReserve // Alias
+            });
             
             if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
                 total = result;
             } else {
                 console.warn('Custom formula returned invalid result:', result);
-                // Fallback to standard logic handled below if we didn't return
             }
         } catch (err) {
             console.error('Error evaluating custom formula:', err);
-             // Fallback to standard logic
         }
     } else {
-        // Standard Logic
+        // Standard Logic handled below
+    }
+
+    if (!total) {
+        // Standard Logic Fallback
         switch (config.formula.baseMethod) {
             case 'sum':
                 qBase = qArea + qStaff + qVisitors;
@@ -118,6 +113,7 @@ function calculateFinalQuantity(
         if (MULTIPLIERS.intensity) total *= coeffs.kIntensity;
         if (MULTIPLIERS.reserve) total *= (1 + coeffs.kReserve);
     }
+
 
     // 4. Rounding & Minimums
     // BICSc Rule: If active and norm set, min is 1
@@ -230,8 +226,17 @@ export const CalculationEngine = {
             const zoneVisitorShare = globalPersonnel > 0 ? globalVisitors * (zonePersonnel / globalPersonnel) : 0;
 
             optimizedInventory.forEach((item) => {
-                if (item.color === zone.color) {
-                    const kZone = ZONE_COEFFS[item.color] ?? 1.0;
+                // Normalize colors to be safe (lower case, ensure # prefix)
+                const normalizeColor = (c: string) => {
+                    const clean = c.trim().toLowerCase().replace('#', '');
+                    return clean ? `#${clean}` : '';
+                };
+
+                const itemColor = normalizeColor(item.color);
+                const zoneColor = normalizeColor(zone.color);
+                
+                if (itemColor && zoneColor && itemColor === zoneColor) {
+                    const kZone = ZONE_COEFFS[itemColor] ?? 1.0;
                     const { qArea, qStaff, qVisitors, qBase, finalQuantity } = calculateFinalQuantity(
                         item,
                         { area: zoneArea, personnel: zonePersonnel, visitorShare: zoneVisitorShare },
@@ -249,7 +254,7 @@ export const CalculationEngine = {
                             color: item.color,
                             quantity: finalQuantity,
                             price: item.price,
-                            total: finalQuantity,
+                            total: finalQuantity * item.price,
                             stock: item.stock,
                             norm_area: item.norm_area,
                             supplier_id: item.supplier_id,
@@ -280,16 +285,21 @@ export const CalculationEngine = {
                         zoneItems.push(newItem);
                         const key = `${item.name}-${item.sku || 'N/A'}-${item.color}`;
                         if (!aggregated[key]) {
-                            aggregated[key] = { ...newItem, quantity: 0, total: 0 };
+                            aggregated[key] = { 
+                                ...newItem, 
+                                quantity: 0, 
+                                total: 0,
+                                calculation: { ...newItem.calculation!, annualConsumption: 0, annualBudget: 0, monthlyOrder: 0 }
+                            };
                         }
+                        
                         aggregated[key].quantity += finalQuantity;
-                        aggregated[key].total += finalQuantity;
+                        aggregated[key].total += (finalQuantity * item.price);
 
                         if (aggregated[key].calculation) {
                             const cal = aggregated[key].calculation!;
-                            cal.annualConsumption = (cal.annualConsumption || 0) + Math.ceil(annualConsumption);
-                            cal.annualBudget = (cal.annualBudget || 0) + Math.ceil(annualConsumption * item.price);
-                            cal.monthlyOrder = (cal.monthlyOrder || 0) + Math.ceil(annualConsumption / 12);
+                            // Sum raw annual consumption first
+                            cal.annualConsumption += annualConsumption;
                         }
                     }
                 }
@@ -304,9 +314,21 @@ export const CalculationEngine = {
             });
         });
 
+        // Finalize aggregated metrics with single rounding at the end
+        const summary = Object.values(aggregated).map((item) => {
+            if (item.calculation) {
+                const cal = item.calculation;
+                const rawConsumption = cal.annualConsumption;
+                cal.annualConsumption = Math.ceil(rawConsumption);
+                cal.annualBudget = Math.ceil(rawConsumption * item.price);
+                cal.monthlyOrder = Math.ceil(rawConsumption / 12);
+            }
+            return { ...item };
+        });
+
         return {
             byZone: zoneResults,
-            summary: Object.values(aggregated).map((item) => ({ ...item, total: item.quantity })),
+            summary,
         };
     },
 
@@ -348,7 +370,7 @@ export const CalculationEngine = {
             color: item.color,
             quantity: finalQuantity,
             price: item.price,
-            total: finalQuantity,
+            total: finalQuantity * item.price,
             stock: item.stock,
             norm_area: item.norm_area,
             supplier_id: item.supplier_id,

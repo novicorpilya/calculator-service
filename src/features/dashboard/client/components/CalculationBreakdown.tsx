@@ -1,6 +1,6 @@
 import React from 'react';
 import { type InventoryItem, ZONE_TYPES } from '../../dashboard.types';
-import { ShieldCheck, TrendingUp, Info } from 'lucide-react';
+import { ShieldCheck, Package, ShoppingCart, CalendarRange } from 'lucide-react';
 
 interface CalculationBreakdownProps {
     item: InventoryItem;
@@ -8,172 +8,116 @@ interface CalculationBreakdownProps {
 }
 
 /**
- * Professional Detail Card for a single inventory item.
- * Shows the full calculation logic.
+ * Senior UX Redesign: Ultra-Adaptive Product Card
+ * 320px (Mobile) -> Full HD (Desktop)
+ * Focus: High readability, Low noise, Fluid layout.
  */
-// Final component export
 export const CalculationBreakdown = React.memo(
     ({ item, hidePrices }: CalculationBreakdownProps) => {
         if (!item.calculation) return null;
 
         const { monthlyOrder, annualConsumption, annualBudget, reorderPoint } = item.calculation;
-
-        const zoneLabel = ZONE_TYPES.find((z) => z.color === item.color)?.label || 'Универсальная';
+        const zoneObj = ZONE_TYPES.find((z) => z.color === item.color);
+        const zoneLabel = zoneObj?.label || 'Склад';
 
         return (
-            <div className="glass-card !bg-white/[0.03] border-white/10 shadow-2xl hover:border-primary/40 hover:bg-white/[0.05] transition-all duration-500 overflow-hidden group">
-                {/* Header: Item & Core Numbers */}
-                <div className="p-fluid border-b border-border-theme bg-primary/5 flex flex-wrap items-center justify-between gap-6">
-                    <div className="space-y-2 min-w-[200px]">
-                        <div className="flex items-center gap-3">
-                            <div
-                                className="w-3 h-3 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)]"
-                                style={{ backgroundColor: item.color }}
-                            />
-                            <span className="text-fluid-xs font-black uppercase tracking-[0.3em] text-primary">
-                                {zoneLabel}
-                            </span>
+            <div className="group relative glass-card !bg-white/[0.01] border-white/5 hover:border-primary/20 transition-all duration-300 shadow-xl overflow-hidden">
+                {/* Visual Accent Line */}
+                <div className="absolute top-0 left-0 w-1 lg:w-1.5 h-full opacity-60" style={{ backgroundColor: item.color }} />
+
+                <div className="p-5 lg:p-7 flex flex-col gap-6 lg:gap-8">
+                    {/* TOP SECTION: Header & Identity */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div className="space-y-2 max-w-xl">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-foreground/40">
+                                    {zoneLabel.split('—')[0].trim()}
+                                </span>
+                                <span className="text-[10px] font-bold text-foreground/20 uppercase tracking-widest">
+                                    {item.sku || 'REF-N/A'}
+                                </span>
+                            </div>
+                            <h4 className="text-lg lg:text-xl font-black tracking-tight leading-tight text-foreground/90 group-hover:text-primary transition-colors">
+                                {item.inventory}
+                            </h4>
                         </div>
-                        <h4 className="text-fluid-lg font-black leading-tight tracking-tight">
-                            {item.inventory}
-                        </h4>
-                        <p className="text-fluid-xs font-bold text-foreground/40 uppercase tracking-widest">
-                            АРТ: {item.sku || 'N/A'}{' '}
-                            {!hidePrices && `— ${Math.round(item.price).toLocaleString()} ₽/ед`}
-                        </p>
+                        
+                        {!hidePrices && (
+                            <div className="flex flex-col sm:items-end">
+                                <p className="text-[9px] font-black text-foreground/30 uppercase tracking-[0.2em] mb-1">Цена за единицу</p>
+                                <span className="text-lg font-black text-foreground/80">
+                                    {Math.round(item.price).toLocaleString()} ₽
+                                </span>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-12">
-                        <div className="text-left py-4 px-6 bg-background rounded-2xl border border-border-theme flex flex-col justify-between min-w-[140px] flex-grow">
-                            <div className="flex items-center gap-2">
-                                <p className="text-fluid-xs font-black text-foreground/40 uppercase tracking-widest leading-none">
-                                    В работе на объекте
-                                </p>
-                                <div className="group/info relative">
-                                    <div className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/30 transition-all cursor-help">
-                                        <Info
-                                            size={11}
-                                            className="text-foreground/40 group-hover/info:text-foreground transition-colors"
-                                        />
-                                    </div>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 bg-foreground text-background text-[9px] font-bold rounded-xl opacity-0 group-hover/info:opacity-100 transition-all translate-y-2 group-hover/info:translate-y-0 pointer-events-none z-50 shadow-3xl border border-white/10">
-                                        База — сколько инвентаря должно быть на объекте постоянно
-                                        для полноценной работы
-                                    </div>
-                                </div>
+                    {/* MIDDLE SECTION: Operational Metrics */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                        {/* Supply Needed Now */}
+                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3">
+                            <div className="flex items-center gap-2 opacity-40">
+                                <Package size={14} />
+                                <span className="text-[9px] font-black uppercase tracking-wider">На объект</span>
                             </div>
-                            <p className="text-fluid-xl font-black tracking-tighter text-foreground mt-4">
-                                {Math.ceil(item.quantity)}
-                                <span className="text-xs ml-1 text-foreground/20">ШТ</span>
+                            <p className="text-2xl font-black text-foreground/90 leading-none">
+                                {Math.ceil(item.quantity)} <span className="text-xs font-bold text-foreground/30">ШТ</span>
                             </p>
                         </div>
-                        <div className="text-left py-4 px-6 bg-primary/10 rounded-2xl border border-primary/20 flex flex-col justify-between min-w-[140px] flex-grow">
-                            <div className="flex items-center gap-2">
-                                <p className="text-fluid-xs font-black text-primary uppercase tracking-widest leading-none">
-                                    Расход за месяц
-                                </p>
-                                <div className="group/info relative">
-                                    <div className="w-5 h-5 rounded-full bg-primary/20 border border-primary/20 flex items-center justify-center hover:bg-primary/30 hover:border-primary/40 transition-all cursor-help">
-                                        <Info
-                                            size={11}
-                                            className="text-primary group-hover/info:scale-110 transition-transform"
-                                        />
-                                    </div>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 bg-foreground text-background text-[9px] font-bold rounded-xl opacity-0 group-hover/info:opacity-100 transition-all translate-y-2 group-hover/info:translate-y-0 pointer-events-none z-50 shadow-3xl border border-white/10">
-                                        Расход и замена — прогноз износа инвентаря, требующий
-                                        регулярного восполнения
-                                    </div>
-                                </div>
+
+                        {/* Monthly Order */}
+                        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 space-y-3">
+                            <div className="flex items-center gap-2 text-primary/60">
+                                <ShoppingCart size={14} />
+                                <span className="text-[9px] font-black uppercase tracking-wider">Заказ / мес</span>
                             </div>
-                            <p className="text-fluid-xl font-black tracking-tighter text-primary mt-4">
-                                {Math.ceil(monthlyOrder)}
-                                <span className="text-xs ml-1 opacity-40">ШТ</span>
+                            <p className="text-2xl font-black text-primary leading-none">
+                                {Math.ceil(monthlyOrder)} <span className="text-xs font-bold opacity-30">ШТ</span>
                             </p>
                         </div>
-                    </div>
-                </div>
 
-                <div className="p-fluid">
-                    {/* Operational Metrics */}
-                    <div className="adaptive-grid gap-12">
-                        <div className="space-y-6">
-                            <h5 className="flex items-center gap-2 text-fluid-xs font-black uppercase tracking-widest text-primary/60 border-b border-primary/10 pb-4">
-                                <TrendingUp size={14} /> Финансовое планирование
-                            </h5>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-fluid-xs font-bold text-foreground/40 uppercase tracking-wider">
-                                        Годовое потребление:
-                                    </span>
-                                    <span className="text-fluid-xs font-black">
-                                        {Math.ceil(annualConsumption)} шт
-                                    </span>
+                        {/* Annual Budget */}
+                        {!hidePrices && (
+                            <div className="sm:col-span-2 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2 opacity-40">
+                                        <CalendarRange size={14} />
+                                        <span className="text-[9px] font-black uppercase tracking-wider">Бюджет в год</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold opacity-20 uppercase">Прогноз</span>
                                 </div>
-                                {!hidePrices ? (
-                                    <div className="flex justify-between items-center group/item">
-                                        <span className="text-fluid-xs font-bold text-foreground/40 uppercase tracking-wider">
-                                            Бюджет на год:
-                                        </span>
-                                        <span className="text-fluid-xs font-black text-primary">
-                                            {Math.round(annualBudget).toLocaleString()} ₽
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-between items-center gap-4 py-0.5">
-                                        <span className="text-fluid-xs font-bold text-foreground/40 uppercase tracking-wider whitespace-nowrap">
-                                            Коммерческие условия:
-                                        </span>
-                                        <span className="text-fluid-xs font-black text-primary uppercase tracking-[0.15em] bg-primary/5 px-3 py-1 rounded-full border border-primary/10 whitespace-nowrap">
-                                            На этапе договора
-                                        </span>
-                                    </div>
-                                )}
+                                <div className="flex items-end justify-between">
+                                    <p className="text-2xl font-black text-foreground/90 leading-none">
+                                        {Math.round(annualBudget).toLocaleString()} <span className="text-xs font-bold opacity-30">₽</span>
+                                    </p>
+                                    <p className="text-[10px] font-bold text-foreground/30 italic">
+                                        ~{annualConsumption < 1 ? annualConsumption.toFixed(1) : Math.ceil(annualConsumption)} ед.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* BOTTOM SECTION: Smart Indicators */}
+                    <div className="pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-y-4">
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2 ring-1 ring-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 rounded-full">
+                                <ShieldCheck size={14} className="text-emerald-500/60" />
+                                <span className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Мин. остаток:</span>
+                                <span className="text-xs font-black text-emerald-500">{Math.ceil(reorderPoint || 0)} ед.</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 px-3 py-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-foreground/20 animate-pulse" />
+                                <span className="text-[10px] font-black text-foreground/30 uppercase tracking-widest">Ротация:</span>
+                                <span className="text-[11px] font-black text-foreground/60">{item.norms?.replacementCycle || 30} дн.</span>
                             </div>
                         </div>
 
-                        <div className="space-y-6">
-                            <h5 className="flex items-center gap-2 text-fluid-xs font-black uppercase tracking-widest text-emerald-500/60 border-b border-emerald-500/10 pb-4">
-                                <ShieldCheck size={14} /> График снабжения
-                            </h5>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-fluid-xs font-bold text-foreground/40 uppercase tracking-wider">
-                                            Пополнить при остатке:
-                                        </span>
-                                        <div className="group/info relative">
-                                            <div className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/30 transition-all cursor-help">
-                                                <Info
-                                                    size={11}
-                                                    className="text-foreground/40 group-hover/info:text-foreground transition-colors"
-                                                />
-                                            </div>
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 bg-foreground text-background text-[9px] font-bold rounded-xl opacity-0 group-hover/info:opacity-100 transition-all translate-y-2 group-hover/info:translate-y-0 pointer-events-none z-50 shadow-3xl border border-white/10">
-                                                Минимальный запас — сделайте заказ, когда на складе
-                                                останется это количество
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span className="text-fluid-xs font-black text-emerald-500">
-                                        {Math.ceil(reorderPoint)} шт
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-fluid-xs font-bold text-foreground/40 uppercase tracking-wider">
-                                        Цикл обновления:
-                                    </span>
-                                    <span className="text-fluid-xs font-black italic text-right">
-                                        каждые {item.norms?.replacementCycle} дней
-                                    </span>
-                                </div>
-                            </div>
+                        <div className="hidden sm:block">
+                            <span className="text-[9px] font-bold text-foreground/10 uppercase tracking-[0.4em]">СТАНДАРТ ISO 18406</span>
                         </div>
                     </div>
-                </div>
-
-                {/* Subtle Progress Bar */}
-                <div className="h-1 w-full bg-primary/5">
-                    <div className="h-full bg-primary/20 w-full" />
                 </div>
             </div>
         );

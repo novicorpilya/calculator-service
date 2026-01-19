@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { InventoryItemMaster } from '@/services/inventory.service';
 import type { CalculationEntity } from '@/core/domain/CalculationEntity';
 import type {

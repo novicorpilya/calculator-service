@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Message, MessageCreatePayload } from '../types';
 import { sortMessages } from '../utils/chatUtils';
 

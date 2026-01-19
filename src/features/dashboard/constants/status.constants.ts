@@ -81,6 +81,14 @@ export const STATUS_UI_CONFIG: Record<CalculationStatus | 'exported', StatusUI> 
         icon: Wallet,
         description: 'Вы подтвердили оплату. Менеджер проверяет поступление средств.',
     },
+    payment_rejected: {
+        label: 'Оплата отклонена',
+        bg: 'bg-red-500/10',
+        text: 'text-red-600',
+        dot: 'bg-red-500',
+        icon: AlertCircle,
+        description: 'Менеджер отклонил подтверждение оплаты. Пожалуйста, проверьте чек и загрузите его повторно.',
+    },
     paid: {
         label: 'Оплата подтверждена',
         bg: 'bg-emerald-500/10',

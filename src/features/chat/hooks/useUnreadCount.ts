@@ -1,6 +1,6 @@
 import { useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { UnreadCounts, MessageEventType, ChatEventPayload } from '../types';
 
 /**

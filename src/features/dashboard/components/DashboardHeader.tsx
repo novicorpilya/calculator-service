@@ -5,6 +5,7 @@ import { useTheme } from '@/app/providers/useTheme';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/app/routes/routes.constants';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { NotificationCenter } from './NotificationCenter';
 
 interface DashboardHeaderProps {
     sidebarOpen: boolean;
@@ -67,6 +68,7 @@ export const DashboardHeader = React.memo<DashboardHeaderProps>(
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3">
+                        <NotificationCenter />
                         <ThemeToggle />
 
                         <button

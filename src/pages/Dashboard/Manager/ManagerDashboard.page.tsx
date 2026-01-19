@@ -9,6 +9,7 @@ import {
     MasterInventoryManager,
 } from '@/features/dashboard/manager/components';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
+import { ManagerKPIDashboard } from '@/features/dashboard/manager/components/ManagerKPIDashboard';
 import { ClientCalculationDetails } from '@/features/dashboard/client/components/ClientCalculationDetails';
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
 import type {
@@ -17,7 +18,7 @@ import type {
     CalculationResults,
 } from '@/features/dashboard/dashboard.types';
 import { useAuth } from '@/features/auth';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging';
 import {
     useManagerWorkload,
@@ -181,11 +182,13 @@ export const ManagerDashboard: React.FC = () => {
                         ? 'Проекты'
                         : currentPage === 'overview'
                           ? 'Обзор'
-                          : currentPage === 'chat'
+                            : currentPage === 'chat'
                             ? 'Чат'
-                            : currentPage === 'kb'
-                              ? 'Реестр товаров'
-                              : 'Панель эксперта'
+                            : currentPage === 'kpi'
+                              ? 'Мои показатели (KPI)'
+                              : currentPage === 'kb'
+                                ? 'Реестр товаров'
+                                : 'Панель эксперта'
                 }
             />
 
@@ -223,6 +226,7 @@ export const ManagerDashboard: React.FC = () => {
                                     <ManagerOverview
                                         calculations={allCalculations}
                                         onNavigate={setCurrentPage}
+                                        onSelect={setSelectedId}
                                     />
                                 )}
                                 {currentPage === 'pipeline' && (
@@ -233,6 +237,7 @@ export const ManagerDashboard: React.FC = () => {
                                 )}
                                 {currentPage === 'kb' && <MasterInventoryManager />}
                                 {currentPage === 'chat' && <GlobalChatHub />}
+                                {currentPage === 'kpi' && <ManagerKPIDashboard managerId={user!.id} />}
                                 {currentPage === 'profile' && <ClientProfile />}
                             </>
                         )}

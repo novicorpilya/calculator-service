@@ -1,4 +1,4 @@
-export * from './components/HoRecaAuth';
+export * from './components/HicsAuth';
 export * from './hooks/useAuth';
 export * from './auth.types';
 export * from './auth.form.types';

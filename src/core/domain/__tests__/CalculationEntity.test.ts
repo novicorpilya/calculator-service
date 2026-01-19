@@ -94,8 +94,11 @@ describe('CalculationEntity', () => {
             expect(entity.totalCost).toBe(2000);
         });
 
-        test('should use pre-calculated totalCost if available and valid', () => {
-            const entity = new CalculationEntity(mockCalculation('draft', { totalCost: 5000 }));
+        test('should use pre-calculated totalCost if no summary items exist', () => {
+            const entity = new CalculationEntity(mockCalculation('draft', { 
+                totalCost: 5000,
+                results: { summary: [], byZone: [] }
+            }));
             expect(entity.totalCost).toBe(5000);
         });
 

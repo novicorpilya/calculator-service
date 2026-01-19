@@ -40,6 +40,8 @@ export interface AuthResponse {
 
 export interface UpdateProfileData {
     organizationName?: string;
+    inn?: string;
+    jobTitle?: string;
     firstName?: string;
     lastName?: string;
     phone?: string;

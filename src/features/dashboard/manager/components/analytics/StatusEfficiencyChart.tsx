@@ -77,7 +77,8 @@ export const StatusEfficiencyChart: React.FC<StatusEfficiencyChartProps> = ({
                         />
                         <Bar 
                             yAxisId="left"
-                            dataKey="count" 
+                            dataKey="count"
+                            name="Сделок" 
                             barSize={40} 
                             fill="var(--primary)" 
                             radius={[10, 10, 0, 0]} 
@@ -87,7 +88,8 @@ export const StatusEfficiencyChart: React.FC<StatusEfficiencyChartProps> = ({
                         <Line 
                             yAxisId="right"
                             type="monotone" 
-                            dataKey="volume" 
+                            dataKey="volume"
+                            name="Оборот (тыс. ₽)" 
                             stroke="#f59e0b" 
                             strokeWidth={4} 
                             dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: 'var(--card)' }}
@@ -96,15 +98,16 @@ export const StatusEfficiencyChart: React.FC<StatusEfficiencyChartProps> = ({
                     </ComposedChart>
                 </ChartContainer>
 
-                <div className="mt-6 pt-6 border-t border-border-theme/30 grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+                <div className="mt-6 pt-6 border-t border-border-theme/30 grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
                     {[
                         { label: 'Черновик', keys: ['draft'], color: 'bg-zinc-500' },
                         { label: 'Проверка', keys: ['sent', 'expert'], color: 'bg-orange-500' },
                         { label: 'Правки', keys: ['revision'], color: 'bg-blue-500' },
                         { label: 'Анализ', keys: ['changes'], color: 'bg-primary' },
                         { label: 'Счет', keys: ['invoice'], color: 'bg-emerald-500' },
-                        { label: 'Оплата', keys: ['paid'], color: 'bg-purple-500' },
-                        { label: 'Доставка', keys: ['shipping', 'ready'], color: 'bg-indigo-500' }
+                        { label: 'Оплата', keys: ['paid', 'payment_review', 'payment_rejected'], color: 'bg-purple-500' },
+                        { label: 'Логистика', keys: ['processing', 'sent_to_warehouse', 'ready', 'shipping'], color: 'bg-indigo-500' },
+                        { label: 'Готово', keys: ['completed', 'closed'], color: 'bg-rose-500' }
                     ].map((item, i) => {
                         const count = calculations.filter(c => item.keys.includes(c.status)).length;
                         const pct = totalProjects > 0 ? Math.round((count / totalProjects) * 100) : 0;

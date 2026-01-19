@@ -13,7 +13,7 @@ import {
     Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Supplier } from '@/features/dashboard/dashboard.types';
 import type { SupplierInput } from '@/services/supplier.service';
 

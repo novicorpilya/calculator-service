@@ -23,7 +23,7 @@ export const DEFAULT_THEME: ThemeConfig = {
     id: 'default',
     name: 'Default',
     mode: 'system',
-    appName: 'HORECA CALC',
+    appName: 'HICS',
     colors: {
         light: {
             background: '#ffffff',

@@ -28,7 +28,7 @@ export const RevenuePulseChart: React.FC<RevenuePulseChartProps> = ({ data, tota
                 <Activity size={160} />
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
                 <div className="space-y-1">
                     <h3 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
                         <TrendingUp className="text-primary" size={24} /> Пульс оборота
@@ -37,14 +37,29 @@ export const RevenuePulseChart: React.FC<RevenuePulseChartProps> = ({ data, tota
                         Динамика объема сделок (тыс. ₽)
                     </p>
                 </div>
-                <div className="flex items-center gap-6 px-6 py-3 bg-foreground/[0.03] rounded-2xl border border-border-theme">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-lg shadow-primary/40" />
-                        <span className="text-[10px] font-black uppercase text-foreground/50 tracking-widest">Общий объем</span>
+                
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6 px-6 py-3 bg-foreground/[0.03] rounded-[1.5rem] border border-border-theme">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-lg shadow-primary/40" />
+                            <span className="text-[10px] font-black uppercase text-foreground/40 tracking-widest">Итого</span>
+                        </div>
+                        <div className="w-[1px] h-4 bg-border-theme" />
+                        <div className="text-[13px] font-black text-primary">
+                            ₽ {(totalBudget / 1000).toFixed(0)}K
+                        </div>
                     </div>
-                    <div className="w-[1px] h-4 bg-border-theme" />
-                    <div className="text-[13px] font-black text-primary">
-                        ₽ {(totalBudget / 1000000).toFixed(2)}M
+
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-foreground/[0.02] rounded-2xl border border-border-theme/50 backdrop-blur-sm group/stat transition-all hover:bg-foreground/[0.04]">
+                        <div className="flex flex-col items-end">
+                            <span className="text-[7px] font-black uppercase text-foreground/30 tracking-[0.2em] leading-none mb-1">Средний чек</span>
+                            <div className="flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                                <p className="text-[12px] font-black text-foreground/80 tracking-tight">
+                                    ₽ {data.length > 0 ? (data.reduce((acc, d) => acc + d.volume, 0) / data.length).toFixed(1) : 0}K
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -96,7 +111,8 @@ export const RevenuePulseChart: React.FC<RevenuePulseChartProps> = ({ data, tota
                     />
                     <Area 
                         type="monotone" 
-                        dataKey="volume" 
+                        dataKey="volume"
+                        name="Оборот" 
                         stroke="var(--primary)" 
                         strokeWidth={5}
                         fillOpacity={1} 

@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { type InventoryItemMaster, type Supplier } from '@/services/inventory.service';
 import { toast } from 'sonner';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
+import { ZONE_TYPES } from '@/features/dashboard/dashboard.types';
 
 /**
  * Product Catalog View for Managers (Registry).
@@ -34,6 +35,7 @@ export const MasterInventoryManager = React.memo(() => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState<string>('all');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [selectedZone, setSelectedZone] = useState<string>('all');
 
     // Derived Categories from items (simplified, ideally from DB)
     const categories = [
@@ -59,6 +61,7 @@ export const MasterInventoryManager = React.memo(() => {
                 search: searchQuery,
                 supplierId: selectedSupplier === 'all' ? undefined : selectedSupplier,
                 category: selectedCategory === 'all' ? undefined : selectedCategory,
+                color: selectedZone === 'all' ? undefined : selectedZone,
             });
 
             if (result.success && result.data) {
@@ -88,6 +91,7 @@ export const MasterInventoryManager = React.memo(() => {
         searchQuery,
         selectedSupplier,
         selectedCategory,
+        selectedZone,
         suppliers.length,
     ]);
 
@@ -146,11 +150,11 @@ export const MasterInventoryManager = React.memo(() => {
             <div className="glass-card !p-8 border-primary/10 shadow-xl space-y-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Search */}
-                    <div className="lg:col-span-6 relative">
+                    <div className="lg:col-span-4 relative">
                         <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/20" />
                         <input
                             type="text"
-                            placeholder="Поиск по названию или SKU..."
+                            placeholder="Поиск..."
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value);
@@ -195,6 +199,26 @@ export const MasterInventoryManager = React.memo(() => {
                             {categories.map((c) => (
                                 <option key={c} value={c}>
                                     {c}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Zone Filter */}
+                    <div className="lg:col-span-2 relative">
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-primary/20" style={{ backgroundColor: selectedZone !== 'all' ? selectedZone : 'transparent' }} />
+                        <select
+                            value={selectedZone}
+                            onChange={(e) => {
+                                setSelectedZone(e.target.value);
+                                setPage(1);
+                            }}
+                            className="w-full bg-background/50 border border-border-theme rounded-2xl pl-12 pr-4 py-5 text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all cursor-pointer"
+                        >
+                            <option value="all">Все зоны</option>
+                            {ZONE_TYPES.map((z) => (
+                                <option key={z.value} value={z.color}>
+                                    {z.label.split('—')[0].trim()}
                                 </option>
                             ))}
                         </select>

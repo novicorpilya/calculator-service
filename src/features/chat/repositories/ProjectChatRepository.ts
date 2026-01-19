@@ -83,8 +83,8 @@ export class ProjectChatRepository extends BaseChatRepository {
                 .from('messages')
                 .select('*')
                 .eq('calculation_id', calculationId)
-                .gt('sequence_id', afterSeqId)
-                .order('sequence_id', { ascending: true });
+                .gt('server_seq_id', afterSeqId)
+                .order('server_seq_id', { ascending: true });
 
             if (error) return { success: false, error: this.wrapError(error) };
             return this.validateMessages(data);
@@ -116,7 +116,14 @@ export class ProjectChatRepository extends BaseChatRepository {
                 .single();
 
             if (error) {
-                this.logger.error('Failed to send project message', { senderId, projectId }, error);
+                const detailedError = {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                    status: (error as { status?: number }).status
+                };
+                this.logger.error('Failed to send project message', { senderId, projectId, error: detailedError }, error);
                 return { success: false, error: this.wrapError(error) };
             }
 

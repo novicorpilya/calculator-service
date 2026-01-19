@@ -7,6 +7,7 @@ import { MessageSquare, Check, CheckCheck, Clock } from 'lucide-react';
 import type { Message } from '../types';
 import { VoicePlayer } from '@/components/ui/VoicePlayer';
 import { ChatImage } from './ChatImage';
+import { RatingCardWidget } from './RatingCardWidget';
 
 interface MessageListProps {
     messages: Message[];
@@ -142,6 +143,17 @@ const MessageBubble = React.memo<MessageBubbleProps>(({ msg, isOwn, replyTo, sea
                     <div className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap">
                         {highlightText(msg.content, searchQuery)}
                     </div>
+                )}
+
+                {msg.message_type === 'rating_card' && (
+                    <RatingCardWidget
+                        calculationId={String(msg.calculation_id)}
+                        userId={msg.sender_id || ''}
+                        isOwn={isOwn}
+                        title={msg.metadata?.title}
+                        subtitle={msg.metadata?.subtitle}
+                        initialRating={msg.metadata?.rating_value}
+                    />
                 )}
 
                 {(msg.content || msg.voice_url) && (

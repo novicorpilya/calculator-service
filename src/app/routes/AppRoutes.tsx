@@ -15,8 +15,8 @@ import { GlobalLoader } from '@/components/common/GlobalLoader';
 const Landing = React.lazy(() =>
     import('@/pages/Landing/Landing.page').then((m) => ({ default: m.Landing }))
 );
-const HoRecaAuth = React.lazy(() =>
-    import('@/features/auth').then((m) => ({ default: m.HoRecaAuth }))
+const HicsAuth = React.lazy(() =>
+    import('@/features/auth').then((m) => ({ default: m.HicsAuth }))
 );
 
 // Dashboard pages (heavy components)
@@ -99,7 +99,7 @@ export const AppRoutes: React.FC = () => {
                         path={ROUTES.AUTH.LOGIN}
                         element={
                             <Suspense fallback={<Loader />}>
-                                <HoRecaAuth initialMode="login" />
+                                <HicsAuth initialMode="login" />
                             </Suspense>
                         }
                     />
@@ -107,7 +107,7 @@ export const AppRoutes: React.FC = () => {
                         path={ROUTES.AUTH.REGISTER}
                         element={
                             <Suspense fallback={<Loader />}>
-                                <HoRecaAuth initialMode="register" />
+                                <HicsAuth initialMode="register" />
                             </Suspense>
                         }
                     />
@@ -115,7 +115,7 @@ export const AppRoutes: React.FC = () => {
                         path={ROUTES.AUTH.FORGOT_PASSWORD}
                         element={
                             <Suspense fallback={<Loader />}>
-                                <HoRecaAuth initialMode="forgot-password" />
+                                <HicsAuth initialMode="forgot-password" />
                             </Suspense>
                         }
                     />
@@ -127,7 +127,7 @@ export const AppRoutes: React.FC = () => {
                     element={
                         isRecoveryFlow || window.location.hash.includes('access_token') ? (
                             <Suspense fallback={<Loader />}>
-                                <HoRecaAuth initialMode="reset-password" />
+                                <HicsAuth initialMode="reset-password" />
                             </Suspense>
                         ) : (
                             <Navigate to={ROUTES.LANDING} replace />

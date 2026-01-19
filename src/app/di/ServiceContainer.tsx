@@ -19,6 +19,11 @@ import { VenueService, type IVenueService } from '@/services/venue.service';
 import { InventoryService, type IInventoryService } from '@/services/inventory.service';
 import { SupplierService, type ISupplierService } from '@/services/supplier.service';
 import { InventoryAdminService, type IInventoryAdminService } from '@/services/inventory-admin.service';
+import { VersionService, type IVersionService } from '@/features/dashboard/manager/services/version.service';
+import { DocumentService, type IDocumentService } from '@/features/dashboard/manager/services/document.service';
+import { NotificationService, type INotificationService } from '@/features/dashboard/services/notification.service';
+import { ManagerDashboardService, type IManagerDashboardService } from '@/features/dashboard/manager/services/dashboard.service';
+import { ReviewService, type IReviewService } from '@/services/review.service';
 
 interface IServiceContainer {
     chatService: IChatService;
@@ -32,6 +37,11 @@ interface IServiceContainer {
     inventoryService: IInventoryService;
     supplierService: ISupplierService;
     inventoryAdminService: IInventoryAdminService;
+    versionService: IVersionService;
+    documentService: IDocumentService;
+    notificationService: INotificationService;
+    managerDashboardService: IManagerDashboardService;
+    reviewService: IReviewService;
 }
 
 const ServiceContext = createContext<IServiceContainer | null>(null);
@@ -58,6 +68,11 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
             const inventoryService = services.inventoryService || new InventoryService(supabase);
             const supplierService = services.supplierService || new SupplierService(supabase, auditLogService);
             const inventoryAdminService = services.inventoryAdminService || new InventoryAdminService(supabase, auditLogService);
+            const versionService = services.versionService || new VersionService(supabase);
+            const documentService = services.documentService || new DocumentService(supabase);
+            const notificationService = services.notificationService || new NotificationService(supabase);
+            const managerDashboardService = services.managerDashboardService || new ManagerDashboardService(supabase);
+            const reviewService = services.reviewService || new ReviewService(supabase);
 
             const chatService = services.chatService || new ChatService(chatRepo, broadcastService);
             const calculationService =
@@ -75,6 +90,11 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
                 inventoryService,
                 supplierService,
                 inventoryAdminService,
+                versionService,
+                documentService,
+                notificationService,
+                managerDashboardService,
+                reviewService,
                 ...services,
             } as IServiceContainer;
         }
@@ -95,6 +115,13 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
         const inventoryService = new InventoryService(supabase);
         const supplierService = new SupplierService(supabase, auditLogService);
         const inventoryAdminService = new InventoryAdminService(supabase, auditLogService);
+        // Manager Services
+        const versionService = new VersionService(supabase);
+        const documentService = new DocumentService(supabase);
+        const notificationService = new NotificationService(supabase);
+        const managerDashboardService = new ManagerDashboardService(supabase);
+        const reviewService = new ReviewService(supabase);
+
         // CalculationService - only needs repository
         const calculationService = new CalculationService(calculationRepo);
 
@@ -110,6 +137,11 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
             inventoryService,
             supplierService,
             inventoryAdminService,
+            versionService,
+            documentService,
+            notificationService,
+            managerDashboardService,
+            reviewService,
         };
     }, [services]);
 

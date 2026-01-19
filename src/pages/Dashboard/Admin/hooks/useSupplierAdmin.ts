@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Supplier } from '@/features/dashboard/dashboard.types';
 import { toast } from 'sonner';
 

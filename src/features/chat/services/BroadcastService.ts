@@ -329,6 +329,9 @@ export class BroadcastService implements IBroadcastService {
                 entry.refCount++;
             }
 
+            // Note: Supabase Realtime collect listeners. 
+            // We use callback pattern to avoid duplication in UI, 
+            // but for safety we ensure the listener is added once per subscribe call.
             channel
                 .on('broadcast', { event: 'new_message' }, ({ payload }: { payload: Message }) =>
                     callback(payload, 'INSERT')
@@ -339,6 +342,40 @@ export class BroadcastService implements IBroadcastService {
                 .on('broadcast', { event: 'message_deleted' }, ({ payload }: { payload: Message }) =>
                     callback(payload, 'DELETE')
                 )
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'messages'
+                }, (payload) => {
+                    const raw = (payload.new || payload.old) as Record<string, unknown>;
+                    if (!raw) return;
+
+                    // Filter by calculationId safely
+                    const targetCalcId = raw.calculation_id || raw.calculationId;
+                    if (calculationId && String(targetCalcId) !== String(calculationId)) return;
+
+                    // Robust mapping of raw DB fields to Message type
+                    const msg: Message = {
+                        id: raw.id as string,
+                        sender_id: (raw.sender_id || raw.senderId) as string,
+                        receiver_id: ((raw.receiver_id || raw.receiverId) ?? null) as string | null,
+                        calculation_id: ((raw.calculation_id || raw.calculationId) ?? null) as string | null,
+                        content: (raw.content ?? null) as string | null,
+                        created_at: (raw.created_at || raw.createdAt) as string,
+                        message_type: (raw.message_type || raw.messageType) as string | undefined,
+                        metadata: raw.metadata as Message['metadata'],
+                        is_edited: (raw.is_edited ?? false) as boolean,
+                        is_read: (raw.is_read ?? false) as boolean,
+                    };
+
+                    if (payload.eventType === 'INSERT') {
+                        callback(msg, 'INSERT');
+                    } else if (payload.eventType === 'UPDATE') {
+                        callback(msg, 'UPDATE');
+                    } else if (payload.eventType === 'DELETE') {
+                        callback(msg, 'DELETE');
+                    }
+                })
                 .on('broadcast', { event: 'history_cleared' }, ({ payload }: { payload: HistoryClearedPayload }) =>
                     callback(payload as unknown as Message, 'DELETE')
                 )
@@ -349,13 +386,10 @@ export class BroadcastService implements IBroadcastService {
                     callback({ id: 'typing-signal', ...payload } as ChatEventPayload, 'TYPING')
                 )
                 .on('broadcast', { event: 'delivery_ack' }, ({ payload }: { payload: MessageAckPayload }) => {
-                    // This is also handled in getOrCreateChannel for the retry logic, 
-                    // but we pass it to the UI here to show "Delivered" status.
                     callback(payload, 'ACK');
                 });
 
             if (isInitialJoin && channel.state === 'joined') {
-                // Already joined, trigger initial signal if needed
                 isInitialJoin = false;
             }
         });

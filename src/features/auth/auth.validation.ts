@@ -54,8 +54,27 @@ export const userSchema = z.object({
     email: z.string().email(),
     role: z.enum(['client', 'manager', 'admin']),
     organizationName: z.string().optional().nullable(),
-    firstName: z.string().optional().nullable(),
-    lastName: z.string().optional().nullable(),
+    inn: z
+        .string()
+        .regex(/^\d*$/, 'Только цифры')
+        .refine((val) => !val || val.length === 10 || val.length === 12, 'ИНН должен быть 10 или 12 цифр')
+        .optional()
+        .nullable(),
+    jobTitle: z
+        .string()
+        .regex(/^[^0-9]*$/, 'Цифры запрещены')
+        .optional()
+        .nullable(),
+    firstName: z
+        .string()
+        .regex(/^[^0-9]*$/, 'Цифры запрещены')
+        .optional()
+        .nullable(),
+    lastName: z
+        .string()
+        .regex(/^[^0-9]*$/, 'Цифры запрещены')
+        .optional()
+        .nullable(),
     phone: z.string().optional().nullable(),
     address: z.string().optional().nullable(),
     avatarUrl: z.string().optional().nullable(),
@@ -68,6 +87,8 @@ export const dbProfileSchema = z.object({
     email: z.string().email(),
     role: z.enum(['client', 'manager', 'admin']),
     organization_name: z.string().optional().nullable(),
+    inn: z.string().optional().nullable(),
+    job_title: z.string().optional().nullable(),
     first_name: z.string().optional().nullable(),
     last_name: z.string().optional().nullable(),
     phone: z.string().optional().nullable(),

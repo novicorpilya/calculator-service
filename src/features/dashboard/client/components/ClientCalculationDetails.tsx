@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging';
 import {
     AlertTriangle,
@@ -30,6 +30,7 @@ import { CalculationExpertiseInfo } from './details/CalculationExpertiseInfo';
 import { AuditPricingPanel } from './details/AuditPricingPanel';
 import { CalculationInventoryList } from './details/CalculationInventoryList';
 import { CalculationZonesBreakdown } from './details/CalculationZonesBreakdown';
+import { ManagerProjectTools } from '@/features/dashboard/manager/components/details/ManagerProjectTools';
 
 interface ClientCalculationDetailsProps {
     calculation: Calculation;
@@ -106,6 +107,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 
         // Local State
         const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+        const [activeTab, setActiveTab] = useState<'items' | 'zones'>('items');
 
         const handleDownloadPDF = () => {
             try {
@@ -118,41 +120,29 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         };
 
         return (
-            <div className="w-full max-w-[min(100%,1300px)] mx-auto space-y-[clamp(1.5rem,5vh,3.5rem)] animate-in fade-in duration-700 pb-20">
+            <div className="w-full max-w-[min(100%,1300px)] mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
+                {/* Delete Confirmation Modal */}
                 {showDeleteConfirm && (
-                    <div className="fixed inset-0 bg-background/80 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-                        <div className="glass-card max-w-md w-full !p-10 text-center space-y-8 shadow-3xl border-primary/20">
-                            <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                        <div className="glass-card max-w-md w-full !p-10 text-center space-y-8 shadow-3xl border-white/10">
+                            <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mx-auto">
                                 <AlertTriangle size={36} />
                             </div>
                             <div className="space-y-3">
-                                <h3 className="text-2xl font-black tracking-tight">
-                                    Удалить проект?
-                                </h3>
-                                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] leading-relaxed italic">
-                                    Это действие безвозвратно удалит все данные расчета «
-                                    {entity.organizationName}»
+                                <h3 className="text-2xl font-black">Удалить проект?</h3>
+                                <p className="text-xs font-bold text-foreground/40 leading-relaxed italic">
+                                    Это действие безвозвратно удалит все данные расчета «{entity.organizationName}»
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={() => onDelete(entity.id)}
-                                    className="btn-premium !bg-red-500 !text-white border-none"
-                                >
-                                    Удалить
-                                </button>
-                                <button
-                                    onClick={() => setShowDeleteConfirm(false)}
-                                    className="w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 hover:text-foreground transition-colors"
-                                >
-                                    Отмена
-                                </button>
+                                <button onClick={() => onDelete(entity.id)} className="btn-premium !bg-red-500 !text-white border-none">Удалить</button>
+                                <button onClick={() => setShowDeleteConfirm(false)} className="py-2 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Отмена</button>
                             </div>
                         </div>
                     </div>
                 )}
 
-                <CalculationHeader 
+                <CalculationHeader
                     vm={vm}
                     entity={entity}
                     calculation={calculation}
@@ -170,66 +160,124 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                     setShowDeleteConfirm={setShowDeleteConfirm}
                 />
 
-                {(entity.canSubmitPayment() ||
-                    entity.isPaymentSent() ||
-                    (entity.isPaid() && calculation.receipt_path)) && (
-                    <PaymentStatusView
-                        calculation={calculation}
-                        userRole={(user?.role ?? 'client') as 'client' | 'manager' | 'admin'}
-                        onUploadReceipt={async (file) => {
-                            const res = await calculationService.uploadReceipt(
-                                entity.id,
-                                file,
-                                entity.userId || user?.id || ''
-                            );
-                            if (res.success && res.data) {
-                                await onUpdateStatus(entity.id, 'payment_review', {
-                                    receipt_path: res.data,
-                                });
-                            } else {
-                                toast.error(res.error?.message || 'Ошибка загрузки чека');
-                            }
-                        }}
-                        onContactManager={() => {
-                            toast.info('Откройте раздел "Обсуждение" ниже');
-                        }}
-                    />
-                )}
+                {/* Top Metrics Bento */}
+                <div className="animate-in fade-in slide-in-from-top-4 duration-1000">
+                    <CalculationStats entity={vm} />
+                </div>
 
-                {(entity.status === 'expert' || entity.status === 'revision') && (
-                    <CalculationExpertiseInfo />
-                )}
+                {/* Status Banners Area */}
+                <div className="space-y-6">
+                    {(entity.canSubmitPayment() || entity.isPaymentSent() || entity.isPaymentRejected() || (entity.isPaid() && calculation.receipt_path)) && (
+                        <PaymentStatusView
+                            calculation={calculation}
+                            userRole={(user?.role ?? 'client') as 'client' | 'manager' | 'admin'}
+                            onUploadReceipt={async (file) => {
+                                const res = await calculationService.uploadReceipt(entity.id, file, entity.userId || user?.id || '');
+                                if (res.success && res.data) {
+                                    await onUpdateStatus(entity.id, 'payment_review', { receipt_path: res.data });
+                                } else {
+                                    toast.error(res.error?.message || 'Ошибка загрузки чека');
+                                }
+                            }}
+                        />
+                    )}
 
-                {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
-                    <AuditPricingPanel 
-                        vm={vm}
-                        entity={entity} 
-                        onUpdateAdjustments={handleUpdateAdjustments} 
-                    />
-                )}
+                    {user?.role === 'client' && (entity.status === 'expert' || entity.status === 'revision') && (
+                        <CalculationExpertiseInfo />
+                    )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-12">
-                    <div className="xl:col-span-8 space-y-12">
-                        <CalculationStats entity={vm} />
+                    {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
+                        <AuditPricingPanel
+                            vm={vm}
+                            entity={entity}
+                            onUpdateAdjustments={handleUpdateAdjustments}
+                        />
+                    )}
+                </div>
 
-                        {entity.results && (
-                            <>
-                                <CalculationInventoryList 
-                                    vm={vm}
-                                    user={user}
-                                    isAuditMode={isAuditMode}
-                                    canSeePrices={canSeePrices}
-                                    totalCost={totalCost}
-                                    totalUnits={totalUnits}
-                                    onSetAuditItemIndex={setAuditItemIndex}
-                                    onRemoveItem={handleRemoveItem}
-                                />
-                                <CalculationZonesBreakdown vm={vm} entity={entity} />
-                            </>
-                        )}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-12 items-start">
+                    {/* Main Content Area with Tabs */}
+                    <div className="xl:col-span-8 space-y-8">
+
+                        {/* Tab Navigation */}
+                        <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit">
+                            <button
+                                onClick={() => setActiveTab('items')}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'items' ? 'bg-primary text-background shadow-lg' : 'text-foreground/40 hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                План снабжения
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('zones')}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'zones' ? 'bg-primary text-background shadow-lg' : 'text-foreground/40 hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                Зоны и Структура
+                            </button>
+                        </div>
+
+                        {/* Tab Content Panels */}
+                        <div className="min-h-[400px]">
+                            {activeTab === 'items' && entity.results && (
+                                <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                                    <CalculationInventoryList
+                                        vm={vm}
+                                        user={user}
+                                        isAuditMode={isAuditMode}
+                                        canSeePrices={canSeePrices}
+                                        totalCost={totalCost}
+                                        totalUnits={totalUnits}
+                                        onSetAuditItemIndex={setAuditItemIndex}
+                                        onRemoveItem={handleRemoveItem}
+                                    />
+                                </div>
+                            )}
+
+                            {activeTab === 'zones' && entity.results && (
+                                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                                    <CalculationZonesBreakdown vm={vm} entity={entity} />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="xl:col-span-4 space-y-8">
+                    {/* Right Side Tools & Chat Panels (Sticky) */}
+                    <div className="xl:col-span-4 space-y-6 sticky top-10">
+                        {/* Personal Expert Banner for Client */}
+                        {user?.role === 'client' && (entity.status === 'expert' || entity.status === 'revision') && (
+                            <div className="p-4 rounded-2xl border space-y-3 shadow-sm bg-indigo-500/10 border-indigo-500/20 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-border-theme">
+                                        <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs uppercase shadow-inner">
+                                            EXP
+                                        </div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                                            Персональный эксперт
+                                        </div>
+                                        <div className="text-[12px] font-bold text-foreground">
+                                            Линия аудита открыта
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(user?.role === 'manager' || user?.role === 'admin') && (
+                            <ManagerProjectTools
+                                calculation={calculation}
+                                onUpdateStatus={onUpdateStatus}
+                                onAssign={onAssign}
+                                isAuditMode={isAuditMode}
+                                setIsAuditMode={setIsAuditMode}
+                                onDelete={setShowDeleteConfirm ? () => setShowDeleteConfirm(true) : undefined}
+                                userId={user?.id || ''}
+                                userRole={user?.role}
+                            />
+                        )}
+
                         <ErrorBoundary
                             fallback={
                                 <div className="glass-card p-12 text-center opacity-40 uppercase font-black tracking-widest text-[10px]">
@@ -248,6 +296,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                     </div>
                 </div>
 
+                {/* Overlays */}
                 {auditItemIndex !== null && entity.results && (
                     <ProductPickerModal
                         isOpen={true}

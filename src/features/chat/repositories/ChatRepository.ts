@@ -71,6 +71,7 @@ export interface IChatRepository {
     deleteMessage(id: string): Promise<VoidResult>;
     markDirectAsRead(contactId: string, currentUserId: string): Promise<VoidResult>;
     markProjectAsRead(projectId: string, currentUserId: string): Promise<VoidResult>;
+    markAllAsRead(userId: string): Promise<VoidResult>;
     editMessage(id: string, content: string): Promise<VoidResult>;
     uploadFile(file: File | Blob, bucket: string): Promise<ActionResult<string>>;
     clearHistory(userId: string, contactId: string): Promise<VoidResult>;
@@ -123,6 +124,7 @@ export class ChatRepository implements IChatRepository {
     getMessageById = (id: string) => this.common.getMessageById(id);
     deleteMessage = (id: string) => this.common.deleteMessage(id);
     editMessage = (id: string, c: string) => this.common.editMessage(id, c);
+    markAllAsRead = (u: string) => this.common.markAllAsRead(u);
 
     // Attachments
     uploadFile = (f: File | Blob, b: string) => this.attachment.uploadFile(f, b);

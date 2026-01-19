@@ -16,13 +16,15 @@ import {
 
 import { type Calculation } from '../../dashboard.types';
 import { OBJECT_TYPES } from '../../dashboard.types';
+import { calculateTotalCost } from '@/core/domain/calculator.utils';
 
 interface ManagerOverviewProps {
     calculations: Calculation[];
     onNavigate: (page: string) => void;
+    onSelect?: (id: string | number) => void;
 }
 
-export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations, onNavigate }) => {
+export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations, onNavigate, onSelect }) => {
     const [timeRange, setTimeRange] = React.useState<'week' | 'month' | 'quarter' | 'all'>('all');
 
     const filteredData = useMemo(() => {
@@ -40,19 +42,24 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
 
     const stats = useMemo(() => {
         const invoiced = filteredData.filter((c) => c.status === 'invoice');
-        const pending = filteredData.filter((c) => c.status === 'sent' || c.status === 'revision');
+        const pending = filteredData.filter((c) => c.status === 'sent' || c.status === 'revision' || c.status === 'expert');
         const inChanges = filteredData.filter((c) => c.status === 'changes');
         const implementation = filteredData.filter((c) =>
-            ['invoice', 'paid', 'shipping'].includes(c.status)
+            ['paid', 'payment_review', 'processing', 'sent_to_warehouse', 'ready', 'shipping'].includes(c.status)
         );
+        const completed = filteredData.filter((c) => c.status === 'completed' || c.status === 'closed');
 
         return {
-            totalBudget: filteredData.reduce((sum, c) => sum + (c.totalCost || 0), 0),
+            totalBudget: filteredData.reduce((sum, c) => {
+                const cost = c.totalCost || calculateTotalCost(c.results?.summary || []);
+                return sum + cost;
+            }, 0),
             activeProjects: filteredData.length,
             invoiced: invoiced.length,
             pending: pending.length,
             inChanges: inChanges.length,
             implementation: implementation.length,
+            completed: completed.length,
             pendingCount: pending.length,
             changesCount: inChanges.length,
             approvedCount: invoiced.length,
@@ -60,14 +67,16 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
             conversion:
                 filteredData.length > 0
                     ? Math.round(
-                          ((invoiced.length + implementation.length) / filteredData.length) * 100
+                          ((invoiced.length + implementation.length + completed.length) / filteredData.length) * 100
                       )
                     : 0,
             avgDealSize:
                 filteredData.length > 0
                     ? Math.round(
-                          filteredData.reduce((sum, c) => sum + (c.totalCost || 0), 0) /
-                              filteredData.length
+                          filteredData.reduce((sum, c) => {
+                              const cost = c.totalCost || calculateTotalCost(c.results?.summary || []);
+                              return sum + cost;
+                          }, 0) / filteredData.length
                       )
                     : 0,
         };
@@ -75,21 +84,79 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
 
     const chartData = useMemo(() => {
         const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-        const currentYear = new Date().getFullYear();
+        const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         
-        // Volume by month
-        const monthlyData = months.map((m, i) => {
-            const projectsInMonth = filteredData.filter(c => {
-                const date = new Date(c.createdDate);
-                return date.getMonth() === i && date.getFullYear() === currentYear;
+        let periodicData: { name: string; volume: number; count: number }[] = [];
+
+        if (timeRange === 'week') {
+            // Day-by-day for the last 7 days
+            periodicData = Array.from({ length: 7 }).map((_, i) => {
+                const date = new Date();
+                date.setDate(date.getDate() - (6 - i));
+                const label = days[date.getDay()];
+                
+                const projects = filteredData.filter(c => {
+                    const d = new Date(c.createdDate);
+                    return d.getDate() === date.getDate() && d.getMonth() === date.getMonth();
+                });
+
+                const volume = projects.reduce((sum, c) => sum + (c.totalCost || calculateTotalCost(c.results?.summary || [])), 0);
+                return { name: label, volume: volume / 1000, count: projects.length };
             });
-            
-            return {
-                name: m,
-                volume: projectsInMonth.reduce((sum, c) => sum + (c.totalCost || 0), 0) / 1000,
-                count: projectsInMonth.length
-            };
-        });
+        } else if (timeRange === 'month') {
+            // Week-by-week for the last 4 weeks
+            periodicData = Array.from({ length: 4 }).map((_, i) => {
+                const now = new Date();
+                const start = new Date(now);
+                start.setDate(now.getDate() - (3 - i) * 7 - 7);
+                const end = new Date(now);
+                end.setDate(now.getDate() - (3 - i) * 7);
+
+                const label = `${i + 1} нед`;
+                
+                const projects = filteredData.filter(c => {
+                    const d = new Date(c.createdDate);
+                    return d >= start && d <= end;
+                });
+
+                const volume = projects.reduce((sum, c) => sum + (c.totalCost || calculateTotalCost(c.results?.summary || [])), 0);
+                return { name: label, volume: volume / 1000, count: projects.length };
+            });
+        } else {
+            // Month-by-month (Rolling 6 months)
+            const rollingMonths = Array.from({ length: 6 }).map((_, i) => {
+                const d = new Date();
+                d.setMonth(d.getMonth() - (5 - i));
+                return d;
+            });
+
+            periodicData = rollingMonths.map((dateObj) => {
+                const mIndex = dateObj.getMonth();
+                const yearStr = dateObj.getFullYear();
+                const label = months[mIndex];
+
+                const projectsInMonth = calculations.filter(c => {
+                    const date = new Date(c.createdDate);
+                    if (isNaN(date.getTime())) {
+                        const parts = c.createdDate.split('.');
+                        if (parts.length === 3) {
+                            const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                            return d.getMonth() === mIndex && d.getFullYear() === yearStr;
+                        }
+                        return false;
+                    }
+                    return date.getMonth() === mIndex && date.getFullYear() === yearStr;
+                });
+                
+                const volume = projectsInMonth.reduce((sum, c) => sum + (c.totalCost || calculateTotalCost(c.results?.summary || [])), 0);
+
+                return {
+                    name: label,
+                    volume: volume / 1000,
+                    count: projectsInMonth.length
+                };
+            });
+        }
 
         // Specialization (Radar)
         const typeData = OBJECT_TYPES.map(type => {
@@ -108,8 +175,9 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
             revision: { label: 'Правки', order: 3, keys: ['revision'] },
             changes: { label: 'Анализ', order: 4, keys: ['changes'] },
             invoice: { label: 'Счет', order: 5, keys: ['invoice'] },
-            paid: { label: 'Оплата', order: 6, keys: ['paid'] }, // including payment_review if needed
-            shipping: { label: 'Доставка', order: 7, keys: ['shipping', 'ready'] },
+            paid: { label: 'Оплата', order: 6, keys: ['paid', 'payment_review', 'payment_rejected'] },
+            shipping: { label: 'Логистика', order: 7, keys: ['processing', 'sent_to_warehouse', 'ready', 'shipping'] },
+            completed: { label: 'Готово', order: 8, keys: ['completed', 'closed'] },
         };
 
         const statusEfficiencyData = Object.entries(statusMap)
@@ -119,12 +187,17 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                 return {
                     name: info.label,
                     count: projects.length,
-                    volume: Math.round(projects.reduce((sum, c) => sum + (c.totalCost || 0), 0) / 1000),
+                    volume: Math.round(
+                        projects.reduce((sum, c) => {
+                            const cost = c.totalCost || calculateTotalCost(c.results?.summary || []);
+                            return sum + cost;
+                        }, 0) / 1000
+                    ),
                 };
             });
 
-        return { monthlyData, typeData, statusEfficiencyData };
-    }, [filteredData]);
+        return { periodicData, typeData, statusEfficiencyData };
+    }, [filteredData, timeRange, calculations]);
 
     const recentItems = useMemo(() => {
         return [...filteredData]
@@ -206,14 +279,17 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                 {/* Volume Pulse Chart */}
                 <div className="xl:col-span-2 min-w-0 self-start">
                     <RevenuePulseChart 
-                        data={chartData.monthlyData} 
+                        data={chartData.periodicData} 
                         totalBudget={stats.totalBudget}
                     />
                 </div>
 
                 {/* Categories Radar */}
                 <div className="min-w-0 self-start">
-                    <PortfolioRadarChart data={chartData.typeData} />
+                    <PortfolioRadarChart 
+                        data={chartData.typeData} 
+                        avgDealSize={stats.avgDealSize}
+                    />
                 </div>
 
                     <div className="xl:col-span-2 space-y-8 min-w-0 self-start">
@@ -250,12 +326,17 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                                 <div 
                                     key={calc.id} 
                                     className="group/item relative flex gap-5 p-5 rounded-[2rem] hover:bg-foreground/[0.03] transition-all duration-300 border border-transparent hover:border-border-theme cursor-pointer"
-                                    onClick={() => onNavigate(`pipeline?id=${calc.id}`)}
+                                    onClick={() => onSelect ? onSelect(calc.id) : onNavigate('pipeline')}
                                 >
                                     <div className="flex flex-col items-center gap-3">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all group-hover/item:shadow-xl ${calc.status === 'sent' ? 'bg-orange-500 dark:bg-orange-500/20 text-white dark:text-orange-500 border-orange-500/10' : 'bg-primary dark:bg-primary/20 text-white dark:text-primary border-primary/10'}`}>
-                                            {calc.status === 'sent' ? <Zap size={22} /> : <MessageSquare size={22} />}
-                                        </div>
+                                        {(() => {
+                                            const isUrgent = ['sent', 'payment_review', 'expert'].includes(calc.status);
+                                            return (
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all group-hover/item:shadow-xl ${isUrgent ? 'bg-orange-500 dark:bg-orange-500/20 text-white dark:text-orange-500 border-orange-500/10' : 'bg-primary dark:bg-primary/20 text-white dark:text-primary border-primary/10'}`}>
+                                                    {isUrgent ? <Zap size={22} /> : <MessageSquare size={22} />}
+                                                </div>
+                                            );
+                                        })()}
                                         {idx < recentItems.length - 1 && (
                                             <div className="w-[2px] flex-1 bg-border-theme/60 rounded-full" />
                                         )}
@@ -268,19 +349,19 @@ export const ManagerOverview = React.memo<ManagerOverviewProps>(({ calculations,
                                             </p>
                                             <div className="px-3 py-1 bg-foreground/5 rounded-lg border border-border-theme group-hover/item:border-primary/30 transition-colors">
                                                 <p className="text-[11px] font-black text-primary">
-                                                    ₽ {calc.totalCost?.toLocaleString() || 0}
+                                                    ₽ {(calc.totalCost || calculateTotalCost(calc.results?.summary || [])).toLocaleString()}
                                                 </p>
                                             </div>
                                         </div>
                                         <h4 className="text-base font-black uppercase tracking-tight truncate group-hover/item:text-primary transition-colors">
-                                            {calc.organizationName}
+                                            {calc.organizationName || 'Новый проект'}
                                         </h4>
                                         <div className="flex items-center gap-2 mt-1.5">
                                             <span className="px-2 py-0.5 bg-foreground/5 rounded-md text-[9px] font-black uppercase text-foreground/40 tracking-widest border border-border-theme">
-                                                {calc.type}
+                                                {OBJECT_TYPES.find(t => t.value === calc.type)?.label || calc.type || 'Объект'}
                                             </span>
                                             <span className="text-[10px] font-bold text-foreground/20 italic">
-                                                #{String(calc.project_number || idx + 1).padStart(3, '0')}
+                                                #{String(calc.project_number || '').padStart(3, '0') || idx + 1}
                                             </span>
                                         </div>
                                     </div>

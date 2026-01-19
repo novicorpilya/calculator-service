@@ -31,7 +31,7 @@ export const useCalculationWizard = (initialData?: Calculation) => {
     const { data: venues = [], isLoading: isLoadingVenues } = useVenues();
     const { data: inventoryData, isLoading: isLoadingInventory } = useGlobalInventory({
         page: 1,
-        pageSize: 1000,
+        pageSize: 10000,
     });
     const globalInventory = inventoryData?.data || [];
 

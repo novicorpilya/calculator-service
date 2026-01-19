@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Calculation, CalculationStatus, CalculationResults } from '../dashboard.types';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { toast } from 'sonner';
@@ -108,11 +108,10 @@ export function useCalculationActions() {
 
             return { result: result.data, id, status };
         },
-        onSuccess: ({ result, id, status }) => {
-            // Update Cache Optimistically or Refetch
+        onSuccess: ({ result, id }) => {
+            // Invalidate and update cache to ensure UI gets fresh data
             queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
             queryClient.setQueryData(dashboardKeys.detail(id), result);
-            toast.success(`Статус обновлен: ${status}`);
         },
         onError: (err: unknown) => {
             // ... (keep error handling as is) ...
@@ -130,7 +129,6 @@ export function useCalculationActions() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-            toast.success('Проект взят в работу');
         },
         onError: (err: unknown) => {
             toast.error(err instanceof Error ? err.message : 'Ошибка назначения');
@@ -159,7 +157,6 @@ export function useCalculationActions() {
             // Invalidate and update cache to ensure UI gets fresh data
             queryClient.invalidateQueries({ queryKey: dashboardKeys.detail(variables.id) });
             queryClient.setQueryData(dashboardKeys.detail(variables.id), result);
-            toast.success('Расчет успешно скорректирован');
         },
         onError: (err: unknown) => {
             const error = err as { message?: string };

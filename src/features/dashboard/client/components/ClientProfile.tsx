@@ -2,12 +2,14 @@ import React, { useEffect } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useForm } from 'react-hook-form';
 import { IconInput } from '@/components/ui/IconInput';
-import { Building2, Mail, Phone, MapPin, Loader2, User as UserIcon } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Loader2, User as UserIcon, Briefcase, Hash } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProfileAvatar } from '../../components/ProfileAvatar';
 
 interface ProfileFormData {
     organizationName: string;
+    inn: string;
+    jobTitle: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -25,13 +27,15 @@ export const ClientProfile = React.memo(() => {
         register,
         handleSubmit,
         reset,
-        formState: { isDirty },
+        formState: { isDirty, errors },
     } = useForm<ProfileFormData>();
 
     useEffect(() => {
         if (user) {
             reset({
                 organizationName: user.organizationName || '',
+                inn: user.inn || '',
+                jobTitle: user.jobTitle || '',
                 firstName: user.firstName || '',
                 lastName: user.lastName || '',
                 email: user.email || '',
@@ -44,14 +48,18 @@ export const ClientProfile = React.memo(() => {
     const onSubmit = async (data: ProfileFormData) => {
         const result = await updateProfile({
             organizationName: isInternalUser ? undefined : data.organizationName,
-            firstName: isInternalUser ? data.firstName : undefined,
-            lastName: isInternalUser ? data.lastName : undefined,
+            inn: data.inn,
+            jobTitle: data.jobTitle,
+            firstName: data.firstName,
+            lastName: data.lastName,
             phone: data.phone,
             address: isInternalUser ? undefined : data.address,
         });
 
         if (!result.success) {
             toast.error(result.error?.message || 'Ошибка при обновлении профиля');
+        } else {
+            toast.success('Профиль успешно обновлен');
         }
     };
 
@@ -63,6 +71,15 @@ export const ClientProfile = React.memo(() => {
     };
 
     const isInternalUser = user?.role === 'manager' || user?.role === 'admin';
+
+    // Input filters
+    const restrictToDigits = (e: React.FormEvent<HTMLInputElement>) => {
+        e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '');
+    };
+
+    const restrictNoDigits = (e: React.FormEvent<HTMLInputElement>) => {
+        e.currentTarget.value = e.currentTarget.value.replace(/[0-9]/g, '');
+    };
 
     if (!user) {
         return (
@@ -95,44 +112,76 @@ export const ClientProfile = React.memo(() => {
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-                    {/* Role-based fields */}
-                    {!isInternalUser ? (
-                        <>
-                            <div className="space-y-3">
-                                <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
-                                    Название компании
-                                </label>
-                                <IconInput
-                                    icon={<Building2 className="w-4 h-4" />}
-                                    placeholder="ООО 'Ваша Организация'"
-                                    {...register('organizationName')}
-                                />
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="space-y-3">
-                                <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
-                                    Имя
-                                </label>
-                                <IconInput
-                                    icon={<UserIcon className="w-4 h-4" />}
-                                    placeholder="Иван"
-                                    {...register('firstName')}
-                                />
-                            </div>
-                            <div className="space-y-3">
-                                <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
-                                    Фамилия
-                                </label>
-                                <IconInput
-                                    icon={<UserIcon className="w-4 h-4" />}
-                                    placeholder="Иванов"
-                                    {...register('lastName')}
-                                />
-                            </div>
-                        </>
+                    {!isInternalUser && (
+                        <div className="space-y-3 md:col-span-2">
+                            <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
+                                Название компании
+                            </label>
+                            <IconInput
+                                icon={<Building2 className="w-4 h-4" />}
+                                placeholder="ООО 'Ваша Организация'"
+                                {...register('organizationName')}
+                            />
+                        </div>
                     )}
+
+                    <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
+                            ИНН организации
+                        </label>
+                        <IconInput
+                            icon={<Hash className="w-4 h-4" />}
+                            placeholder="10 или 12 цифр"
+                            onInput={restrictToDigits}
+                            maxLength={12}
+                            error={errors.inn?.message}
+                            {...register('inn', {
+                                pattern: {
+                                    value: /^(\d{10}|\d{12})$/,
+                                    message: 'ИНН должен быть 10 или 12 цифр'
+                                }
+                            })}
+                        />
+                    </div>
+
+                    <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
+                            Должность
+                        </label>
+                        <IconInput
+                            icon={<Briefcase className="w-4 h-4" />}
+                            placeholder="Например: Закупщик"
+                            onInput={restrictNoDigits}
+                            error={errors.jobTitle?.message}
+                            {...register('jobTitle')}
+                        />
+                    </div>
+
+                    <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
+                            Имя
+                        </label>
+                        <IconInput
+                            icon={<UserIcon className="w-4 h-4" />}
+                            placeholder="Иван"
+                            onInput={restrictNoDigits}
+                            error={errors.firstName?.message}
+                            {...register('firstName')}
+                        />
+                    </div>
+
+                    <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
+                            Фамилия
+                        </label>
+                        <IconInput
+                            icon={<UserIcon className="w-4 h-4" />}
+                            placeholder="Иванов"
+                            onInput={restrictNoDigits}
+                            error={errors.lastName?.message}
+                            {...register('lastName')}
+                        />
+                    </div>
 
                     <div className="space-y-3">
                         <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
@@ -163,7 +212,7 @@ export const ClientProfile = React.memo(() => {
                     </div>
 
                     {!isInternalUser && (
-                        <div className="space-y-3">
+                        <div className="space-y-3 md:col-span-2">
                             <label className="block text-[10px] font-black text-foreground/80 uppercase tracking-[0.2em] ml-1">
                                 Юридический адрес
                             </label>
@@ -185,6 +234,11 @@ export const ClientProfile = React.memo(() => {
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                         {loading ? 'Сохранение...' : 'Обновить профиль'}
                     </button>
+                    {!isDirty && !loading && (
+                        <p className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest">
+                            Нет изменений для сохранения
+                        </p>
+                    )}
                 </div>
             </form>
         </div>

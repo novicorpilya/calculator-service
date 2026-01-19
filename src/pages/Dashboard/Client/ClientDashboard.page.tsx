@@ -11,7 +11,7 @@ import { ClientOverview } from '@/features/dashboard/client/components/ClientOve
 import { VenuePage } from '../Venue/Venue.page';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
 import type { Calculation } from '@/features/dashboard/dashboard.types';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import type { Venue } from '@/services/venue.service';
 import { useAuth } from '@/features/auth';
 import { toast } from 'sonner';
@@ -52,6 +52,19 @@ export const ClientDashboard: React.FC = () => {
         },
         [setSearchParams]
     );
+
+    // AUTO-SELECT project from URL (Deep Linking for Notifications)
+    useEffect(() => {
+        const urlProjectId = searchParams.get('project');
+        if (urlProjectId) {
+            setSelectedId(urlProjectId);
+            // Clean up the URL
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('project');
+            setSearchParams(newParams, { replace: true });
+        }
+    }, [searchParams, setSelectedId, setSearchParams]);
+
     const [calculations, setCalculations] = useState<Calculation[]>([]);
     const [venues, setVenues] = useState<Venue[]>([]);
     const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -141,8 +154,6 @@ export const ClientDashboard: React.FC = () => {
                     }
                     return prev;
                 });
-
-                toast.info('Информация обновлена', { duration: 1500 });
             } catch {
                 logger.warn('[Sync:Client:Retry]', { sid });
                 loadData(true);

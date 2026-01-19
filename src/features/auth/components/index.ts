@@ -6,4 +6,4 @@ export { RegisterForm } from './RegisterForm';
 export { ForgotPasswordForm } from './ForgotPasswordForm';
 export { ResetPasswordForm } from './ResetPasswordForm';
 export { SuccessView } from './SuccessView';
-export { HoRecaAuth } from './HoRecaAuth';
+export { HicsAuth } from './HicsAuth';

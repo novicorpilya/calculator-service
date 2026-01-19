@@ -22,11 +22,11 @@ import { authService } from '@/features/auth/auth.service';
 import { toast } from 'sonner';
 import { logger } from '@/core/logging';
 
-interface HoRecaAuthProps {
+interface HicsAuthProps {
     initialMode?: AuthMode;
 }
 
-export const HoRecaAuth: React.FC<HoRecaAuthProps> = ({ initialMode = 'login' }) => {
+export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => {
     const navigate = useNavigate();
     const { login, register, resetPassword, updatePassword, setIsRecoveryFlow, logout } = useAuth();
 

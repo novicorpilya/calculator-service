@@ -18,6 +18,7 @@ export const CALCULATION_STATUS = {
     SHIPPING: 'shipping',
     COMPLETED: 'completed',
     CLOSED: 'closed',
+    PAYMENT_REJECTED: 'payment_rejected',
 } as const;
 
 export const CALCULATION_ACTION = {
@@ -34,5 +35,7 @@ export const CALCULATION_ACTION = {
     MARK_READY: 'mark_ready',
     START_SHIPPING: 'start_shipping',
     FINISH_PROJECT: 'finish_project',
+    ARCHIVE: 'archive',
+    RESTORE: 'restore',
     LOG_ERROR: 'log_error',
 } as const;

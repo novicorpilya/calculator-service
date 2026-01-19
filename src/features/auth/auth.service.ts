@@ -218,13 +218,24 @@ export const authService = {
                 return { success: false, error: { message: 'Data corruption in profile' } };
             }
 
-            const { organization_name, first_name, last_name, avatar_url, created_at, ...other } = parsed.data;
+            const {
+                organization_name,
+                inn,
+                job_title,
+                first_name,
+                last_name,
+                avatar_url,
+                created_at,
+                ...other
+            } = parsed.data;
 
             return {
                 success: true,
                 data: {
                     ...other,
                     organizationName: organization_name || undefined,
+                    inn: inn || undefined,
+                    jobTitle: job_title || undefined,
                     firstName: first_name || undefined,
                     lastName: last_name || undefined,
                     avatarUrl: avatar_url || undefined,
@@ -300,6 +311,8 @@ export const authService = {
             const updateObj: Record<string, string | null | undefined> = {};
             if (data.organizationName !== undefined)
                 updateObj.organization_name = data.organizationName;
+            if (data.inn !== undefined) updateObj.inn = data.inn;
+            if (data.jobTitle !== undefined) updateObj.job_title = data.jobTitle;
             if (data.firstName !== undefined) updateObj.first_name = data.firstName;
             if (data.lastName !== undefined) updateObj.last_name = data.lastName;
             if (data.phone !== undefined) updateObj.phone = data.phone;

@@ -1,6 +1,6 @@
 import type { ICalculationRepository } from '../repositories/CalculationRepository';
 import { type PaginationParams, type PaginatedResult } from '@/core/types/pagination';
-import type { Calculation, CalculationResults } from '../dashboard.types';
+import type { Calculation, CalculationResults } from '@/core/types/calculation';
 import { CALCULATION_STATUS, CALCULATION_ACTION } from '@/core/constants/calculation.constants';
 import { calculateTotalCost } from '@/core/domain/calculator.utils';
 import { logger } from '@/core/logging';
@@ -14,6 +14,7 @@ export interface ICalculationService {
     getPaginated(
         params: PaginationParams & {
             status?: string;
+            excludeStatus?: string;
             search?: string;
             managerId?: string | null;
             sortBy?: string;
@@ -67,6 +68,7 @@ export class CalculationService implements ICalculationService {
     async getPaginated(
         params: PaginationParams & {
             status?: string;
+            excludeStatus?: string;
             search?: string;
             managerId?: string | null;
             sortBy?: string;
@@ -78,7 +80,13 @@ export class CalculationService implements ICalculationService {
 
     async create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>> {
         if (!userId) return { success: false, error: { message: 'User ID is required' } };
-        return this.repository.create(calc, userId);
+        
+        const finalCalc = { ...calc };
+        if (calc.results?.summary) {
+            finalCalc.totalCost = calculateTotalCost(calc.results.summary);
+        }
+        
+        return this.repository.create(finalCalc, userId);
     }
 
     async update(
@@ -128,17 +136,56 @@ export class CalculationService implements ICalculationService {
                     case CALCULATION_STATUS.COMPLETED:
                         action = CALCULATION_ACTION.FINISH_PROJECT;
                         break;
+                    case CALCULATION_STATUS.PAYMENT_REJECTED:
+                        action = CALCULATION_ACTION.REJECT_PAYMENT;
+                        break;
+                    case CALCULATION_STATUS.CLOSED:
+                        action = CALCULATION_ACTION.ARCHIVE;
+                        break;
                 }
 
                 const currentRes = await this.repository.getById(id);
                 if (!currentRes.success || !currentRes.data) return currentRes;
-
                 const current = currentRes.data;
+
+                // --- STRICT STATUS TRANSITION VALIDATION ---
+                const allowedTransitions: Record<string, string[]> = {
+                    [CALCULATION_STATUS.DRAFT]: [CALCULATION_STATUS.SENT, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.SENT]: [CALCULATION_STATUS.EXPERT, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.EXPERT]: [CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.CHANGES, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.CHANGES]: [CALCULATION_STATUS.REVISION, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.REVISION]: [CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.EXPERT, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.INVOICE]: [CALCULATION_STATUS.PAYMENT_REVIEW, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.PAYMENT_REVIEW]: [CALCULATION_STATUS.PAID, CALCULATION_STATUS.PAYMENT_REJECTED, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.PAYMENT_REJECTED]: [CALCULATION_STATUS.PAYMENT_REVIEW, CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.PAID]: [CALCULATION_STATUS.PROCESSING, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.PROCESSING]: [CALCULATION_STATUS.SENT_TO_WAREHOUSE, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.SENT_TO_WAREHOUSE]: [CALCULATION_STATUS.READY, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.READY]: [CALCULATION_STATUS.SHIPPING, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.SHIPPING]: [CALCULATION_STATUS.COMPLETED, CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.COMPLETED]: [CALCULATION_STATUS.CLOSED],
+                    [CALCULATION_STATUS.CLOSED]: [CALCULATION_STATUS.COMPLETED, CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.EXPERT] // Restore paths
+                };
+
+                const isAllowed = allowedTransitions[current.status]?.includes(updates.status) || current.status === updates.status;
+                if (!isAllowed) {
+                    const errorMsg = `Invalid status transition: ${current.status} -> ${updates.status}`;
+                    await this.recordError(id, errorMsg);
+                    return { success: false, error: { message: errorMsg } };
+                }
+
                 if (
                     current.status === CALCULATION_STATUS.PAYMENT_REVIEW &&
-                    updates.status === CALCULATION_STATUS.INVOICE
+                    updates.status === CALCULATION_STATUS.PAYMENT_REJECTED
                 ) {
                     action = CALCULATION_ACTION.REJECT_PAYMENT;
+                }
+
+                if (
+                    current.status === CALCULATION_STATUS.CLOSED &&
+                    (updates.status === CALCULATION_STATUS.COMPLETED || updates.status === CALCULATION_STATUS.INVOICE || updates.status === CALCULATION_STATUS.EXPERT)
+                ) {
+                    action = CALCULATION_ACTION.RESTORE;
                 }
 
                 const contentUpdates: Partial<Calculation> = { ...finalUpdates };

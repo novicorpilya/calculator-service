@@ -24,18 +24,30 @@ export const PortfolioRadarChart: React.FC<PortfolioRadarChartProps> = ({ data, 
     return (
         <div className="bg-card border border-border-theme rounded-[3.5rem] p-10 space-y-10 relative group/radar shadow-2xl">
             <div className="flex items-center justify-between relative z-10">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                     <h3 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
-                        <Layers className="text-orange-500" size={24} /> Экспертиза
+                        <div className="p-2.5 bg-orange-500/10 rounded-xl">
+                            <Layers className="text-orange-500" size={22} />
+                        </div>
+                        Экспертиза
                     </h3>
-                    <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.25em]">
-                        Фокус портфеля
-                    </p>
+                    <div className="flex items-center gap-3 pl-14">
+                        <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.25em]">
+                            Фокус портфеля
+                        </p>
+                    </div>
                 </div>
-                <div className="px-4 py-2 bg-orange-500/10 rounded-xl border border-orange-500/10">
-                    <p className="text-[11px] font-black text-orange-500 uppercase">
-                        ₽ {(avgDealSize / 1000).toFixed(0)}K <span className="opacity-40 ml-1">Средний</span>
-                    </p>
+                
+                <div className="relative group/badge">
+                    <div className="px-4 py-2.5 bg-foreground/[0.02] rounded-2xl border border-border-theme/50 backdrop-blur-sm flex flex-col items-end transition-all hover:bg-foreground/[0.04]">
+                        <span className="text-[7px] font-black uppercase text-foreground/30 tracking-[0.2em] leading-none mb-1">Средний чек</span>
+                        <div className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                            <p className="text-[12px] font-black text-foreground/80 tracking-tight">
+                                ₽ {(avgDealSize / 1000).toFixed(0)}K
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 

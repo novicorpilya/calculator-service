@@ -47,4 +47,20 @@ export class CommonChatRepository extends BaseChatRepository {
             return { success: false, error: this.wrapError(error) };
         }
     }
+
+    async markAllAsRead(userId: string): Promise<VoidResult> {
+        try {
+            const { error } = await this.client.rpc('mark_all_messages_as_read', {
+                p_user_id: userId,
+            });
+
+            if (error) {
+                this.logger.error('Failed to mark all messages as read', { userId }, error);
+                return { success: false, error: this.wrapError(error) };
+            }
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
 }

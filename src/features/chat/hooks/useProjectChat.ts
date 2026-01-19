@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import { type Message, type MessageAckPayload, type ReadEventPayload } from '@/features/chat/types';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { sortMessages } from '../utils/chatUtils';
@@ -80,12 +80,35 @@ export function useProjectChat(
         }
     });
 
+    // 4. SYNC ON STATUS CHANGE: Если статус проекта изменился, принудительно обновляем сообщения.
+    // Это решает проблему "мертвой зоны", когда скрипт вставляется в БД одновременно со статусом,
+    // и реалтайм событие может быть пропущено во время перерисовки UI.
+    useEffect(() => {
+        if (entity.status) {
+            queryClient.invalidateQueries({ queryKey });
+        }
+    }, [entity.status, queryKey, queryClient]);
+
     useEffect(() => {
         if (!entity.id || !user) return;
         const sub = chatService.subscribeToMessages(async (payload, eventType) => {
             if (eventType === 'INSERT') {
                 const msg = payload as Message;
-                if (msg.sender_id === user.id) return; // Свои сообщения обрабатываются мутацией
+                
+                // Parse metadata if it's a string, and detect system status
+                let meta = {};
+                try {
+                    meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : (msg.metadata || {});
+                } catch (e) {
+                    console.warn('[ProjectChat] Failed to parse metadata', e);
+                }
+                
+                // Проверка на системное сообщение (скрипт)
+                // Любое сообщение с типом отличным от text или флагом is_system считаем системным
+                const isSystem = (meta as Record<string, unknown>).is_system === true || (msg.message_type && msg.message_type !== 'text');
+
+                // Свои сообщения обрабатываются мутацией, но СИСТЕМНЫЕ сообщения (даже от нашего имени) нужно отображать
+                if (user && msg.sender_id === user.id && !isSystem) return;
 
                 // GAP DETECTION: если seq_id прыгнул — догружаем пропущенные
                 if (msg.server_seq_id && lastSeqIdRef.current > 0) {

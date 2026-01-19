@@ -33,6 +33,7 @@ export interface IChatService {
     sendMediaMessage(file: File | Blob, payload: MessageCreatePayload): Promise<ActionResult<Message>>;
     markDirectAsRead(senderId: string, receiverId: string): Promise<VoidResult>;
     markProjectAsRead(calculationId: string, userId: string): Promise<VoidResult>;
+    markAllAsRead(userId: string): Promise<VoidResult>;
     getRecipients(userId: string): Promise<ActionResult<ChatRecipient[]>>;
     getUnreadCounts(userId: string): Promise<ActionResult<UnreadCounts>>;
     getMessagesDelta(
@@ -259,6 +260,16 @@ export class ChatService implements IChatService {
             await this.broadcast.broadcastMessagesRead(otherUserId || userId, calculationId, userId);
         }
         return res || { success: false, error: { message: 'Failed to mark as read' } };
+    }
+
+    async markAllAsRead(userId: string): Promise<VoidResult> {
+        // 1. Optimistic Broadcast: Tell all tabs/users to clear UI IMMEDIATELY
+        // This is what makes badges disappear "Mgnovenno" (Instantly)
+        this.broadcast.broadcastMessagesRead(userId, undefined, userId);
+
+        // 2. Perform background DB update
+        const res = await this.repository.markAllAsRead(userId);
+        return res;
     }
 
     async syncReadStatus(

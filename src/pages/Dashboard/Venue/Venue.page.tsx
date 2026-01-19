@@ -17,7 +17,7 @@ import {
 
 import { type Venue, type CreateVenueData } from '@/services/venue.service';
 import { toast } from 'sonner';
-import { useServices } from '@/core/di/ServiceContainer';
+import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging';
 
 const VENUE_TYPE_CONFIG = {
