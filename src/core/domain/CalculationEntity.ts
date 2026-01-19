@@ -49,7 +49,7 @@ export class CalculationEntity {
         return this.data.zonesCount || 0;
     }
     get totalArea() {
-        return this.data.totalArea;
+        return this.data.totalArea || 0; 
     }
     get managerId() {
         return this.data.manager_id;

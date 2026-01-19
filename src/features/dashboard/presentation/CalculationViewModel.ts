@@ -58,9 +58,14 @@ export class CalculationViewModel {
 
     get formattedDate(): string {
         try {
-            return new Intl.DateTimeFormat('ru-RU').format(this.entity.createdAt);
+            if (!this.entity.createdAt) return 'Нет даты';
+            return new Date(this.entity.createdAt).toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
         } catch {
-            return '—';
+            return 'Некорректная дата';
         }
     }
 
