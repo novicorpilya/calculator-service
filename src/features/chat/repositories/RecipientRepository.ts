@@ -13,7 +13,7 @@ export class RecipientRepository extends BaseChatRepository {
             }
 
             this.logger.info('Calling RPC get_chat_recipients_v5', { userId });
-            
+
             const { data, error } = await this.client.rpc('get_chat_recipients_v5', {
                 p_user_id: userId,
             });
@@ -47,7 +47,12 @@ export class RecipientRepository extends BaseChatRepository {
                 }
 
                 return {
-                    ...item,
+                    id: item.id as string,
+                    organization_name: (item.organization_name as string) || null,
+                    role: item.role as string,
+                    first_name: (item.first_name as string) || null,
+                    last_name: (item.last_name as string) || null,
+                    avatar_url: (item.avatar_url as string) || null,
                     lastMessage,
                 };
             });

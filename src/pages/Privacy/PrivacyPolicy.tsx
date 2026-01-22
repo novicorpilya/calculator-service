@@ -1,125 +1,220 @@
-import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { ArrowLeft, ShieldCheck, Lock, Eye, FileText, Scale } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const PrivacyPolicy: React.FC = () => {
     const navigate = useNavigate();
 
+    // Scroll to top on mount
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
     return (
-        <div className="min-h-screen bg-background text-foreground py-24 px-6 sm:px-12">
-            <div className="max-w-4xl mx-auto space-y-12">
-                <button 
-                    onClick={() => navigate('/')} 
-                    className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-foreground/50 hover:text-primary transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Назад
-                </button>
-
-                <div className="space-y-6">
-                    <h1 className="text-4xl font-[1000] italic tracking-tight uppercase">
-                        Политика конфиденциальности
-                    </h1>
-                </div>
-
-                <div className="prose prose-invert max-w-none space-y-12">
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">1. Общие положения</h2>
-                        <p className="text-foreground/70 leading-relaxed">
-                            Настоящим, заполняя любую форму на сайте hics-service.vercel.app (далее — «Сайт») и нажимая кнопку "Отправить"/"Оставить заявку" либо продолжая использование Сайта, вы свободно, своей волей и в своих интересах подтверждаете, что ознакомились с настоящим Согласием и разрешаете ООО «ХИКС» (ИНН 0000000000, ОГРН 0000000000000, e-mail: privacy@hics-service.vercel.app, далее — «Оператор») обрабатывать ваши персональные данные на условиях, изложенных ниже.
-                        </p>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">2. Цели обработки</h2>
-                        <ul className="list-disc pl-6 space-y-2 text-foreground/70 marker:text-primary">
-                            <li>Идентификация пользователя на Сайте и в мобильных приложениях.</li>
-                            <li>Оформление и сопровождение заказов.</li>
-                            <li>Информирование об акциях, новостях и специальных предложениях (e-mail, SMS, push-уведомления).</li>
-                            <li>Улучшение качества сервисов, проведение статистических и маркетинговых исследований.</li>
-                            <li>Выполнение требований законодательства РФ (бухучёт, налоговая отчётность и др.).</li>
-                        </ul>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">3. Категории персональных данных</h2>
-                        <ul className="list-disc pl-6 space-y-2 text-foreground/70 marker:text-primary">
-                            <li><strong>Идентификационные:</strong> Фамилия, имя, отчество; дата рождения (при необходимости).</li>
-                            <li><strong>Контактные:</strong> Номер телефона, e-mail, почтовый адрес.</li>
-                            <li><strong>Данные учётной записи:</strong> Логин, хэш пароля, история авторизаций, IP-адрес, cookie-файлы.</li>
-                            <li><strong>Платежные:</strong> Реквизиты платежа, сумма и дата операций (обрабатываются через платёжного агрегатора).</li>
-                            <li><strong>Транзакционные:</strong> Список товаров/услуг, история заказов, комментарии к заказам.</li>
-                        </ul>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">4. Правовые основания</h2>
-                        <p className="text-foreground/70">Обработка осуществляется в соответствии с:</p>
-                        <ul className="list-disc pl-6 space-y-2 text-foreground/70 marker:text-primary">
-                            <li>Федеральным законом РФ от 27.07.2006 № 152-ФЗ «О персональных данных»;</li>
-                            <li>Федеральным законом РФ от 07.02.1992 № 2300-1 «О защите прав потребителей»;</li>
-                            <li>Настоящим Согласием (оферта).</li>
-                        </ul>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">5. Способы обработки и срок хранения</h2>
-                        <p className="text-foreground/70 leading-relaxed">
-                            Смешанная (автоматизированная и неавтоматизированная) обработка с использованием баз данных на территории РФ.
-                            Срок хранения — до достижения целей обработки или до момента отзыва Согласия, если иное не требуется законодательством (данные о заказах — 5 лет, бухгалтерские документы — 5 лет и т.д.)
-                        </p>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">6. Передача третьим лицам</h2>
-                        <p className="text-foreground/70 leading-relaxed">
-                            Персональные данные могут быть переданы исключительно для целей, указанных в разделе 2, следующим категориям получателей:
-                        </p>
-                        <ul className="list-disc pl-6 space-y-2 text-foreground/70 marker:text-primary">
-                            <li>Курьерские и почтовые службы (доставка).</li>
-                            <li>Платёжные агрегаторы (приём онлайн-платежей).</li>
-                            <li>Внешние сервисы технической поддержки, CRM, облачные хостинги, расположенные на территории РФ.</li>
-                            <li>Уполномоченные госорганы — по их запросу на основании закона.</li>
-                        </ul>
-                        <p className="text-foreground/70 leading-relaxed">
-                            Передача данных в иные страны или третьим лицам без вашей отдельной воли не осуществляется.
-                        </p>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">7. Права субъекта персональных данных</h2>
-                        <p className="text-foreground/70 leading-relaxed">
-                            Вы вправе:
-                        </p>
-                        <ul className="list-disc pl-6 space-y-2 text-foreground/70 marker:text-primary">
-                            <li>Получать информацию о факте, целях, источнике, способах обработки ваших данных;</li>
-                            <li>Требовать уточнения, блокировки или уничтожения недостоверных либо незаконно обработанных данных;</li>
-                            <li>Отозвать настоящее Согласие в любой момент, направив запрос на e-mail privacy@hics-service.vercel.app;</li>
-                            <li>Обжаловать действия/бездействие Оператора в Роскомнадзор или в судебном порядке.</li>
-                        </ul>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">8. Отзыв Согласия</h2>
-                        <p className="text-foreground/70 leading-relaxed">
-                            Отзыв не влияет на законность обработки, осуществлённой до момента получения Оператором письменного уведомления. После получения отзыва ваш аккаунт может быть ограничен или удалён в зависимости от минимально необходимого состава данных для выполнения обязательств перед вами и норм законодательства.
-                        </p>
-                    </section>
-
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">9. Контактная информация Оператора</h2>
-                        <div className="bg-card p-6 rounded-2xl border border-border-theme space-y-2">
-                            <p className="font-bold text-lg">ООО «ХИКС»</p>
-                            <p className="text-foreground/60">123456, г. Москва, ул. Технологическая, д. 10</p>
-                            <p className="text-foreground/60">Тел.: +7 999 000-00-00</p>
-                            <p className="text-foreground/60">E-mail: privacy@hics-service.vercel.app</p>
-                        </div>
-                    </section>
-
-                    <p className="text-sm text-foreground/40 italic pt-8 border-t border-border-theme">
-                        Продолжая работу на сайте hics-service.vercel.app, вы подтверждаете своё согласие с указанными условиями обработки персональных данных.
-                    </p>
-                </div>
+        <div className="min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-x-hidden">
+            {/* Immersive Background Decorations */}
+            <div className="fixed inset-0 pointer-events-none -z-10">
+                <div className="absolute top-[-10%] right-[-10%] w-[300px] sm:w-[800px] h-[300px] sm:h-[800px] bg-primary/5 blur-[120px] rounded-full animate-pulse duration-[10000ms]" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[250px] sm:w-[600px] h-[250px] sm:h-[600px] bg-indigo-500/5 blur-[120px] rounded-full animate-pulse duration-[8000ms]" />
             </div>
+
+            <main className="fluid-container py-20 sm:py-32">
+                <div className="max-w-4xl mx-auto space-y-16">
+                    {/* Header Section */}
+                    <div className="space-y-8 animate-in fade-in slide-in-from-top-8 duration-1000">
+                        <button
+                            onClick={() => navigate('/')}
+                            className="group flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-foreground/40 hover:text-primary transition-all duration-300"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-foreground/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                                <ArrowLeft className="w-4 h-4" />
+                            </div>
+                            На главную
+                        </button>
+
+                        <div className="space-y-4">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                                <ShieldCheck className="w-4 h-4" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-nowrap">
+                                    Безопасность данных
+                                </span>
+                            </div>
+                            <h1 className="text-[clamp(2rem,10vw,5.5rem)] font-[1000] italic leading-[1] tracking-tighter uppercase break-words">
+                                Политика <br />
+                                <span className="text-primary not-italic block sm:inline break-all sm:break-normal">
+                                    конфиденциальности
+                                </span>
+                            </h1>
+                            <p className="text-fluid-lg text-foreground/50 font-medium max-w-2xl">
+                                Мы ценим ваше доверие и обеспечиваем абсолютную прозрачность в
+                                вопросах обработки персональных данных в экосистеме HICS.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="glass-card !p-8 sm:!p-16 space-y-20 relative overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-200">
+                        {/* Interactive Background Grid for Card */}
+                        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:40px_40px] opacity-[0.15] -z-10" />
+
+                        <section className="space-y-8">
+                            <div className="flex items-start gap-6">
+                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                                    <FileText className="w-6 h-6 text-primary" />
+                                </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-2xl font-[1000] italic tracking-tight uppercase">
+                                        1. Общие положения
+                                    </h2>
+                                    <p className="text-foreground/60 leading-relaxed font-medium">
+                                        Настоящим, заполняя любую форму на сайте
+                                        hics-service.vercel.app и нажимая кнопку "Отправить" либо
+                                        продолжая использование Сайта, вы подтверждаете согласие на
+                                        обработку данных ООО «ХИКС» (ИНН 0000000000). Мы строго
+                                        следуем принципам минимизации данных и их защиты от
+                                        несанкционированного доступа.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-8">
+                            <div className="flex items-start gap-6">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                    <Eye className="w-6 h-6 text-indigo-500" />
+                                </div>
+                                <div className="space-y-6">
+                                    <h2 className="text-2xl font-[1000] italic tracking-tight uppercase">
+                                        2. Цели и категории данных
+                                    </h2>
+                                    <p className="text-foreground/60 leading-relaxed font-medium">
+                                        Мы собираем только те данные, которые критически необходимы
+                                        для функционирования интеллектуального калькулятора и связи
+                                        с экспертами.
+                                    </p>
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        {[
+                                            {
+                                                title: 'Идентификация',
+                                                desc: 'ФИО, логин и IP-адрес для защиты аккаунта',
+                                            },
+                                            {
+                                                title: 'Коммуникация',
+                                                desc: 'E-mail и телефон для отправки расчетов',
+                                            },
+                                            {
+                                                title: 'Транзакции',
+                                                desc: 'История смет и спецификаций объектов',
+                                            },
+                                            {
+                                                title: 'Аналитика',
+                                                desc: 'Cookie для оптимизации UX платформы',
+                                            },
+                                        ].map((item, i) => (
+                                            <div
+                                                key={i}
+                                                className="p-5 rounded-2xl bg-foreground/[0.03] border border-border-theme hover:border-primary/30 transition-colors group"
+                                            >
+                                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2">
+                                                    {item.title}
+                                                </h4>
+                                                <p className="text-[11px] font-bold text-foreground/40 leading-snug">
+                                                    {item.desc}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-8">
+                            <div className="flex items-start gap-6">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                    <Lock className="w-6 h-6 text-emerald-500" />
+                                </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-2xl font-[1000] italic tracking-tight uppercase">
+                                        3. Безопасность и хранение
+                                    </h2>
+                                    <p className="text-foreground/60 leading-relaxed font-medium">
+                                        Данные хранятся на защищенных серверах на территории РФ с
+                                        использованием алгоритмов шифрования AES-256. Передача
+                                        данных третьим лицам возможна только для обеспечения
+                                        логистики (доставка инвентаря) или по требованию
+                                        законодательства.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-8">
+                            <div className="flex items-start gap-6">
+                                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                                    <Scale className="w-6 h-6 text-orange-500" />
+                                </div>
+                                <div className="space-y-6">
+                                    <h2 className="text-2xl font-[1000] italic tracking-tight uppercase">
+                                        4. Ваши права
+                                    </h2>
+                                    <p className="text-foreground/60 leading-relaxed font-medium">
+                                        Вы сохраняете полный контроль над своими персональными
+                                        данными в любое время.
+                                    </p>
+                                    <ul className="space-y-4">
+                                        {[
+                                            'Право на отзыв согласия и удаление аккаунта',
+                                            'Право на получение выписки по хранимым данным',
+                                            'Право на корректировку устаревшей информации',
+                                            'Защита прав в судебном порядке',
+                                        ].map((item, i) => (
+                                            <li
+                                                key={i}
+                                                className="flex items-center gap-4 text-[11px] font-black uppercase tracking-widest text-foreground/30"
+                                            >
+                                                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="pt-12 border-t border-border-theme">
+                            <div className="flex flex-col sm:flex-row gap-8 justify-between items-start sm:items-center">
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground/20">
+                                        Контактная почта
+                                    </p>
+                                    <a
+                                        href="mailto:privacy@hics-service.vercel.app"
+                                        className="text-2xl font-[1000] italic tracking-tight text-primary hover:scale-105 transition-transform block"
+                                    >
+                                        privacy@hics.pro
+                                    </a>
+                                </div>
+                                <div className="text-right space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground/20">
+                                        Последнее обновление
+                                    </p>
+                                    <p className="text-sm font-bold opacity-60">22 января 2026</p>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* Footer Badge */}
+                    <div className="flex justify-center pt-8">
+                        <div className="inline-flex items-center gap-4 px-8 py-4 rounded-2xl bg-foreground/5 border border-border-theme">
+                            <ShieldCheck className="w-5 h-5 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/40">
+                                HICS — Trusted Ecosystem
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     );
 };

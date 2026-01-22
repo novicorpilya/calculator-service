@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import { type VercelRequest, type VercelResponse } from '@vercel/node';
 
@@ -6,6 +7,7 @@ import { type VercelRequest, type VercelResponse } from '@vercel/node';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM || 'HICS <onboarding@resend.dev>';
 
 // Simple interface instead of union type to simplify checks
 interface EnvValidationResult {
@@ -30,11 +32,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const envCheck = validateEnv();
     if (!envCheck.valid) {
         // Safe access with fallback, satisfying TS strictly
-        const missingVars = envCheck.missing || []; 
+        const missingVars = envCheck.missing || [];
         console.error('[send-invite] Missing env variables:', missingVars);
         return res.status(500).json({
             error: 'Server misconfiguration',
-            details: `Missing: ${missingVars.join(', ')}`
+            details: `Missing: ${missingVars.join(', ')}`,
         });
     }
 
@@ -54,7 +56,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Verify token via Supabase
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const {
+        data: { user },
+        error: authError,
+    } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
         return res.status(401).json({ error: 'Invalid token' });
@@ -72,17 +77,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Validate request body
-    const { email, role, inviteLink } = req.body || {};
-    if (!email || !role || !inviteLink) {
+    // Validate request body
+    const InviteSchema = z.object({
+        email: z.string().email(),
+        role: z.string().min(1),
+        inviteLink: z.string().url(),
+    });
+
+    const validation = InviteSchema.safeParse(req.body);
+
+    if (!validation.success) {
         return res.status(400).json({
-            error: 'Missing required fields',
-            required: ['email', 'role', 'inviteLink']
+            error: 'Validation failed',
+            details: validation.error.issues,
         });
     }
 
+    const { email, role, inviteLink } = validation.data;
+
     try {
         const data = await resend.emails.send({
-            from: 'HICS <onboarding@resend.dev>',
+            from: MAIL_FROM,
             to: [email],
             subject: 'Ваше приглашение в HICS',
             html: `

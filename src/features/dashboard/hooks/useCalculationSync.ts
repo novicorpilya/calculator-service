@@ -4,6 +4,7 @@ import { supabase } from '@/services/supabase';
 import { useServices } from '@/app/di/ServiceContainer';
 import type { Calculation } from '../dashboard.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { dashboardKeys } from './useCalculations';
 
 interface CalculationDB {
     id: number;
@@ -62,9 +63,9 @@ export function useCalculationSync(userId: string | null) {
                                 record.manager_id === null; // Unassigned leads visible to managers
 
                             if (isRelevant) {
-                                // Invalidate paginated queries to include new item
+                                // Invalidate ALL calculation queries to include new item
                                 queryClient.invalidateQueries({
-                                    queryKey: ['calculations', 'paginated'],
+                                    queryKey: dashboardKeys.all,
                                     refetchType: 'active',
                                 });
                             }
@@ -73,7 +74,7 @@ export function useCalculationSync(userId: string | null) {
 
                         case 'UPDATE': {
                             // Check if we have this calculation in cache
-                            const detailKey = ['calculations', 'detail', record.id];
+                            const detailKey = dashboardKeys.detail(record.id);
                             const existingDetail = queryClient.getQueryData<Calculation>(detailKey);
 
                             if (existingDetail) {
@@ -92,10 +93,10 @@ export function useCalculationSync(userId: string | null) {
                                 );
                             }
 
-                            // Invalidate list queries to reflect status/assignment changes
-                            queryClient.invalidateQueries({
-                                queryKey: ['calculations', 'paginated'],
-                                refetchType: 'active',
+                            // FORCE REFETCH all queries - not just invalidate
+                            queryClient.refetchQueries({
+                                queryKey: dashboardKeys.all,
+                                type: 'active',
                             });
 
                             // Also update recipients if manager changed
@@ -107,12 +108,12 @@ export function useCalculationSync(userId: string | null) {
 
                         case 'DELETE': {
                             // Remove from cache
-                            const deleteKey = ['calculations', 'detail', record.id];
+                            const deleteKey = dashboardKeys.detail(record.id);
                             queryClient.removeQueries({ queryKey: deleteKey });
 
-                            // Invalidate lists
+                            // Invalidate all lists
                             queryClient.invalidateQueries({
-                                queryKey: ['calculations', 'paginated'],
+                                queryKey: dashboardKeys.all,
                                 refetchType: 'active',
                             });
                             break;
@@ -145,19 +146,19 @@ export function useCalculationSync(userId: string | null) {
 
         // Subscribe to real-time chat updates (Global Sync)
         const cleanup = chatService.subscribeToProjects((payload) => {
-             // When a new message arrives, the backend trigger bumps updated_at.
-             // We must invalidate queries to re-fetch the sorted list and update badges.
-             
-             logger.info('[RealtimeSync] Received project pulse', payload);
+            // When a new message arrives, the backend trigger bumps updated_at.
+            // We must invalidate queries to re-fetch the sorted list and update badges.
 
-             queryClient.invalidateQueries({
-                 queryKey: ['calculations'], 
-                 refetchType: 'active',
-             });
-             
-             queryClient.invalidateQueries({
-                 queryKey: ['unread-counts', userId],
-             });
+            logger.info('[RealtimeSync] Received project pulse', payload);
+
+            queryClient.invalidateQueries({
+                queryKey: ['calculations'],
+                refetchType: 'active',
+            });
+
+            queryClient.invalidateQueries({
+                queryKey: ['unread-counts', userId],
+            });
         });
 
         return () => cleanup();

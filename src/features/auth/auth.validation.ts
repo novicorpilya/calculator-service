@@ -8,10 +8,24 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
     .object({
-        organizationName: z.string().optional(),
-        firstName: z.string().optional(),
-        lastName: z.string().optional(),
-        address: z.string().optional(),
+        organizationName: z.string().min(1, 'Название организации обязательно'),
+        firstName: z
+            .string()
+            .regex(/^[^0-9]*$/, 'Цифры запрещены')
+            .optional(),
+        lastName: z
+            .string()
+            .regex(/^[^0-9]*$/, 'Цифры запрещены')
+            .optional(),
+        address: z.string().min(1, 'Адрес обязателен'),
+        inn: z
+            .string()
+            .regex(/^\d*$/, 'Только цифры')
+            .refine(
+                (val) => !val || val.length === 10 || val.length === 12,
+                'ИНН должен быть 10 или 12 цифр'
+            )
+            .optional(),
         phone: z.string().min(10, 'Введите корректный номер телефона'),
         email: z.string().min(1, 'Email обязателен').email('Введите корректный email'),
         password: z
@@ -57,7 +71,10 @@ export const userSchema = z.object({
     inn: z
         .string()
         .regex(/^\d*$/, 'Только цифры')
-        .refine((val) => !val || val.length === 10 || val.length === 12, 'ИНН должен быть 10 или 12 цифр')
+        .refine(
+            (val) => !val || val.length === 10 || val.length === 12,
+            'ИНН должен быть 10 или 12 цифр'
+        )
         .optional()
         .nullable(),
     jobTitle: z

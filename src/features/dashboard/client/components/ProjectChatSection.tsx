@@ -47,14 +47,15 @@ const ProjectMessageItem = React.memo<{
                 className={`
                 max-w-[90%] rounded-[1.5rem] relative overflow-hidden
                 ${msg.image_url && !msg.content ? 'p-1 bg-[#1a1a1a]' : 'p-4 sm:p-5'}
-                ${isOwn
+                ${
+                    isOwn
                         ? msg.image_url && !msg.content
                             ? 'shadow-xl'
                             : 'bg-primary text-white rounded-tr-none shadow-xl shadow-primary/20'
                         : msg.image_url && !msg.content
-                            ? 'shadow-lg'
-                            : 'bg-card border border-border-theme rounded-tl-none'
-                    }
+                          ? 'shadow-lg'
+                          : 'bg-card border border-border-theme rounded-tl-none'
+                }
             `}
             >
                 {msg.image_url && (
@@ -76,7 +77,9 @@ const ProjectMessageItem = React.memo<{
                     />
                 )}
                 {msg.content && (
-                    <p className={`text-[13px] leading-relaxed ${msg.image_url || msg.voice_url ? 'mt-3' : ''}`}>
+                    <p
+                        className={`text-[13px] leading-relaxed ${msg.image_url || msg.voice_url ? 'mt-3' : ''}`}
+                    >
                         {msg.content}
                     </p>
                 )}
@@ -106,105 +109,141 @@ const ProjectMessageItem = React.memo<{
                 </div>
 
                 {/* Action Card Renderers - Inside the bubble, below timestamp */}
-                {msg.message_type === 'roadmap_card' && (() => {
-                    const metadata = msg.metadata as {
-                        currentStep?: number;
-                        statusTitle?: string;
-                        description?: string;
-                    } | null;
-                    const currentStep = metadata?.currentStep ?? 1;
-                    const statusTitle = metadata?.statusTitle ?? 'Статус реализации';
-                    const description = metadata?.description ?? 'Команда закупки начала работу над вашим заказом';
+                {msg.message_type === 'roadmap_card' &&
+                    (() => {
+                        const metadata = msg.metadata as {
+                            currentStep?: number;
+                            statusTitle?: string;
+                            description?: string;
+                        } | null;
+                        const currentStep = metadata?.currentStep ?? 1;
+                        const statusTitle = metadata?.statusTitle ?? 'Статус реализации';
+                        const description =
+                            metadata?.description ??
+                            'Команда закупки начала работу над вашим заказом';
 
-                    return (
-                        <div
-                            className={`mt-4 p-4 rounded-2xl border space-y-4 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500 ${isOwn ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/10'}`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className={`p-2 rounded-lg ${isOwn ? 'bg-white/20 text-white' : 'bg-primary/20 text-primary'}`}
-                                >
-                                    <Clock size={14} />
-                                </div>
-                                <span
-                                    className={`text-[10px] font-black uppercase tracking-widest ${isOwn ? 'text-white/80' : 'text-primary/80'}`}
-                                >
-                                    {statusTitle}
-                                </span>
-                            </div>
-                            <div className="flex gap-1">
-                                {[1, 2, 3, 4].map((step) => (
-                                    <div
-                                        key={step}
-                                        className={`h-1.5 flex-1 rounded-full ${step <= currentStep
-                                            ? isOwn
-                                                ? 'bg-white'
-                                                : 'bg-primary'
-                                            : isOwn
-                                                ? 'bg-white/10'
-                                                : 'bg-primary/10'
-                                            }`}
-                                    />
-                                ))}
-                            </div>
+                        return (
                             <div
-                                className={`text-[11px] font-medium italic ${isOwn ? 'text-white/70' : 'text-foreground/70'}`}
+                                className={`mt-4 p-4 rounded-2xl border space-y-4 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500 ${isOwn ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/10'}`}
                             >
-                                {description}
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {msg.message_type === 'shipping_card' && (() => {
-                    const metadata = msg.metadata as {
-                        tracker?: string;
-                        deliveryDate?: string;
-                        deliveryTime?: string;
-                        arrivalEstimate?: string;
-                    } | null;
-
-                    return (
-                        <div
-                            className={`mt-4 p-5 rounded-3xl border-2 space-y-4 shadow-xl overflow-hidden relative group animate-in fade-in slide-in-from-right-4 duration-500 ${isOwn
-                                ? 'bg-gradient-to-br from-white/20 to-white/5 border-white/20 text-white'
-                                : 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 text-foreground'
-                                }`}
-                        >
-                            <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 animate-pulse ${isOwn ? 'bg-white' : 'bg-primary'}`} />
-
-                            <div className="flex items-center justify-between relative">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2.5 rounded-2xl shadow-lg border border-white/10 ${isOwn ? 'bg-white/20' : 'bg-primary/20 text-primary'}`}>
-                                        <Truck size={18} className="animate-bounce" />
+                                    <div
+                                        className={`p-2 rounded-lg ${isOwn ? 'bg-white/20 text-white' : 'bg-primary/20 text-primary'}`}
+                                    >
+                                        <Clock size={14} />
                                     </div>
-                                    <div>
-                                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] block ${isOwn ? 'text-white/60' : 'text-primary/60'}`}>
-                                            Доставка в пути
-                                        </span>
-                                        <h4 className="text-sm font-bold">Ваш заказ на пути к вам</h4>
-                                    </div>
+                                    <span
+                                        className={`text-[10px] font-black uppercase tracking-widest ${isOwn ? 'text-white/80' : 'text-primary/80'}`}
+                                    >
+                                        {statusTitle}
+                                    </span>
                                 </div>
-                                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${isOwn ? 'bg-white/10 border-white/20 text-white' : 'bg-primary/10 border-primary/20 text-primary'
-                                    }`}>
-                                    {metadata?.arrivalEstimate ?? 'Скоро'}
+                                <div className="flex gap-1">
+                                    {[1, 2, 3, 4].map((step) => (
+                                        <div
+                                            key={step}
+                                            className={`h-1.5 flex-1 rounded-full ${
+                                                step <= currentStep
+                                                    ? isOwn
+                                                        ? 'bg-white'
+                                                        : 'bg-primary'
+                                                    : isOwn
+                                                      ? 'bg-white/10'
+                                                      : 'bg-primary/10'
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                                <div
+                                    className={`text-[11px] font-medium italic ${isOwn ? 'text-white/70' : 'text-foreground/70'}`}
+                                >
+                                    {description}
                                 </div>
                             </div>
+                        );
+                    })()}
 
-                            <div className={`grid grid-cols-2 gap-3 p-4 rounded-2xl border ${isOwn ? 'bg-black/20 border-white/10' : 'bg-white/50 border-primary/10 dark:bg-black/20'
-                                }`}>
-                                <div className="space-y-1 text-center">
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}>Дата</span>
-                                    <p className="text-xs font-bold leading-none">{metadata?.deliveryDate ?? '--.--.----'}</p>
+                {msg.message_type === 'shipping_card' &&
+                    (() => {
+                        const metadata = msg.metadata as {
+                            tracker?: string;
+                            deliveryDate?: string;
+                            deliveryTime?: string;
+                            arrivalEstimate?: string;
+                        } | null;
+
+                        return (
+                            <div
+                                className={`mt-4 p-5 rounded-3xl border-2 space-y-4 shadow-xl overflow-hidden relative group animate-in fade-in slide-in-from-right-4 duration-500 ${
+                                    isOwn
+                                        ? 'bg-gradient-to-br from-white/20 to-white/5 border-white/20 text-white'
+                                        : 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 text-foreground'
+                                }`}
+                            >
+                                <div
+                                    className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 animate-pulse ${isOwn ? 'bg-white' : 'bg-primary'}`}
+                                />
+
+                                <div className="flex items-center justify-between relative">
+                                    <div className="flex items-center gap-3">
+                                        <div
+                                            className={`p-2.5 rounded-2xl shadow-lg border border-white/10 ${isOwn ? 'bg-white/20' : 'bg-primary/20 text-primary'}`}
+                                        >
+                                            <Truck size={18} className="animate-bounce" />
+                                        </div>
+                                        <div>
+                                            <span
+                                                className={`text-[10px] font-black uppercase tracking-[0.2em] block ${isOwn ? 'text-white/60' : 'text-primary/60'}`}
+                                            >
+                                                Доставка в пути
+                                            </span>
+                                            <h4 className="text-sm font-bold">
+                                                Ваш заказ на пути к вам
+                                            </h4>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${
+                                            isOwn
+                                                ? 'bg-white/10 border-white/20 text-white'
+                                                : 'bg-primary/10 border-primary/20 text-primary'
+                                        }`}
+                                    >
+                                        {metadata?.arrivalEstimate ?? 'Скоро'}
+                                    </div>
                                 </div>
-                                <div className="space-y-1 text-center">
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}>Время</span>
-                                    <p className="text-xs font-bold leading-none">{metadata?.deliveryTime ?? '--:--'}</p>
+
+                                <div
+                                    className={`grid grid-cols-2 gap-3 p-4 rounded-2xl border ${
+                                        isOwn
+                                            ? 'bg-black/20 border-white/10'
+                                            : 'bg-white/50 border-primary/10 dark:bg-black/20'
+                                    }`}
+                                >
+                                    <div className="space-y-1 text-center">
+                                        <span
+                                            className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}
+                                        >
+                                            Дата
+                                        </span>
+                                        <p className="text-xs font-bold leading-none">
+                                            {metadata?.deliveryDate ?? '--.--.----'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1 text-center">
+                                        <span
+                                            className={`text-[9px] font-black uppercase tracking-widest ${isOwn ? 'text-white/40' : 'text-foreground/40'}`}
+                                        >
+                                            Время
+                                        </span>
+                                        <p className="text-xs font-bold leading-none">
+                                            {metadata?.deliveryTime ?? '--:--'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })()}
+                        );
+                    })()}
 
                 {msg.message_type === 'rating_card' && (
                     <RatingCardWidget
@@ -219,27 +258,36 @@ const ProjectMessageItem = React.memo<{
 
                 {msg.message_type === 'welcome_card' && (
                     <div
-                        className={`mt-4 p-4 rounded-2xl border space-y-3 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500 ${isOwn
+                        className={`mt-4 p-4 rounded-2xl border space-y-3 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500 ${
+                            isOwn
                                 ? 'bg-white/10 border-white/20'
                                 : 'bg-indigo-500/10 border-indigo-500/20'
-                            }`}
+                        }`}
                     >
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl overflow-hidden border ${isOwn ? 'border-white/20' : 'border-border-theme'}`}>
-                                <div className={`w-full h-full flex items-center justify-center text-white font-bold text-xs uppercase shadow-inner ${isOwn ? 'bg-white/20' : 'bg-indigo-500'}`}>
+                            <div
+                                className={`w-10 h-10 rounded-xl overflow-hidden border ${isOwn ? 'border-white/20' : 'border-border-theme'}`}
+                            >
+                                <div
+                                    className={`w-full h-full flex items-center justify-center text-white font-bold text-xs uppercase shadow-inner ${isOwn ? 'bg-white/20' : 'bg-indigo-500'}`}
+                                >
                                     EXP
                                 </div>
                             </div>
                             <div className="flex-1">
                                 <div
-                                    className={`text-[10px] font-black uppercase tracking-widest ${isOwn ? 'text-white/70' : 'text-indigo-600 dark:text-indigo-400'
-                                        }`}
+                                    className={`text-[10px] font-black uppercase tracking-widest ${
+                                        isOwn
+                                            ? 'text-white/70'
+                                            : 'text-indigo-600 dark:text-indigo-400'
+                                    }`}
                                 >
                                     Персональный эксперт
                                 </div>
                                 <div
-                                    className={`text-[12px] font-bold ${isOwn ? 'text-white' : 'text-foreground'
-                                        }`}
+                                    className={`text-[12px] font-bold ${
+                                        isOwn ? 'text-white' : 'text-foreground'
+                                    }`}
                                 >
                                     Линия аудита открыта
                                 </div>
@@ -359,7 +407,7 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
         }, []);
 
         return (
-            <div className="glass-card flex flex-col h-[650px] !p-6">
+            <div className="glass-card flex flex-col h-[min(650px,70dvh)] !p-4 sm:!p-6">
                 <div className="flex items-center justify-between mb-8 pb-4 border-b border-border-theme">
                     <div className="flex items-center gap-3">
                         <h3 className="text-xs font-black uppercase tracking-[0.3em]">
@@ -447,14 +495,26 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                             ))}
                         </div>
                     )}
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="p-4 bg-card border border-border-theme rounded-2xl text-foreground/40 hover:text-primary transition-all"
-                        >
-                            <Paperclip size={20} />
-                        </button>
+                    <div className="flex gap-2 items-end">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-3 sm:p-4 bg-card border border-border-theme rounded-2xl text-foreground/40 hover:text-primary transition-all shrink-0"
+                                aria-label="Прикрепить файл"
+                            >
+                                <Paperclip size={20} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleEmojiToggle}
+                                className="hidden sm:flex p-4 bg-card border border-border-theme rounded-2xl text-foreground/40 hover:text-primary transition-all shrink-0"
+                                aria-label="Эмодзи"
+                            >
+                                <Smile size={20} />
+                            </button>
+                        </div>
+
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -463,20 +523,20 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                             multiple
                             onChange={handleFileSelect}
                         />
+
                         <div className="flex-1 relative">
                             <input
                                 type="text"
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                className="input-premium !py-4 !pr-24"
-                                placeholder="Напишите эксперту..."
+                                className="input-premium !py-3 sm:!py-4 !pr-12 sm:!pr-14 text-sm sm:text-base"
+                                placeholder="Сообщение..."
                             />
 
-                            {/* Emoji Picker Button */}
                             <button
                                 type="button"
                                 onClick={handleEmojiToggle}
-                                className="absolute right-14 top-1/2 -translate-y-1/2 w-8 h-8 text-foreground/40 hover:text-primary transition-all rounded-full flex items-center justify-center"
+                                className="sm:hidden absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 text-foreground/40"
                             >
                                 <Smile size={18} />
                             </button>
@@ -487,25 +547,26 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                                     <EmojiPicker onEmojiClick={handleEmojiClick} />
                                 </div>
                             )}
-
-                            {newComment.trim() || pendingAttachments.length > 0 ? (
-                                <button
-                                    type="submit"
-                                    disabled={!newComment.trim() && pendingAttachments.length === 0}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-xl shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 disabled:opacity-50 transition-all border-none cursor-pointer"
-                                >
-                                    <ArrowRight size={20} />
-                                </button>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={handleStartVoice}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary hover:text-white transition-all border-none cursor-pointer"
-                                >
-                                    <Mic size={18} />
-                                </button>
-                            )}
                         </div>
+
+                        {newComment.trim() || pendingAttachments.length > 0 ? (
+                            <button
+                                type="submit"
+                                disabled={!newComment.trim() && pendingAttachments.length === 0}
+                                className="w-12 h-12 sm:w-14 sm:h-14 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 disabled:opacity-50 transition-all border-none cursor-pointer shrink-0"
+                            >
+                                <ArrowRight size={22} />
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleStartVoice}
+                                className="w-12 h-12 sm:w-14 sm:h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center hover:bg-primary hover:text-white transition-all border-none cursor-pointer shrink-0"
+                                aria-label="Голосовое сообщение"
+                            >
+                                <Mic size={20} />
+                            </button>
+                        )}
                     </div>
                 </form>
 

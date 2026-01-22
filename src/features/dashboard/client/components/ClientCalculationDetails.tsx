@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging';
-import {
-    AlertTriangle,
-} from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import {
     type Calculation,
     type CalculationStatus,
@@ -30,6 +28,7 @@ import { CalculationExpertiseInfo } from './details/CalculationExpertiseInfo';
 import { AuditPricingPanel } from './details/AuditPricingPanel';
 import { CalculationInventoryList } from './details/CalculationInventoryList';
 import { CalculationZonesBreakdown } from './details/CalculationZonesBreakdown';
+import { CalculationHistory } from './details/CalculationHistory';
 import { ManagerProjectTools } from '@/features/dashboard/manager/components/details/ManagerProjectTools';
 
 interface ClientCalculationDetailsProps {
@@ -79,16 +78,19 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         const canSeePrices = user?.role === 'manager' || user?.role === 'admin' || isFinancialStage;
 
         // Metrics
-        const totalCost = entity.totalCost;
-        const totalUnits = entity.totalItems;
 
         // Custom Hooks
-        const { messages, loadingMessages, sendMessage, sendVoice, markAsRead } =
-            useProjectChat(entity, user);
+        const { messages, loadingMessages, sendMessage, sendVoice, markAsRead } = useProjectChat(
+            entity,
+            user
+        );
 
         // Mark as read when messages change or project is opened
         useEffect(() => {
-            if (messages.length > 0 && messages.some(m => !m.is_read && m.sender_id !== user?.id)) {
+            if (
+                messages.length > 0 &&
+                messages.some((m) => !m.is_read && m.sender_id !== user?.id)
+            ) {
                 markAsRead();
             }
         }, [messages, markAsRead, user?.id]);
@@ -107,7 +109,7 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 
         // Local State
         const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-        const [activeTab, setActiveTab] = useState<'items' | 'zones'>('items');
+        const [activeTab, setActiveTab] = useState<'items' | 'zones' | 'history'>('items');
 
         const handleDownloadPDF = () => {
             try {
@@ -131,12 +133,23 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             <div className="space-y-3">
                                 <h3 className="text-2xl font-black">Удалить проект?</h3>
                                 <p className="text-xs font-bold text-foreground/40 leading-relaxed italic">
-                                    Это действие безвозвратно удалит все данные расчета «{entity.organizationName}»
+                                    Это действие безвозвратно удалит все данные расчета «
+                                    {entity.organizationName}»
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3">
-                                <button onClick={() => onDelete(entity.id)} className="btn-premium !bg-red-500 !text-white border-none">Удалить</button>
-                                <button onClick={() => setShowDeleteConfirm(false)} className="py-2 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Отмена</button>
+                                <button
+                                    onClick={() => onDelete(entity.id)}
+                                    className="btn-premium !bg-red-500 !text-white border-none"
+                                >
+                                    Удалить
+                                </button>
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="py-2 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
+                                >
+                                    Отмена
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -167,14 +180,23 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 
                 {/* Status Banners Area */}
                 <div className="space-y-6">
-                    {(entity.canSubmitPayment() || entity.isPaymentSent() || entity.isPaymentRejected() || (entity.isPaid() && calculation.receipt_path)) && (
+                    {(entity.canSubmitPayment() ||
+                        entity.isPaymentSent() ||
+                        entity.isPaymentRejected() ||
+                        (entity.isPaid() && calculation.receipt_path)) && (
                         <PaymentStatusView
                             calculation={calculation}
                             userRole={(user?.role ?? 'client') as 'client' | 'manager' | 'admin'}
                             onUploadReceipt={async (file) => {
-                                const res = await calculationService.uploadReceipt(entity.id, file, entity.userId || user?.id || '');
+                                const res = await calculationService.uploadReceipt(
+                                    entity.id,
+                                    file,
+                                    entity.userId || user?.id || ''
+                                );
                                 if (res.success && res.data) {
-                                    await onUpdateStatus(entity.id, 'payment_review', { receipt_path: res.data });
+                                    await onUpdateStatus(entity.id, 'payment_review', {
+                                        receipt_path: res.data,
+                                    });
                                 } else {
                                     toast.error(res.error?.message || 'Ошибка загрузки чека');
                                 }
@@ -182,9 +204,10 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         />
                     )}
 
-                    {user?.role === 'client' && (entity.status === 'expert' || entity.status === 'revision') && (
-                        <CalculationExpertiseInfo />
-                    )}
+                    {user?.role === 'client' &&
+                        (entity.status === 'expert' || entity.status === 'revision') && (
+                            <CalculationExpertiseInfo />
+                        )}
 
                     {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
                         <AuditPricingPanel
@@ -198,22 +221,27 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-12 items-start">
                     {/* Main Content Area with Tabs */}
                     <div className="xl:col-span-8 space-y-8">
-
                         {/* Tab Navigation */}
                         <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit">
                             <button
                                 onClick={() => setActiveTab('items')}
-                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'items' ? 'bg-primary text-background shadow-lg' : 'text-foreground/40 hover:text-foreground hover:bg-white/5'
-                                    }`}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    activeTab === 'items'
+                                        ? 'bg-primary text-background shadow-lg'
+                                        : 'text-foreground/40 hover:text-foreground hover:bg-white/5'
+                                }`}
                             >
                                 План снабжения
                             </button>
                             <button
-                                onClick={() => setActiveTab('zones')}
-                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'zones' ? 'bg-primary text-background shadow-lg' : 'text-foreground/40 hover:text-foreground hover:bg-white/5'
-                                    }`}
+                                onClick={() => setActiveTab('history')}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    activeTab === 'history'
+                                        ? 'bg-primary text-background shadow-lg'
+                                        : 'text-foreground/40 hover:text-foreground hover:bg-white/5'
+                                }`}
                             >
-                                Зоны и Структура
+                                История
                             </button>
                         </div>
 
@@ -226,8 +254,6 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                         user={user}
                                         isAuditMode={isAuditMode}
                                         canSeePrices={canSeePrices}
-                                        totalCost={totalCost}
-                                        totalUnits={totalUnits}
                                         onSetAuditItemIndex={setAuditItemIndex}
                                         onRemoveItem={handleRemoveItem}
                                     />
@@ -239,31 +265,38 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                     <CalculationZonesBreakdown vm={vm} entity={entity} />
                                 </div>
                             )}
+
+                            {activeTab === 'history' && (
+                                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <CalculationHistory calculation={calculation} user={user} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* Right Side Tools & Chat Panels (Sticky) */}
                     <div className="xl:col-span-4 space-y-6 sticky top-10">
                         {/* Personal Expert Banner for Client */}
-                        {user?.role === 'client' && (entity.status === 'expert' || entity.status === 'revision') && (
-                            <div className="p-4 rounded-2xl border space-y-3 shadow-sm bg-indigo-500/10 border-indigo-500/20 animate-in fade-in slide-in-from-right-4 duration-500">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-border-theme">
-                                        <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs uppercase shadow-inner">
-                                            EXP
+                        {user?.role === 'client' &&
+                            (entity.status === 'expert' || entity.status === 'revision') && (
+                                <div className="p-4 rounded-2xl border space-y-3 shadow-sm bg-indigo-500/10 border-indigo-500/20 animate-in fade-in slide-in-from-right-4 duration-500">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-border-theme">
+                                            <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs uppercase shadow-inner">
+                                                EXP
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                                            Персональный эксперт
-                                        </div>
-                                        <div className="text-[12px] font-bold text-foreground">
-                                            Линия аудита открыта
+                                        <div className="flex-1">
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                                                Персональный эксперт
+                                            </div>
+                                            <div className="text-[12px] font-bold text-foreground">
+                                                Линия аудита открыта
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
                         {(user?.role === 'manager' || user?.role === 'admin') && (
                             <ManagerProjectTools
@@ -272,7 +305,11 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 onAssign={onAssign}
                                 isAuditMode={isAuditMode}
                                 setIsAuditMode={setIsAuditMode}
-                                onDelete={setShowDeleteConfirm ? () => setShowDeleteConfirm(true) : undefined}
+                                onDelete={
+                                    setShowDeleteConfirm
+                                        ? () => setShowDeleteConfirm(true)
+                                        : undefined
+                                }
                                 userId={user?.id || ''}
                                 userRole={user?.role}
                             />

@@ -5,6 +5,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { PublicRoute } from './PublicRoute';
 import { ROUTES } from './routes.constants';
 import { GlobalLoader } from '@/components/common/GlobalLoader';
+import { SubtleLoader } from '@/components/common/SubtleLoader';
 
 // ============================================================
 // LAZY LOADED COMPONENTS (Code Splitting)
@@ -15,9 +16,7 @@ import { GlobalLoader } from '@/components/common/GlobalLoader';
 const Landing = React.lazy(() =>
     import('@/pages/Landing/Landing.page').then((m) => ({ default: m.Landing }))
 );
-const HicsAuth = React.lazy(() =>
-    import('@/features/auth').then((m) => ({ default: m.HicsAuth }))
-);
+const HicsAuth = React.lazy(() => import('@/features/auth').then((m) => ({ default: m.HicsAuth })));
 
 // Dashboard pages (heavy components)
 const ClientDashboard = React.lazy(() =>
@@ -35,6 +34,12 @@ const AdminDashboard = React.lazy(() =>
         default: m.AdminDashboard,
     }))
 );
+const DashboardLayout = React.lazy(() =>
+    import('@/features/dashboard/components/DashboardLayout').then((m) => ({
+        default: m.DashboardLayout,
+    }))
+);
+const BudgetPlanner = React.lazy(() => import('@/pages/Dashboard/Client/BudgetPlanner.page'));
 
 // Error pages
 const NotFoundPage = React.lazy(() =>
@@ -49,9 +54,11 @@ const MaintenancePage = React.lazy(() =>
 const PrivacyPolicy = React.lazy(() =>
     import('@/pages/Privacy/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy }))
 );
+const EmbedCalculator = React.lazy(() => import('@/pages/Partner/EmbedCalculator.page'));
 
 // Fallback component for Suspense and Initial Loading
 const Loader = () => <GlobalLoader />;
+const DashboardLoader = () => <SubtleLoader />;
 
 // ============================================================
 // APP ROUTES
@@ -121,6 +128,16 @@ export const AppRoutes: React.FC = () => {
                     />
                 </Route>
 
+                {/* Embed Calculator for Partners */}
+                <Route
+                    path={ROUTES.PARTNER.CALCULATOR}
+                    element={
+                        <Suspense fallback={<Loader />}>
+                            <EmbedCalculator />
+                        </Suspense>
+                    }
+                />
+
                 {/* Password reset - special flow */}
                 <Route
                     path={ROUTES.AUTH.RESET_PASSWORD}
@@ -154,7 +171,7 @@ export const AppRoutes: React.FC = () => {
                         <Route
                             path={ROUTES.DASHBOARD.MANAGER}
                             element={
-                                <Suspense fallback={<Loader />}>
+                                <Suspense fallback={<DashboardLoader />}>
                                     <ManagerDashboard />
                                 </Suspense>
                             }
@@ -162,21 +179,31 @@ export const AppRoutes: React.FC = () => {
                     </Route>
 
                     <Route element={<ProtectedRoute allowedRoles={['client']} />}>
-                        <Route
-                            path={ROUTES.DASHBOARD.CLIENT}
-                            element={
-                                <Suspense fallback={<Loader />}>
-                                    <ClientDashboard />
-                                </Suspense>
-                            }
-                        />
+                        <Route element={<DashboardLayout role="client" />}>
+                            <Route
+                                path={ROUTES.DASHBOARD.CLIENT}
+                                element={
+                                    <Suspense fallback={<DashboardLoader />}>
+                                        <ClientDashboard />
+                                    </Suspense>
+                                }
+                            />
+                            <Route
+                                path={ROUTES.DASHBOARD.BUDGET_PLANNER}
+                                element={
+                                    <Suspense fallback={<DashboardLoader />}>
+                                        <BudgetPlanner />
+                                    </Suspense>
+                                }
+                            />
+                        </Route>
                     </Route>
 
                     <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                         <Route
                             path={ROUTES.DASHBOARD.ADMIN}
                             element={
-                                <Suspense fallback={<Loader />}>
+                                <Suspense fallback={<DashboardLoader />}>
                                     <AdminDashboard />
                                 </Suspense>
                             }

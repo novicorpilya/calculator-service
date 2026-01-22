@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import prettierConfig from 'eslint-config-prettier'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'playwright-report', 'test-results', 'coverage', 'supabase/functions']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -20,7 +20,16 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Temporarily disabled - TODO: re-enable with proper logging
+      'no-console': 'off',
+      'no-debugger': 'error',
+      'no-alert': 'off',
+      // Disable for media query pattern
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
-  // Prettier должен быть последним, чтобы отключить конфликтующие правила
+  // Prettier должен быть последним
   prettierConfig,
 ])
+

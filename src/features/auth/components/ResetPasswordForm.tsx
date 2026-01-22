@@ -83,13 +83,13 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
             <button
                 type="submit"
                 disabled={loading || !isValid}
-                className="btn-premium w-full !text-[12px] py-6"
+                className="btn-premium w-full !text-[10px] sm:!text-[12px] py-4 sm:py-6"
             >
                 <span className="relative z-10">
                     {loading ? 'Обновление...' : 'Обновить пароль'}
                 </span>
                 {!loading && (
-                    <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative z-10 transition-transform group-hover:translate-x-1" />
                 )}
             </button>
         </form>

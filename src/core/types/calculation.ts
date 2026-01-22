@@ -44,6 +44,7 @@ export interface InventoryItem {
     stock: number;
     unit?: string;
     supplier_id?: string;
+    category?: string;
     norm_area: number;
     total: number;
     calculation?: {
@@ -81,6 +82,10 @@ export interface ZoneResult {
 export interface CalculationResults {
     byZone: ZoneResult[];
     summary: InventoryItem[];
+    totalGoods?: number;
+    totalDelivery?: number;
+    totalVat?: number;
+    grandTotal?: number;
 }
 
 export interface Interaction {
@@ -132,4 +137,11 @@ export interface Calculation {
     client_inn?: string;
     client_address?: string;
     client_organization_name?: string;
+    venue_id?: string;
+    source_id?: string;
+    manager_data?: {
+        first_name?: string;
+        last_name?: string;
+        organization_name?: string;
+    };
 }

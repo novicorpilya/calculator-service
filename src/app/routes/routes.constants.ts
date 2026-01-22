@@ -11,12 +11,16 @@ export const ROUTES = {
         MANAGER: '/dashboard/manager',
         CLIENT: '/dashboard/client',
         ADMIN: '/dashboard/admin',
+        BUDGET_PLANNER: '/dashboard/client/budget-planner',
     },
     ERRORS: {
         NOT_FOUND: '/404',
         FORBIDDEN: '/403',
         MAINTENANCE: '/maintenance',
         PRIVACY: '/privacy',
+    },
+    PARTNER: {
+        CALCULATOR: '/embed/calculator',
     },
 } as const;
 

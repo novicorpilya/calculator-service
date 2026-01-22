@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/app/di/ServiceContainer';
-import type { Calculation, CalculationStatus, CalculationResults } from '../dashboard.types';
-import { CalculationEntity } from '@/core/domain/CalculationEntity';
+import type { Calculation, CalculationStatus, CalculationResults } from '@/core/types/calculation';
 import { toast } from 'sonner';
 
 /**
@@ -12,9 +11,27 @@ export const dashboardKeys = {
     manager: (userId: string) => [...dashboardKeys.all, 'manager', userId] as const,
     unassigned: () => [...dashboardKeys.all, 'unassigned'] as const,
     detail: (id: string | number) => [...dashboardKeys.all, 'detail', id] as const,
+    mine: (userId: string) => [...dashboardKeys.all, 'mine', userId] as const,
     paginated: (params: Record<string, unknown>) =>
         [...dashboardKeys.all, 'paginated', params] as const,
 };
+
+/**
+ * Hook to fetch My Calculations (Client)
+ */
+export function useMyCalculations(userId?: string) {
+    const { calculationService } = useServices();
+
+    return useQuery({
+        queryKey: dashboardKeys.mine(userId || ''),
+        queryFn: async () => {
+            const result = await calculationService.getMyCalculations(userId!);
+            if (!result.success) throw new Error(result.error?.message);
+            return result.data || [];
+        },
+        enabled: !!userId,
+    });
+}
 
 /**
  * Hook to fetch Manager's Projects
@@ -30,7 +47,6 @@ export function useManagerWorkload(userId?: string) {
             return result.data;
         },
         enabled: !!userId,
-        staleTime: 1000 * 60 * 2, // 2 minutes
     });
 }
 
@@ -47,7 +63,6 @@ export function useUnassignedLeads() {
             if (!result.success) throw new Error(result.error?.message);
             return result.data;
         },
-        staleTime: 1000 * 30, // 30 seconds
     });
 }
 
@@ -69,7 +84,7 @@ export function useCalculation(id: string | number | null) {
 }
 
 /**
- * Hook for Calculation Actions
+ * Hook for Calculation Actions (Orchestration handled by Service)
  */
 export function useCalculationActions() {
     const { calculationService, chatService } = useServices();
@@ -85,37 +100,21 @@ export function useCalculationActions() {
             status: CalculationStatus;
             updates?: Partial<Calculation>;
         }) => {
-            // Business Logic Validation
-            const currentResult = await calculationService.getCalculation(id);
-            if (!currentResult.success) throw new Error(currentResult.error?.message);
-            const current = currentResult.data!;
-
-            const entity = new CalculationEntity(current);
-
-            if (current.status !== status && !entity.canTransitionTo(status)) {
-                throw new Error(`Невозможно перевести статус из "${current.status}" в "${status}"`);
-            }
-
             const result = await calculationService.update(id, { status, ...updates });
             if (!result.success) throw new Error(result.error?.message);
 
-            // Side Effects
-            const syncRes = await chatService.sendSyncSignal(id, 'UPDATE');
-            if (!syncRes.success) {
-                // Log but don't fail the whole operation if sync fails
-                console.warn('Real-time sync signal failed', syncRes.error);
-            }
-
-            return { result: result.data, id, status };
+            // Signal other users via Realtime (Infrastructure concerns)
+            await chatService.sendSyncSignal(id, 'UPDATE');
+            return result.data;
         },
-        onSuccess: ({ result, id }) => {
-            // Invalidate and update cache to ensure UI gets fresh data
+        onSuccess: (result, variables) => {
+            // Precise cache update
+            queryClient.setQueryData(dashboardKeys.detail(variables.id), result);
             queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-            queryClient.setQueryData(dashboardKeys.detail(id), result);
+            toast.success('Статус успешно обновлен');
         },
-        onError: (err: unknown) => {
-            // ... (keep error handling as is) ...
-            toast.error(err instanceof Error ? err.message : 'Ошибка обновления статуса');
+        onError: (err: Error) => {
+            toast.error(err.message || 'Ошибка обновления статуса');
         },
     });
 
@@ -123,15 +122,12 @@ export function useCalculationActions() {
         mutationFn: async ({ id, managerId }: { id: string | number; managerId: string }) => {
             const result = await calculationService.assignToMe(id, managerId);
             if (!result.success) throw new Error(result.error?.message);
-            const syncRes = await chatService.sendSyncSignal(id, 'UPDATE');
-            if (!syncRes.success) console.warn('Real-time sync signal failed', syncRes.error);
+            await chatService.sendSyncSignal(id, 'UPDATE');
             return result.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-        },
-        onError: (err: unknown) => {
-            toast.error(err instanceof Error ? err.message : 'Ошибка назначения');
+            toast.success('Проект назначен вам');
         },
     });
 
@@ -149,30 +145,56 @@ export function useCalculationActions() {
         }) => {
             const result = await calculationService.adjustExpert(id, results, adjustments, version);
             if (!result.success) throw new Error(result.error?.message);
-            const syncRes = await chatService.sendSyncSignal(id, 'UPDATE');
-            if (!syncRes.success) console.warn('Real-time sync signal failed', syncRes.error);
+            await chatService.sendSyncSignal(id, 'UPDATE');
             return result.data;
         },
         onSuccess: (result, variables) => {
-            // Invalidate and update cache to ensure UI gets fresh data
-            queryClient.invalidateQueries({ queryKey: dashboardKeys.detail(variables.id) });
             queryClient.setQueryData(dashboardKeys.detail(variables.id), result);
+            toast.success('Изменения сохранены');
         },
-        onError: (err: unknown) => {
-            const error = err as { message?: string };
-            if (error?.message?.includes('CONCURRENCY_CONFLICT')) {
-                toast.error(
-                    'Конфликт версий: расчет был изменен другим менеджером. Пожалуйста, обновите страницу.'
-                );
-            } else {
-                toast.error(err instanceof Error ? err.message : 'Ошибка при сохранении правок');
-            }
+        onError: (err: Error) => {
+            toast.error(err.message || 'Ошибка сохранения правок');
+        },
+    });
+
+    const smartReorder = useMutation({
+        mutationFn: async ({ id }: { id: string | number }) => {
+            const result = await calculationService.smartReorder(id);
+            if (!result.success) throw new Error(result.error?.message);
+            return result.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+            toast.success('Заказ успешно повторен');
+        },
+    });
+
+    const create = useMutation({
+        mutationFn: async ({
+            calculation,
+            userId,
+        }: {
+            calculation: Partial<Calculation>;
+            userId: string;
+        }) => {
+            const result = await calculationService.create(calculation, userId);
+            if (!result.success) throw new Error(result.error?.message);
+            return result.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+            toast.success('Проект успешно создан');
+        },
+        onError: (err: Error) => {
+            toast.error(err.message || 'Ошибка создания проекта');
         },
     });
 
     return {
+        create,
         updateStatus,
         assignToMe,
         adjustExpert,
+        smartReorder,
     };
 }

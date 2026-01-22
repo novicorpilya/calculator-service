@@ -1,33 +1,60 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
-import { DashboardHeader } from '@/features/dashboard/components/DashboardHeader';
-import { DashboardSidebar } from '@/features/dashboard/components/DashboardSidebar';
 import { ClientCalculationsList } from '@/features/dashboard/client/components/ClientCalculationsList';
 import { ClientCalculationDetails } from '@/features/dashboard/client/components/ClientCalculationDetails';
 import { NewCalculationWizard } from '@/features/dashboard/client/components/NewCalculationWizard';
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
-import { ClientOverview } from '@/features/dashboard/client/components/ClientOverview';
+import { ClientOverview, AnalyticsDashboard } from '@/features/dashboard/client/components';
 import { VenuePage } from '../Venue/Venue.page';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
 import type { Calculation } from '@/features/dashboard/dashboard.types';
 import { useServices } from '@/app/di/ServiceContainer';
-import type { Venue } from '@/services/venue.service';
 import { useAuth } from '@/features/auth';
 import { toast } from 'sonner';
-import { logger } from '@/core/logging';
-
-import { CalculationEntity } from '@/core/domain/CalculationEntity';
+import {
+    useCalculationActions,
+    useMyCalculations,
+} from '@/features/dashboard/hooks/useCalculations';
+import { useCalculationSync } from '@/features/dashboard/hooks/useCalculationSync';
+import { useQueryClient } from '@tanstack/react-query';
+import { dashboardKeys } from '@/features/dashboard/hooks/useCalculations';
 
 /**
  * Production-ready Client Dashboard.
- * Standardized synchronization logic and optimized state management.
+ * Optimized with React Query for "seamless" navigation.
  */
 export const ClientDashboard: React.FC = () => {
-    const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+    const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { user } = useAuth();
+    const { calculationService, chatService } = useServices();
+    const { smartReorder } = useCalculationActions();
+
+    // Realtime sync for instant status updates
+    useCalculationSync(user?.id ?? null);
+
     const currentPage = searchParams.get('page') || 'overview';
     const selectedId = searchParams.get('id');
+
+    // Data fetching hooks - caches data for SPA experience
+    const {
+        data: calculations = [],
+        isLoading: calculationsLoading,
+        error: calculationsError,
+    } = useMyCalculations(user?.id);
+
+    const [isCreatingNew, setIsCreatingNew] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return !!localStorage.getItem('calculator_draft_data');
+        }
+        return false;
+    });
+    const [editingCalculation, setEditingCalculation] = useState<Calculation | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const loading = calculationsLoading && calculations.length === 0;
 
     const setCurrentPage = useCallback(
         (page: string) => {
@@ -53,31 +80,19 @@ export const ClientDashboard: React.FC = () => {
         [setSearchParams]
     );
 
-    // AUTO-SELECT project from URL (Deep Linking for Notifications)
+    // AUTO-SELECT project from URL
     useEffect(() => {
         const urlProjectId = searchParams.get('project');
         if (urlProjectId) {
             setSelectedId(urlProjectId);
-            // Clean up the URL
             const newParams = new URLSearchParams(searchParams);
             newParams.delete('project');
             setSearchParams(newParams, { replace: true });
         }
     }, [searchParams, setSelectedId, setSearchParams]);
 
-    const [calculations, setCalculations] = useState<Calculation[]>([]);
-    const [venues, setVenues] = useState<Venue[]>([]);
-    const [isCreatingNew, setIsCreatingNew] = useState(false);
-    const [editingCalculation, setEditingCalculation] = useState<Calculation | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const { user } = useAuth();
-    const { calculationService, chatService, venueService } = useServices();
-
-    // Performance and Sync Refs
+    // Sync Ref for real-time updates
     const state = useRef({
-        isFetching: false,
         inFlightSyncs: new Set<string>(),
     });
 
@@ -86,158 +101,54 @@ export const ClientDashboard: React.FC = () => {
         [calculations, selectedId]
     );
 
-    /**
-     * Data fetcher with silent refresh support
-     */
-    const loadData = useCallback(
-        async (isSilent = false) => {
-            if (state.current.isFetching && !isSilent) return;
-            try {
-                state.current.isFetching = true;
-                if (!isSilent) setLoading(true);
-                setError(null);
-
-                const [calcRes, venueRes] = await Promise.all([
-                    calculationService.getMyCalculations(user!.id),
-                    venueService.getVenues(),
-                ]);
-
-                if (calcRes.success && calcRes.data) {
-                    setCalculations(calcRes.data);
-                } else if (!isSilent) {
-                    const msg = calcRes.error?.message || 'Ошибка загрузки расчетов';
-                    setError(msg);
-                    toast.error(msg);
-                }
-
-                if (venueRes.success && venueRes.data) {
-                    setVenues(venueRes.data);
-                } else if (!isSilent) {
-                    logger.error('Failed to load venues', venueRes.error);
-                }
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
-            } finally {
-                setLoading(false);
-                state.current.isFetching = false;
-            }
-        },
-        [calculationService, venueService, user]
-    );
-
-    /**
-     * Senior Sync Pattern
-     */
     const syncProject = useCallback(
         async (id: string | number) => {
             const sid = String(id);
             if (state.current.inFlightSyncs.has(sid)) return;
-
             try {
                 state.current.inFlightSyncs.add(sid);
-
-                const res = await calculationService.getCalculation(id);
-                if (!res.success || !res.data) {
-                    logger.error('[Sync:Client:Error]', { id, error: res.error });
-                    return;
-                }
-                const fullDoc = res.data;
-
-                setCalculations((prev) => {
-                    const index = prev.findIndex((c) => String(c.id) === sid);
-                    if (index !== -1) {
-                        const next = [...prev];
-                        next[index] = fullDoc;
-                        return next;
-                    } else if (String(fullDoc.user_id) === String(user?.id)) {
-                        return [fullDoc, ...prev];
-                    }
-                    return prev;
-                });
-            } catch {
-                logger.warn('[Sync:Client:Retry]', { sid });
-                loadData(true);
+                queryClient.invalidateQueries({ queryKey: dashboardKeys.mine(user?.id || '') });
             } finally {
                 state.current.inFlightSyncs.delete(sid);
             }
         },
-        [user?.id, loadData, calculationService]
+        [user?.id, queryClient]
     );
 
     useEffect(() => {
         if (!user?.id) return;
-
-        loadData();
-
         const unsubscribe = chatService.subscribeToProjects(
             (payload: { id: string | number; isSignal?: boolean }) => {
-                if (import.meta.env.DEV) {
-                    logger.debug(
-                        `[Sync:Pulse:Client] ${payload.id} via ${payload.isSignal ? 'Signal' : 'DB'}`
-                    );
-                }
                 syncProject(payload.id);
             }
         );
-
         return () => unsubscribe();
-    }, [user?.id, loadData, syncProject, chatService]);
+    }, [user?.id, syncProject, chatService]);
 
     const handleNewCalculationComplete = async (calculation: Calculation) => {
         try {
-            setLoading(true);
             setError(null);
-            if (editingCalculation) {
-                const statusFromWizard = calculation.status;
-                const nextStatus =
-                    statusFromWizard === 'sent' && editingCalculation.status === 'changes'
-                        ? 'revision'
-                        : statusFromWizard;
 
-                const res = await calculationService.update(calculation.id, {
-                    ...calculation,
-                    status: nextStatus as Calculation['status'],
-                });
+            const isExistingProject =
+                editingCalculation &&
+                calculations.some((c) => String(c.id) === String(editingCalculation.id));
 
+            if (isExistingProject && editingCalculation) {
+                const res = await calculationService.update(calculation.id, calculation);
                 if (!res.success || !res.data)
                     throw new Error(res.error?.message || 'Update failed');
-                const updated = res.data;
-
-                setCalculations((prev) =>
-                    prev.map((c) => (String(c.id) === String(updated.id) ? updated : c))
-                );
-                setEditingCalculation(null);
-                setSelectedId(updated.id);
-                await chatService.sendSyncSignal(updated.id, 'UPDATE');
-
-                if (nextStatus === 'revision') {
-                    toast.success('Правки внесены и отправлены эксперту');
-                } else if (nextStatus === 'sent') {
-                    toast.success('Расчет отправлен эксперту на проверку');
-                } else {
-                    toast.success('Черновик успешно обновлен');
-                }
+                toast.success('Расчет обновлен');
             } else {
                 const res = await calculationService.create(calculation, user!.id);
                 if (!res.success || !res.data)
                     throw new Error(res.error?.message || 'Creation failed');
-                const created = res.data;
-
-                setCalculations([created, ...calculations]);
-                setSelectedId(created.id);
-                await chatService.sendSyncSignal(created.id, 'INSERT');
-                toast.success(
-                    calculation.status === 'draft'
-                        ? 'Черновик сохранен'
-                        : 'Расчет создан и отправлен на аудит'
-                );
+                toast.success('Расчет создан');
             }
             setIsCreatingNew(false);
+            setEditingCalculation(null);
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.mine(user?.id || '') });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Ошибка сохранения');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -246,23 +157,10 @@ export const ClientDashboard: React.FC = () => {
         status: Calculation['status'],
         additional?: Partial<Calculation>
     ) => {
-        const current = calculations.find((c) => String(c.id) === String(id));
-        if (current) {
-            const entity = new CalculationEntity(current);
-            if (status !== current.status && !entity.canTransitionTo(status)) {
-                toast.error(`Невозможно перевести статус из "${current.status}" в "${status}"`);
-                return;
-            }
-        }
-
         try {
             const res = await calculationService.update(id, { status, ...additional });
-            if (!res.success || !res.data)
-                throw new Error(res.error?.message || 'Status update failed');
-            const updated = res.data;
-
-            setCalculations((prev) => prev.map((c) => (String(c.id) === String(id) ? updated : c)));
-            await chatService.sendSyncSignal(id, 'UPDATE');
+            if (!res.success) throw new Error(res.error?.message);
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.mine(user?.id || '') });
             toast.success('Статус изменен');
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : 'Ошибка изменения статуса');
@@ -272,9 +170,8 @@ export const ClientDashboard: React.FC = () => {
     const handleDeleteCalculation = async (id: number | string) => {
         try {
             const res = await calculationService.delete(id);
-            if (!res.success) throw new Error(res.error?.message || 'Delete failed');
-
-            setCalculations((prev) => prev.filter((c) => String(c.id) !== String(id)));
+            if (!res.success) throw new Error(res.error?.message);
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.mine(user?.id || '') });
             setSelectedId(null);
             toast.success('Расчет удален');
         } catch (err: unknown) {
@@ -287,132 +184,95 @@ export const ClientDashboard: React.FC = () => {
         setIsCreatingNew(true);
     };
 
+    const handleSmartReorder = async (calc: Calculation) => {
+        try {
+            await smartReorder.mutateAsync({ id: calc.id });
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.mine(user?.id || '') });
+        } catch {
+            // Silently handle reorder errors
+        }
+    };
+
     if (isCreatingNew) {
         return (
-            <div className="min-h-screen bg-background flex flex-col">
-                <DashboardHeader
-                    sidebarOpen={false}
-                    setSidebarOpen={() => {}}
-                    title={editingCalculation ? 'Редактирование' : 'Новый расчет'}
+            <div className="p-4 sm:p-6 lg:p-8">
+                <NewCalculationWizard
+                    onCancel={() => {
+                        setIsCreatingNew(false);
+                        setEditingCalculation(null);
+                        localStorage.removeItem('calculator_draft_data');
+                    }}
+                    onComplete={handleNewCalculationComplete}
+                    initialData={editingCalculation || undefined}
                 />
-                <main className="flex-1 overflow-auto bg-background/50">
-                    <div className="p-4 sm:p-6 lg:p-8">
-                        <NewCalculationWizard
-                            onCancel={() => {
-                                setIsCreatingNew(false);
-                                setEditingCalculation(null);
-                            }}
-                            onComplete={handleNewCalculationComplete}
-                            initialData={editingCalculation || undefined}
-                        />
-                    </div>
-                </main>
             </div>
         );
     }
 
     if (selectedCalculation) {
         return (
-            <div className="min-h-screen bg-background flex flex-col">
-                <DashboardHeader
-                    sidebarOpen={false}
-                    setSidebarOpen={() => {}}
-                    title="Детали проекта"
-                />
-                <main className="flex-1 overflow-auto bg-background/50">
-                    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
-                        <ErrorBoundary>
-                            <ClientCalculationDetails
-                                calculation={selectedCalculation}
-                                displayId={
-                                    calculations.findIndex(
-                                        (c) => String(c.id) === String(selectedId)
-                                    ) + 1
-                                }
-                                onBack={() => setSelectedId(null)}
-                                onUpdateStatus={handleUpdateStatus}
-                                onDelete={handleDeleteCalculation}
-                                onEdit={handleEditCalculation}
-                            />
-                        </ErrorBoundary>
-                    </div>
-                </main>
+            <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
+                <ErrorBoundary>
+                    <ClientCalculationDetails
+                        calculation={selectedCalculation}
+                        displayId={
+                            calculations.findIndex((c) => String(c.id) === String(selectedId)) + 1
+                        }
+                        onBack={() => setSelectedId(null)}
+                        onUpdateStatus={handleUpdateStatus}
+                        onDelete={handleDeleteCalculation}
+                        onEdit={handleEditCalculation}
+                    />
+                </ErrorBoundary>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
-            <DashboardHeader
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                title={
-                    currentPage === 'profile'
-                        ? 'Профиль'
-                        : currentPage === 'venue'
-                          ? 'Заведения'
-                          : currentPage === 'chat'
-                              ? 'Чат'
-                              : currentPage === 'overview'
-                                ? 'Обзор'
-                                : 'Мои расчеты'
+        <div className="w-full h-full bg-transparent flex flex-col">
+            <div
+                className={
+                    currentPage === 'chat'
+                        ? 'w-full'
+                        : 'p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full'
                 }
-            />
-
-            <div className="flex flex-1 overflow-hidden">
-                <DashboardSidebar
-                    isOpen={sidebarOpen}
-                    currentPage={currentPage}
-                    onNavigate={(page) => {
-                        setCurrentPage(page);
-                        if (window.innerWidth < 1024) setSidebarOpen(false);
-                    }}
-                />
-
-                <main className="flex-1 overflow-auto bg-background/30">
-                    <div
-                        className={
-                            currentPage === 'chat'
-                                ? 'w-full'
-                                : 'p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full'
-                        }
-                    >
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                                {error}
-                            </div>
-                        )}
-
-                        {loading && calculations.length === 0 ? (
-                            <div className="flex items-center justify-center py-40">
-                                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            </div>
-                        ) : (
-                            <ErrorBoundary>
-                                {currentPage === 'overview' && (
-                                    <ClientOverview
-                                        calculations={calculations}
-                                        venuesCount={venues.length}
-                                        onNewCalculation={() => setIsCreatingNew(true)}
-                                        onViewAllCalculations={() => setCurrentPage('calculations')}
-                                        onNavigateToVenues={() => setCurrentPage('venue')}
-                                        onSelectCalculation={(calc) => setSelectedId(calc.id)}
-                                    />
-                                )}
-                                {currentPage === 'calculations' && (
-                                    <ClientCalculationsList
-                                        calculations={calculations}
-                                        onSelect={(calc) => setSelectedId(calc.id)}
-                                        onNewCalculation={() => setIsCreatingNew(true)}
-                                    />
-                                )}
-                                {currentPage === 'venue' && <VenuePage />}
-                                {currentPage === 'profile' && <ClientProfile />}
-                                {currentPage === 'chat' && <GlobalChatHub />}
-                            </ErrorBoundary>
-                        )}
+            >
+                {(error || calculationsError) && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-black uppercase tracking-widest leading-relaxed">
+                        {error || (calculationsError as Error)?.message}
                     </div>
-                </main>
+                )}
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-40">
+                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                ) : (
+                    <ErrorBoundary>
+                        {currentPage === 'overview' && (
+                            <ClientOverview
+                                calculations={calculations}
+                                onNewCalculation={() => setIsCreatingNew(true)}
+                                onViewAllCalculations={() => setCurrentPage('calculations')}
+                                onSelectCalculation={(calc) => setSelectedId(calc.id)}
+                                onCloneCalculation={handleSmartReorder}
+                                onBudgetPlanner={() => navigate('/dashboard/client/budget-planner')}
+                            />
+                        )}
+                        {currentPage === 'analytics' && <AnalyticsDashboard />}
+                        {currentPage === 'calculations' && (
+                            <ClientCalculationsList
+                                calculations={calculations}
+                                onSelect={(calc) => setSelectedId(calc.id)}
+                                onNewCalculation={() => setIsCreatingNew(true)}
+                                onClone={handleSmartReorder}
+                            />
+                        )}
+                        {currentPage === 'venue' && <VenuePage />}
+                        {currentPage === 'profile' && <ClientProfile />}
+                        {currentPage === 'chat' && <GlobalChatHub />}
+                    </ErrorBoundary>
+                )}
             </div>
         </div>
     );

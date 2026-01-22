@@ -1,8 +1,10 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { dashboardKeys } from './useCalculations';
 import type { CalculationStatus } from '../dashboard.types';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useServices } from '@/app/di/ServiceContainer';
+import { toast } from 'sonner';
+import { type FilterPreset } from '../manager/manager.types';
 
 export interface PaginationState {
     page: number;
@@ -22,16 +24,37 @@ const SEARCH_DEBOUNCE_MS = 300;
  * Hook for server-side paginated calculations
  * Replaces client-side filtering in ManagerCalculationsList
  */
-export function usePaginatedCalculations(userId?: string) {
-    const { calculationService } = useServices();
-    const [pagination, setPagination] = useState<PaginationState>({
-        page: 1,
-        pageSize: DEFAULT_PAGE_SIZE,
-        search: '',
-        sortBy: 'created_at',
-        sortOrder: 'desc',
-        tab: 'my',
-        hideArchived: true, // Hide archived by default
+export function usePaginatedCalculations(
+    userId?: string,
+    initialPageSize: number = DEFAULT_PAGE_SIZE
+) {
+    const { calculationService, filterPresetService } = useServices();
+    const queryClient = useQueryClient();
+    const [pagination, setPagination] = useState<PaginationState>(() => {
+        // Initial load from localStorage cache if possible (Sync load)
+        const cached = userId ? filterPresetService.getCachedPresets(userId) : [];
+        const def = cached.find((p) => p.is_default);
+        if (def) {
+            return {
+                page: 1,
+                pageSize: initialPageSize,
+                search: '',
+                sortBy: 'created_at',
+                sortOrder: 'desc',
+                tab: 'all',
+                hideArchived: false,
+                ...def.query_params,
+            };
+        }
+        return {
+            page: 1,
+            pageSize: initialPageSize,
+            search: '',
+            sortBy: 'created_at',
+            sortOrder: 'desc',
+            tab: 'all',
+            hideArchived: false, // Show archived by default for Kanban
+        };
     });
 
     // Debounced search value
@@ -88,7 +111,7 @@ export function usePaginatedCalculations(userId?: string) {
             return result.data;
         },
         enabled: !!userId || pagination.tab === 'unassigned',
-        staleTime: 1000 * 30, // 30 seconds
+        staleTime: 0, // Always refetch on invalidation for real-time updates
         placeholderData: keepPreviousData, // Keep previous data while fetching new page
     });
 
@@ -120,6 +143,51 @@ export function usePaginatedCalculations(userId?: string) {
         setPagination((prev) => ({ ...prev, hideArchived, page: 1 }));
     }, []);
 
+    // Presets Management
+    const { data: presets = [], isLoading: isLoadingPresets } = useQuery({
+        queryKey: ['filter_presets', userId],
+        queryFn: () => filterPresetService.getPresets(userId!),
+        enabled: !!userId,
+        select: (res) => (res.success ? res.data : []),
+    });
+
+    const savePreset = useMutation({
+        mutationFn: async ({ name, isDefault }: { name: string; isDefault?: boolean }) => {
+            const params = { ...pagination } as Record<string, unknown>;
+            delete params.page;
+            delete params.pageSize;
+
+            const result = await filterPresetService.savePreset({
+                user_id: userId!,
+                name,
+                query_params: params,
+                is_default: isDefault,
+            });
+            if (!result.success) throw new Error('Ошибка сохранения пресета');
+            return result.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['filter_presets', userId] });
+            toast.success('Пресет успешно сохранен');
+        },
+    });
+
+    const applyPreset = useCallback((preset: FilterPreset) => {
+        setPagination((prev) => ({
+            ...prev,
+            ...preset.query_params,
+            page: 1, // Reset to first page
+        }));
+    }, []);
+
+    const deletePreset = useMutation({
+        mutationFn: (id: string) => filterPresetService.deletePreset(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['filter_presets', userId] });
+            toast.success('Пресет удален');
+        },
+    });
+
     return {
         // Data
         calculations: data?.data || [],
@@ -127,10 +195,12 @@ export function usePaginatedCalculations(userId?: string) {
         totalPages: data?.pagination?.totalPages || 0,
         currentPage: pagination.page,
         pageSize: pagination.pageSize,
+        presets,
 
         // State
         isLoading,
         isFetching,
+        isLoadingPresets,
         error,
         pagination,
 
@@ -141,5 +211,8 @@ export function usePaginatedCalculations(userId?: string) {
         setTab,
         setStatus,
         setHideArchived,
+        applyPreset,
+        savePreset,
+        deletePreset,
     };
 }

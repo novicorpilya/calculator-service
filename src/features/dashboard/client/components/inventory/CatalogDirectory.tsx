@@ -56,7 +56,7 @@ export const CatalogDirectory: React.FC<CatalogDirectoryProps> = ({
                                                         {item.price.toLocaleString()} ₽
                                                     </div>
                                                 )}
-                                                <p className="text-[9px] font-bold text-foreground/30 uppercase tracking-widest mt-2 px-3 py-1 bg-background border border-border-theme rounded-lg">
+                                                <p className="text-[9px] font-bold text-foreground/50 uppercase tracking-widest mt-2 px-3 py-1 bg-background border border-border-theme rounded-lg">
                                                     {item.sku}
                                                 </p>
                                             </div>
@@ -142,7 +142,7 @@ export const CatalogDirectory: React.FC<CatalogDirectoryProps> = ({
                             <div className="col-span-full py-40 text-center bg-card rounded-[2.5rem] border-2 border-dashed border-border-theme flex flex-col items-center justify-center gap-6">
                                 <Package size={64} className="opacity-5" />
                                 <div className="space-y-2">
-                                    <p className="text-[12px] font-black text-foreground/30 uppercase tracking-[0.3em]">
+                                    <p className="text-[12px] font-black text-foreground/50 uppercase tracking-[0.3em]">
                                         Каталог пуст или ничего не найдено
                                     </p>
                                     <p className="text-[10px] font-bold text-foreground/10 uppercase tracking-widest">

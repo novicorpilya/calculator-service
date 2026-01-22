@@ -88,7 +88,8 @@ export const PaymentStatusView: React.FC<PaymentStatusViewProps> = ({
     }, [receipt_path, calculationService]);
 
     const getPaymentStatus = (): PaymentStatus => {
-        if (['paid', 'processing', 'ready', 'shipping', 'completed'].includes(status)) return 'confirmed';
+        if (['paid', 'processing', 'ready', 'shipping', 'completed'].includes(status))
+            return 'confirmed';
         if (status === 'payment_review') return 'receipt_uploaded';
         if (status === 'payment_rejected') return 'rejected';
         return 'awaiting_payment';
@@ -101,33 +102,47 @@ export const PaymentStatusView: React.FC<PaymentStatusViewProps> = ({
     const invoiceNumber = `И-${String(id).slice(0, 8).toUpperCase()}`;
     const paymentDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setIsUploading(true);
-        try {
-            await onUploadReceipt(file);
-            toast.success('Чек отправлен на проверку');
-        } catch {
-            toast.error('Ошибка загрузки');
-        } finally {
-            setIsUploading(false);
-        }
-    }, [onUploadReceipt]);
+    const handleFileSelect = useCallback(
+        async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setIsUploading(true);
+            try {
+                await onUploadReceipt(file);
+                toast.success('Чек отправлен на проверку');
+            } catch {
+                toast.error('Ошибка загрузки');
+            } finally {
+                setIsUploading(false);
+            }
+        },
+        [onUploadReceipt]
+    );
 
     return (
         <div className="w-full animate-in fade-in slide-in-from-top-4 duration-500 space-y-3">
             {/* COMPACT HORIZONTAL BANNER */}
-            <div className={`p-4 rounded-[2rem] border flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all ${config.bgColor}`}>
+            <div
+                className={`p-4 rounded-[2rem] border flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all ${config.bgColor}`}
+            >
                 <div className="flex items-center gap-5">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-background/50 backdrop-blur-sm border border-border-theme/10 ${config.color}`}>
-                        <StatusIcon size={24} className={paymentStatus === 'receipt_uploaded' ? 'animate-spin' : ''} />
+                    <div
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-background/50 backdrop-blur-sm border border-border-theme/10 ${config.color}`}
+                    >
+                        <StatusIcon
+                            size={24}
+                            className={paymentStatus === 'receipt_uploaded' ? 'animate-spin' : ''}
+                        />
                     </div>
 
                     <div>
                         <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/40 leading-none italic">Счёт {invoiceNumber}</span>
-                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter text-white ${paymentStatus === 'confirmed' ? 'bg-emerald-500' : (paymentStatus === 'rejected' || paymentStatus === 'overdue') ? 'bg-red-500' : 'bg-amber-500'}`}>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/40 leading-none italic">
+                                Счёт {invoiceNumber}
+                            </span>
+                            <span
+                                className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter text-white ${paymentStatus === 'confirmed' ? 'bg-emerald-500' : paymentStatus === 'rejected' || paymentStatus === 'overdue' ? 'bg-red-500' : 'bg-amber-500'}`}
+                            >
                                 {config.label}
                             </span>
                         </div>
@@ -142,7 +157,13 @@ export const PaymentStatusView: React.FC<PaymentStatusViewProps> = ({
 
                     {paymentStatus === 'awaiting_payment' && (
                         <div className="hidden md:flex flex-col justify-center">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-foreground/30 mb-2">Оплата до {paymentDeadline.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-foreground/50 mb-2">
+                                Оплата до{' '}
+                                {paymentDeadline.toLocaleDateString('ru-RU', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                })}
+                            </p>
                             <div className="h-1 w-32 bg-foreground/5 rounded-full overflow-hidden">
                                 <div className="h-full bg-amber-500/50 w-1/3" />
                             </div>
@@ -160,16 +181,25 @@ export const PaymentStatusView: React.FC<PaymentStatusViewProps> = ({
                         Счёт на оплату
                     </button>
 
-                    {userRole === 'client' && (paymentStatus === 'awaiting_payment' || paymentStatus === 'overdue' || paymentStatus === 'rejected') && (
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                            className="flex-1 md:flex-none flex items-center shadow-md justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-black text-[9px] uppercase tracking-[0.15em] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                        >
-                            {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                            {paymentStatus === 'rejected' ? 'Загрузить новый чек' : 'Загрузить чек'}
-                        </button>
-                    )}
+                    {userRole === 'client' &&
+                        (paymentStatus === 'awaiting_payment' ||
+                            paymentStatus === 'overdue' ||
+                            paymentStatus === 'rejected') && (
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="flex-1 md:flex-none flex items-center shadow-md justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-black text-[9px] uppercase tracking-[0.15em] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {isUploading ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                    <Plus size={14} />
+                                )}
+                                {paymentStatus === 'rejected'
+                                    ? 'Загрузить новый чек'
+                                    : 'Загрузить чек'}
+                            </button>
+                        )}
 
                     {receipt_path && (
                         <button
@@ -180,7 +210,13 @@ export const PaymentStatusView: React.FC<PaymentStatusViewProps> = ({
                         </button>
                     )}
 
-                    <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} />
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={handleFileSelect}
+                    />
                 </div>
             </div>
         </div>

@@ -121,7 +121,7 @@ export const ProcurementSummary: React.FC<ProcurementSummaryProps> = ({
                                                     {item.inventory}
                                                 </p>
                                                 {canSeePrices && (
-                                                    <p className="text-[9px] font-bold text-foreground/30 uppercase tracking-widest">
+                                                    <p className="text-[9px] font-bold text-foreground/50 uppercase tracking-widest">
                                                         Цена за ед: {item.price.toLocaleString()} ₽
                                                     </p>
                                                 )}

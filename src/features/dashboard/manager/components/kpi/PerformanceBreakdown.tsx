@@ -8,27 +8,27 @@ interface PerformanceBreakdownProps {
 
 export const PerformanceBreakdown: React.FC<PerformanceBreakdownProps> = ({ data }) => {
     const items = [
-        { 
-            label: 'Конверсия в успех', 
-            value: `${(data?.conversionRate || 0).toFixed(0)}%`, 
-            progress: data?.conversionRate || 0, 
-            color: 'bg-indigo-500', 
-            status: (data?.conversionRate || 0) > 50 ? 'Выше цели' : 'Требует внимания'
+        {
+            label: 'Конверсия в успех',
+            value: `${(data?.conversionRate || 0).toFixed(0)}%`,
+            progress: data?.conversionRate || 0,
+            color: 'bg-indigo-500',
+            status: (data?.conversionRate || 0) > 50 ? 'Выше цели' : 'Требует внимания',
         },
-        { 
-            label: 'SLA (Скорость ответа)', 
-            value: `${data?.slaScore || 0}%`, 
-            progress: data?.slaScore || 0, 
-            color: 'bg-emerald-500', 
-            status: 'В норме'
+        {
+            label: 'SLA (Скорость ответа)',
+            value: `${data?.slaScore || 0}%`,
+            progress: data?.slaScore || 0,
+            color: 'bg-emerald-500',
+            status: 'В норме',
         },
-        { 
-            label: 'Средний чек', 
-            value: `₽ ${((data?.avgCheck || 0) / 1000).toFixed(0)}K`, 
-            progress: Math.min(100, ((data?.avgCheck || 0) / 150000) * 100), 
-            color: 'bg-primary', 
-            status: 'Средний чек'
-        }
+        {
+            label: 'Средний чек',
+            value: `₽ ${((data?.avgCheck || 0) / 1000).toFixed(0)}K`,
+            progress: Math.min(100, ((data?.avgCheck || 0) / 150000) * 100),
+            color: 'bg-primary',
+            status: 'Средний чек',
+        },
     ];
 
     return (
@@ -36,7 +36,9 @@ export const PerformanceBreakdown: React.FC<PerformanceBreakdownProps> = ({ data
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h3 className="text-xl font-black tracking-tighter mb-1">Эффективность</h3>
-                    <p className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest">Ключевые показатели</p>
+                    <p className="text-[10px] font-bold text-foreground/50 uppercase tracking-widest">
+                        Ключевые показатели
+                    </p>
                 </div>
                 <Activity className="text-primary/40" size={20} />
             </div>
@@ -45,11 +47,13 @@ export const PerformanceBreakdown: React.FC<PerformanceBreakdownProps> = ({ data
                 {items.map((item, id) => (
                     <div key={id} className="space-y-2">
                         <div className="flex justify-between items-end">
-                            <span className="text-[11px] font-black uppercase text-foreground/50">{item.label}</span>
+                            <span className="text-[11px] font-black uppercase text-foreground/50">
+                                {item.label}
+                            </span>
                             <span className="text-xl font-black">{item.value}</span>
                         </div>
                         <div className="h-2 w-full bg-foreground/[0.05] rounded-full overflow-hidden">
-                            <div 
+                            <div
                                 className={`h-full ${item.color} rounded-full transition-all duration-1000`}
                                 style={{ width: `${item.progress}%` }}
                             />
@@ -69,7 +73,12 @@ export const PerformanceBreakdown: React.FC<PerformanceBreakdownProps> = ({ data
                             <span>{(((data?.totalBudget || 0) / 2000000) * 100).toFixed(0)}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-indigo-500/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, ((data?.totalBudget || 0) / 2000000) * 100)}%` }} />
+                            <div
+                                className="h-full bg-indigo-500 rounded-full"
+                                style={{
+                                    width: `${Math.min(100, ((data?.totalBudget || 0) / 2000000) * 100)}%`,
+                                }}
+                            />
                         </div>
                     </div>
                 </div>

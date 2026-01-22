@@ -1,5 +1,5 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
-import type { Calculation, CalculationResults } from '../dashboard.types';
+import type { Calculation, CalculationResults, DashboardStats } from '../dashboard.types';
 import { type ILogger } from '@/core/logging/LogManager';
 import { CalculationMapper } from '../mappers/CalculationMapper';
 import {
@@ -53,6 +53,10 @@ export interface ICalculationRepository {
     releaseLock(id: string | number): Promise<ActionResult<Calculation>>;
     uploadFile(path: string, file: File | Blob, bucket: string): Promise<VoidResult>;
     createSignedUrl(path: string, bucket: string, expiresIn: number): Promise<ActionResult<string>>;
+    getVersions(id: string | number): Promise<ActionResult<Record<string, unknown>[]>>;
+    clearVersions(id: string | number): Promise<VoidResult>;
+    getDashboardStats(userId: string, venueId?: string): Promise<ActionResult<DashboardStats>>;
+    smartReorder(id: string | number): Promise<ActionResult<Calculation>>;
 }
 
 export class CalculationRepository implements ICalculationRepository {
@@ -67,8 +71,46 @@ export class CalculationRepository implements ICalculationRepository {
     private readonly PROJECT_SELECT =
         '*, manager_info:profiles!manager_id(organization_name, first_name, last_name), client_info:profiles!user_id(organization_name, first_name, last_name, inn, address)';
 
-    private wrapError(error: unknown): { message: string } {
-        return { message: error instanceof Error ? error.message : String(error) };
+    private wrapError(error: unknown): { message: string; details?: unknown } {
+        console.error('[CalculationRepository] Database Error:', error);
+
+        // Supabase/Postgrest error object check
+        if (error && typeof error === 'object') {
+            const err = error as Record<string, unknown>;
+            return {
+                message:
+                    (err.message as string) ||
+                    (err.hint as string) ||
+                    'An unexpected database error occurred',
+                details: err.details || err.code || undefined,
+            };
+        }
+
+        return {
+            message: error instanceof Error ? error.message : String(error),
+        };
+    }
+
+    /**
+     * Senior Resilience: Helper for retrying critical operations
+     */
+    private async withRetry<T>(
+        operation: () => Promise<ActionResult<T>>,
+        maxRetries: number = 3
+    ): Promise<ActionResult<T>> {
+        let lastError: unknown;
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const result = await operation();
+                if (result.success) return result;
+                lastError = result.error;
+                // Exponential backoff
+                await new Promise((res) => setTimeout(res, Math.pow(2, i) * 500));
+            } catch (err) {
+                lastError = err;
+            }
+        }
+        return { success: false, error: this.wrapError(lastError) };
     }
 
     async getById(id: string | number): Promise<ActionResult<Calculation>> {
@@ -95,7 +137,10 @@ export class CalculationRepository implements ICalculationRepository {
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: (data || []).map((d) => CalculationMapper.mapToEntity(d)) };
+            return {
+                success: true,
+                data: (data || []).map((d) => CalculationMapper.mapToEntity(d)),
+            };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -110,7 +155,10 @@ export class CalculationRepository implements ICalculationRepository {
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: (data || []).map((d) => CalculationMapper.mapToEntity(d)) };
+            return {
+                success: true,
+                data: (data || []).map((d) => CalculationMapper.mapToEntity(d)),
+            };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -125,7 +173,10 @@ export class CalculationRepository implements ICalculationRepository {
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: (data || []).map((d) => CalculationMapper.mapToEntity(d)) };
+            return {
+                success: true,
+                data: (data || []).map((d) => CalculationMapper.mapToEntity(d)),
+            };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -152,7 +203,9 @@ export class CalculationRepository implements ICalculationRepository {
                 const isNumericSearch = /^\d+$/.test(params.search.replace('#', ''));
                 if (isNumericSearch) {
                     const projectNum = parseInt(params.search.replace('#', ''), 10);
-                    query = query.or(`project_number.eq.${projectNum},organization_name.ilike.%${params.search}%`);
+                    query = query.or(
+                        `project_number.eq.${projectNum},organization_name.ilike.%${params.search}%`
+                    );
                 } else {
                     query = query.ilike('organization_name', `%${params.search}%`);
                 }
@@ -204,6 +257,8 @@ export class CalculationRepository implements ICalculationRepository {
                     total_cost_value: calc.totalCost,
                     status: calc.status || 'draft',
                     calculator_config_snapshot: calc.calculator_config_snapshot,
+                    venue_id: calc.venue_id,
+                    source_id: calc.source_id,
                 })
                 .select(this.PROJECT_SELECT)
                 .single();
@@ -233,17 +288,20 @@ export class CalculationRepository implements ICalculationRepository {
             if (updates.results) dbUpdates.results = updates.results;
             if (updates.totalCost !== undefined) dbUpdates.total_cost_value = updates.totalCost;
             if (updates.receipt_path !== undefined) dbUpdates.receipt_path = updates.receipt_path;
-            if (updates.calculator_config_snapshot !== undefined) dbUpdates.calculator_config_snapshot = updates.calculator_config_snapshot;
+            if (updates.calculator_config_snapshot !== undefined)
+                dbUpdates.calculator_config_snapshot = updates.calculator_config_snapshot;
+            if (updates.venue_id !== undefined) dbUpdates.venue_id = updates.venue_id;
 
-            const { data, error } = await this.client
+            // Step 1: Execute UPDATE without expecting return (avoids 406 RLS issues)
+            const { error: updateError } = await this.client
                 .from('calculations')
                 .update(dbUpdates)
-                .eq('id', id)
-                .select(this.PROJECT_SELECT)
-                .single();
+                .eq('id', id);
 
-            if (error) return { success: false, error: this.wrapError(error) };
-            return { success: true, data: CalculationMapper.mapToEntity(data) };
+            if (updateError) return { success: false, error: this.wrapError(updateError) };
+
+            // Step 2: Fetch the updated row separately
+            return this.getById(id);
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -266,14 +324,9 @@ export class CalculationRepository implements ICalculationRepository {
         message?: string,
         payload?: Record<string, unknown>
     ): Promise<ActionResult<Calculation>> {
-        try {
-            this.logger.info('Calling perform_calculation_action', {
-                p_calculation_id: id,
-                p_action_type: action,
-                p_message: message || '',
-                p_payload: payload || {},
-            });
+        this.logger.info('Executing business action', { id, action });
 
+        return this.withRetry(async () => {
             const { data, error } = await this.client.rpc('perform_calculation_action', {
                 p_calculation_id: id,
                 p_action_type: action,
@@ -282,12 +335,11 @@ export class CalculationRepository implements ICalculationRepository {
             });
 
             if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0) return { success: false, error: { message: 'Unexpected empty response from server' } };
+            if (!data || data.length === 0)
+                return { success: false, error: { message: 'No data returned from action' } };
 
             return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
-        } catch (error) {
-            return { success: false, error: this.wrapError(error) };
-        }
+        });
     }
 
     async adjustCalculationExpert(
@@ -296,21 +348,21 @@ export class CalculationRepository implements ICalculationRepository {
         adjustments: Record<string, unknown>,
         version: number
     ): Promise<ActionResult<Calculation>> {
-        try {
-            const { data, error } = await this.client.rpc('adjust_calculation_expert', {
-                p_calculation_id: id,
-                p_results: results,
-                p_adjustments: adjustments,
-                p_current_version: version,
-            });
+        this.logger.info('Adjusting calculation expert', { id, version });
 
-            if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0) return { success: false, error: { message: 'Failed to adjust: No data returned' } };
-            
-            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
-        } catch (error) {
-            return { success: false, error: this.wrapError(error) };
-        }
+        const { data, error } = await this.client.rpc('adjust_calculation_expert', {
+            p_calculation_id: id,
+            p_results: results,
+            p_adjustments: adjustments,
+            p_current_version: version,
+        });
+
+        if (error) return { success: false, error: this.wrapError(error) };
+        if (!data)
+            return { success: false, error: { message: 'Failed to adjust: No data returned' } };
+
+        // For single record return from RPC, data is the object, not an array
+        return { success: true, data: CalculationMapper.mapToEntity(data) };
     }
 
     async acquireLock(id: string | number): Promise<ActionResult<Calculation>> {
@@ -319,7 +371,8 @@ export class CalculationRepository implements ICalculationRepository {
                 p_calculation_id: id,
             });
             if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0) return { success: false, error: { message: 'Failed to acquire lock' } };
+            if (!data || data.length === 0)
+                return { success: false, error: { message: 'Failed to acquire lock' } };
 
             return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
         } catch (error) {
@@ -333,7 +386,8 @@ export class CalculationRepository implements ICalculationRepository {
                 p_calculation_id: id,
             });
             if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0) return { success: false, error: { message: 'Failed to release lock' } };
+            if (!data || data.length === 0)
+                return { success: false, error: { message: 'Failed to release lock' } };
 
             return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
         } catch (error) {
@@ -366,6 +420,63 @@ export class CalculationRepository implements ICalculationRepository {
 
             if (error) return { success: false, error: this.wrapError(error) };
             return { success: true, data: data.signedUrl };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async getVersions(id: string | number): Promise<ActionResult<Record<string, unknown>[]>> {
+        try {
+            const { data, error } = await this.client
+                .from('calculation_versions')
+                .select('*')
+                .eq('calculation_id', id)
+                .order('version_number', { ascending: false });
+
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data: data || [] };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async clearVersions(id: string | number): Promise<VoidResult> {
+        try {
+            const { error } = await this.client.rpc('fn_clear_calculation_versions', {
+                p_calculation_id: id,
+            });
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async getDashboardStats(
+        userId: string,
+        venueId?: string
+    ): Promise<ActionResult<DashboardStats>> {
+        try {
+            const { data, error } = await this.client.rpc('get_client_dashboard_stats', {
+                p_user_id: userId,
+                p_venue_id: venueId || null,
+            });
+            if (error) return { success: false, error: this.wrapError(error) };
+            return { success: true, data };
+        } catch (error) {
+            return { success: false, error: this.wrapError(error) };
+        }
+    }
+
+    async smartReorder(id: string | number): Promise<ActionResult<Calculation>> {
+        try {
+            const { data, error } = await this.client.rpc('apply_smart_reorder', {
+                source_calculation_id: id,
+            });
+            if (error) return { success: false, error: this.wrapError(error) };
+
+            // Fetch the newly created calculation to return the full entity
+            return this.getById(data);
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }

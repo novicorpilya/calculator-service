@@ -6,3 +6,4 @@ export * from './ClientProfile';
 export * from './InventoryManager';
 export * from './NewCalculationWizard';
 export * from './ProductPickerModal';
+export * from './analytics/AnalyticsDashboard';

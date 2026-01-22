@@ -2,7 +2,16 @@ import React, { useEffect } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useForm } from 'react-hook-form';
 import { IconInput } from '@/components/ui/IconInput';
-import { Building2, Mail, Phone, MapPin, Loader2, User as UserIcon, Briefcase, Hash } from 'lucide-react';
+import {
+    Building2,
+    Mail,
+    Phone,
+    MapPin,
+    Loader2,
+    User as UserIcon,
+    Briefcase,
+    Hash,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { ProfileAvatar } from '../../components/ProfileAvatar';
 
@@ -106,10 +115,7 @@ export const ClientProfile = React.memo(() => {
                 onSubmit={handleSubmit(onSubmit)}
                 className="glass-card !p-5 sm:!p-8 space-y-8 sm:space-y-10 border-border-theme bg-card shadow-xl"
             >
-                <ProfileAvatar 
-                    avatarUrl={user.avatarUrl} 
-                    onUpdate={handleAvatarUpdate} 
-                />
+                <ProfileAvatar avatarUrl={user.avatarUrl} onUpdate={handleAvatarUpdate} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                     {!isInternalUser && (
@@ -138,8 +144,8 @@ export const ClientProfile = React.memo(() => {
                             {...register('inn', {
                                 pattern: {
                                     value: /^(\d{10}|\d{12})$/,
-                                    message: 'ИНН должен быть 10 или 12 цифр'
-                                }
+                                    message: 'ИНН должен быть 10 или 12 цифр',
+                                },
                             })}
                         />
                     </div>
@@ -235,7 +241,7 @@ export const ClientProfile = React.memo(() => {
                         {loading ? 'Сохранение...' : 'Обновить профиль'}
                     </button>
                     {!isDirty && !loading && (
-                        <p className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest">
+                        <p className="text-[10px] font-bold text-foreground/50 uppercase tracking-widest">
                             Нет изменений для сохранения
                         </p>
                     )}

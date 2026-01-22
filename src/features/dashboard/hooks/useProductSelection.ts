@@ -46,6 +46,16 @@ export function useProductSelection({
 
     // Fetch catalog for managers/admins
     useEffect(() => {
+        if (!entity.canManageInventory() && isAuditMode) {
+            const timer = setTimeout(() => {
+                setIsAuditMode(false);
+                setAuditItemIndex(null);
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+    }, [entity, isAuditMode]);
+
+    useEffect(() => {
         if (user?.role === 'manager' || user?.role === 'admin') {
             inventoryService
                 .getGlobalItems({ pageSize: 100 })
@@ -85,8 +95,8 @@ export function useProductSelection({
                 {
                     staffCount: String(entity.staffCount),
                     dailyVisitors: String(entity.dailyVisitors),
-                    sanitaryLevel: entity.sanitaryLevel,
-                    replacementCycle: entity.replacementCycle,
+                    sanitaryLevel: String(entity.sanitaryLevel),
+                    replacementCycle: String(entity.replacementCycle),
                     intensityLevel: entity.rawData.intensityLevel,
                 },
                 (entity.configSnapshot as unknown as CalculatorConfig) || config
@@ -117,16 +127,8 @@ export function useProductSelection({
             setAuditItemIndex(null);
             toast.success(`Товар заменен на ${master.name}`);
         } catch (error) {
-            logger.error(
-                'Failed to swap product in calculation',
-                {
-                    calculationId: entity.id,
-                    targetIndex: auditItemIndex,
-                    masterSku: master.sku,
-                },
-                error
-            );
-            toast.error('Ошибка замены товара');
+            const errMsg = error instanceof Error ? error.message : 'Ошибка замены товара';
+            toast.error(errMsg);
         }
     };
 
@@ -148,8 +150,9 @@ export function useProductSelection({
                 onUpdateStatus(entity.id, entity.status, { results: newResults });
             }
             toast.success(`Товар ${removedItem.inventory} удален`);
-        } catch {
-            toast.error('Ошибка удаления');
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : 'Ошибка удаления товара';
+            toast.error(errMsg);
         }
     };
 
@@ -163,8 +166,8 @@ export function useProductSelection({
             {
                 staffCount: String(entity.staffCount),
                 dailyVisitors: String(entity.dailyVisitors),
-                sanitaryLevel: entity.sanitaryLevel,
-                replacementCycle: entity.replacementCycle,
+                sanitaryLevel: String(entity.sanitaryLevel),
+                replacementCycle: String(entity.replacementCycle),
                 intensityLevel: entity.rawData.intensityLevel,
             },
             (entity.configSnapshot as unknown as CalculatorConfig) || config
@@ -186,8 +189,9 @@ export function useProductSelection({
             }
             setAuditItemIndex(null);
             toast.success(`Добавлена позиция: ${master.name}`);
-        } catch {
-            toast.error('Ошибка при добавлении товара');
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : 'Ошибка при добавлении товара';
+            toast.error(errMsg);
         }
     };
 
@@ -200,8 +204,9 @@ export function useProductSelection({
                 onUpdateStatus(entity.id, entity.status, { results: entity.results });
             }
             toast.success('Параметры обновлены');
-        } catch {
-            toast.error('Ошибка обновления параметров');
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : 'Ошибка обновления параметров';
+            toast.error(errMsg);
         }
     };
 

@@ -1,7 +1,4 @@
-import {
-    type SupabaseClient,
-    type RealtimeChannel,
-} from '@supabase/supabase-js';
+import { type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
 import {
     CHAT_CHANNELS,
     type Message,
@@ -73,7 +70,7 @@ export class BroadcastService implements IBroadcastService {
             const channel = this.client.channel(channelName, {
                 config: {
                     broadcast: { self: false },
-                }
+                },
             });
 
             // Setup basic listeners
@@ -98,18 +95,25 @@ export class BroadcastService implements IBroadcastService {
                 if (status === 'SUBSCRIBED') {
                     clearTimeout(timeout);
                     this.pendingSubscriptions.delete(channelName);
-                    this.channelCache.set(channelName, { channel, refCount: (existing?.refCount || 0) });
+                    this.channelCache.set(channelName, {
+                        channel,
+                        refCount: existing?.refCount || 0,
+                    });
                     resolve(channel);
                 } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                     clearTimeout(timeout);
                     this.pendingSubscriptions.delete(channelName);
                     this.client.removeChannel(channel);
-                    
+
                     if (attempt < 4) {
                         const delay = attempt * 1500;
-                        console.warn(`[Broadcast] Re-trying subscription for ${channelName} (attempt ${attempt + 1}) in ${delay}ms...`);
+                        console.warn(
+                            `[Broadcast] Re-trying subscription for ${channelName} (attempt ${attempt + 1}) in ${delay}ms...`
+                        );
                         setTimeout(() => {
-                            this.getOrCreateChannel(channelName, attempt + 1).then(resolve).catch(reject);
+                            this.getOrCreateChannel(channelName, attempt + 1)
+                                .then(resolve)
+                                .catch(reject);
                         }, delay);
                     } else {
                         reject(new Error(`Channel ${status} on ${channelName}`));
@@ -131,7 +135,7 @@ export class BroadcastService implements IBroadcastService {
         if (!entry) return;
 
         entry.refCount = Math.max(0, entry.refCount - 1);
-        
+
         if (entry.refCount === 0) {
             console.debug(`[Broadcast] Releasing channel ${channelName} (no more refs)`);
             this.cleanupChannel(channelName);
@@ -168,8 +172,12 @@ export class BroadcastService implements IBroadcastService {
     async broadcastNewMessage(message: Message): Promise<boolean> {
         if (message.calculation_id) {
             // 1. Send to the project room (for those who have it open)
-            this.sendBroadcast(`${CHAT_CHANNELS.CHAT_PREFIX}${message.calculation_id}`, 'new_message', message);
-            
+            this.sendBroadcast(
+                `${CHAT_CHANNELS.CHAT_PREFIX}${message.calculation_id}`,
+                'new_message',
+                message
+            );
+
             // 2. Trigger global pulse (for generic list updates)
             this.broadcastProjectPulse(message.calculation_id, 'NEW_MESSAGE');
 
@@ -246,7 +254,9 @@ export class BroadcastService implements IBroadcastService {
             }
 
             if (retryCount < maxRetries) {
-                console.warn(`[Broadcast] No ACK for ${message.id}. Retrying (${retryCount + 1}/${maxRetries})...`);
+                console.warn(
+                    `[Broadcast] No ACK for ${message.id}. Retrying (${retryCount + 1}/${maxRetries})...`
+                );
                 return attempt(retryCount + 1);
             }
 
@@ -269,7 +279,7 @@ export class BroadcastService implements IBroadcastService {
                 calculationId,
                 receiverId,
             });
-            
+
             // 2. Identify the other participant to notify their personal channel (for count sync)
             if (readerId) {
                 // Signal to the reader's other tabs
@@ -279,7 +289,7 @@ export class BroadcastService implements IBroadcastService {
                     receiverId,
                 });
             }
-            
+
             // 3. Signal to the receiver (the one whose messages were read) for instant double-ticks
             if (receiverId && receiverId !== readerId) {
                 this.sendBroadcast(`user_updates_${receiverId}`, 'messages_read', {
@@ -313,12 +323,13 @@ export class BroadcastService implements IBroadcastService {
         const channelName = calculationId
             ? `${CHAT_CHANNELS.CHAT_PREFIX}${calculationId}`
             : userId
-            ? `user_updates_${userId}`
-            : CHAT_CHANNELS.GLOBAL_SYNC;
+              ? `user_updates_${userId}`
+              : CHAT_CHANNELS.GLOBAL_SYNC;
 
+        let globalUnsubscribe: (() => void) | null = null;
         // If a specific user is specified, also subscribe to Global Sync for project-wide events
         if (userId && channelName !== CHAT_CHANNELS.GLOBAL_SYNC) {
-            this.subscribeToMessages(callback, undefined, undefined); // Recursive call for Global Sync
+            globalUnsubscribe = this.subscribeToMessages(callback, undefined, undefined);
         }
 
         let isInitialJoin = true;
@@ -329,65 +340,91 @@ export class BroadcastService implements IBroadcastService {
                 entry.refCount++;
             }
 
-            // Note: Supabase Realtime collect listeners. 
-            // We use callback pattern to avoid duplication in UI, 
+            // Note: Supabase Realtime collect listeners.
+            // We use callback pattern to avoid duplication in UI,
             // but for safety we ensure the listener is added once per subscribe call.
             channel
                 .on('broadcast', { event: 'new_message' }, ({ payload }: { payload: Message }) =>
                     callback(payload, 'INSERT')
                 )
-                .on('broadcast', { event: 'message_updated' }, ({ payload }: { payload: Message }) =>
-                    callback(payload, 'UPDATE')
+                .on(
+                    'broadcast',
+                    { event: 'message_updated' },
+                    ({ payload }: { payload: Message }) => callback(payload, 'UPDATE')
                 )
-                .on('broadcast', { event: 'message_deleted' }, ({ payload }: { payload: Message }) =>
-                    callback(payload, 'DELETE')
+                .on(
+                    'broadcast',
+                    { event: 'message_deleted' },
+                    ({ payload }: { payload: Message }) => callback(payload, 'DELETE')
                 )
-                .on('postgres_changes', { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'messages'
-                }, (payload) => {
-                    const raw = (payload.new || payload.old) as Record<string, unknown>;
-                    if (!raw) return;
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'messages',
+                    },
+                    (payload) => {
+                        const raw = (payload.new || payload.old) as Record<string, unknown>;
+                        if (!raw) return;
 
-                    // Filter by calculationId safely
-                    const targetCalcId = raw.calculation_id || raw.calculationId;
-                    if (calculationId && String(targetCalcId) !== String(calculationId)) return;
+                        // Filter by calculationId safely
+                        const targetCalcId = raw.calculation_id || raw.calculationId;
+                        if (calculationId && String(targetCalcId) !== String(calculationId)) return;
 
-                    // Robust mapping of raw DB fields to Message type
-                    const msg: Message = {
-                        id: raw.id as string,
-                        sender_id: (raw.sender_id || raw.senderId) as string,
-                        receiver_id: ((raw.receiver_id || raw.receiverId) ?? null) as string | null,
-                        calculation_id: ((raw.calculation_id || raw.calculationId) ?? null) as string | null,
-                        content: (raw.content ?? null) as string | null,
-                        created_at: (raw.created_at || raw.createdAt) as string,
-                        message_type: (raw.message_type || raw.messageType) as string | undefined,
-                        metadata: raw.metadata as Message['metadata'],
-                        is_edited: (raw.is_edited ?? false) as boolean,
-                        is_read: (raw.is_read ?? false) as boolean,
-                    };
+                        // Robust mapping of raw DB fields to Message type
+                        const msg: Message = {
+                            id: raw.id as string,
+                            sender_id: (raw.sender_id || raw.senderId) as string,
+                            receiver_id: ((raw.receiver_id || raw.receiverId) ?? null) as
+                                | string
+                                | null,
+                            calculation_id: ((raw.calculation_id || raw.calculationId) ?? null) as
+                                | string
+                                | null,
+                            content: (raw.content ?? null) as string | null,
+                            created_at: (raw.created_at || raw.createdAt) as string,
+                            message_type: (raw.message_type || raw.messageType) as
+                                | string
+                                | undefined,
+                            metadata: raw.metadata as Message['metadata'],
+                            is_edited: (raw.is_edited ?? false) as boolean,
+                            is_read: (raw.is_read ?? false) as boolean,
+                        };
 
-                    if (payload.eventType === 'INSERT') {
-                        callback(msg, 'INSERT');
-                    } else if (payload.eventType === 'UPDATE') {
-                        callback(msg, 'UPDATE');
-                    } else if (payload.eventType === 'DELETE') {
-                        callback(msg, 'DELETE');
+                        if (payload.eventType === 'INSERT') {
+                            callback(msg, 'INSERT');
+                        } else if (payload.eventType === 'UPDATE') {
+                            callback(msg, 'UPDATE');
+                        } else if (payload.eventType === 'DELETE') {
+                            callback(msg, 'DELETE');
+                        }
                     }
-                })
-                .on('broadcast', { event: 'history_cleared' }, ({ payload }: { payload: HistoryClearedPayload }) =>
-                    callback(payload as unknown as Message, 'DELETE')
                 )
-                .on('broadcast', { event: 'messages_read' }, ({ payload }: { payload: ReadEventPayload }) =>
-                    callback(payload, 'READ')
+                .on(
+                    'broadcast',
+                    { event: 'history_cleared' },
+                    ({ payload }: { payload: HistoryClearedPayload }) =>
+                        callback(payload as unknown as Message, 'DELETE')
                 )
-                .on('broadcast', { event: 'typing' }, ({ payload }: { payload: TypingEventPayload }) =>
-                    callback({ id: 'typing-signal', ...payload } as ChatEventPayload, 'TYPING')
+                .on(
+                    'broadcast',
+                    { event: 'messages_read' },
+                    ({ payload }: { payload: ReadEventPayload }) => callback(payload, 'READ')
                 )
-                .on('broadcast', { event: 'delivery_ack' }, ({ payload }: { payload: MessageAckPayload }) => {
-                    callback(payload, 'ACK');
-                });
+                .on(
+                    'broadcast',
+                    { event: 'typing' },
+                    ({ payload }: { payload: TypingEventPayload }) =>
+                        callback({ id: 'typing-signal', ...payload } as ChatEventPayload, 'TYPING')
+                )
+                .on(
+                    'broadcast',
+                    { event: 'delivery_ack' },
+                    ({ payload }: { payload: MessageAckPayload }) => {
+                        callback(payload, 'ACK');
+                    }
+                );
 
             if (isInitialJoin && channel.state === 'joined') {
                 isInitialJoin = false;
@@ -395,6 +432,8 @@ export class BroadcastService implements IBroadcastService {
         });
 
         return () => {
+            if (globalUnsubscribe) globalUnsubscribe();
+
             const entry = this.channelCache.get(channelName);
             if (entry) {
                 entry.refCount--;
@@ -405,7 +444,10 @@ export class BroadcastService implements IBroadcastService {
         };
     }
 
-    async broadcastProjectPulse(calcId: string | number, type: string = 'UPDATE'): Promise<boolean> {
+    async broadcastProjectPulse(
+        calcId: string | number,
+        type: string = 'UPDATE'
+    ): Promise<boolean> {
         return this.sendBroadcast(CHAT_CHANNELS.GLOBAL_SYNC, 'project_pulse', {
             id: String(calcId),
             type,
@@ -417,8 +459,8 @@ export class BroadcastService implements IBroadcastService {
         callback: (payload: { id: string; type: string; ts: number; isSignal?: boolean }) => void
     ): () => void {
         const channelName = CHAT_CHANNELS.GLOBAL_SYNC;
-        
-        this.getOrCreateChannel(channelName).then(channel => {
+
+        this.getOrCreateChannel(channelName).then((channel) => {
             const entry = this.channelCache.get(channelName);
             if (entry) {
                 entry.refCount++;
@@ -426,12 +468,22 @@ export class BroadcastService implements IBroadcastService {
 
             channel
                 .on('broadcast', { event: 'project_pulse' }, ({ payload }) => {
-                    callback({ ...(payload as { id: string; type: string; ts: number }), isSignal: true });
+                    callback({
+                        ...(payload as { id: string; type: string; ts: number }),
+                        isSignal: true,
+                    });
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'calculations' }, (payload) => {
-                    const id = (payload.new as { id?: string | number })?.id || (payload.old as { id?: string | number })?.id;
-                    if (id) callback({ id: String(id), type: payload.eventType, ts: Date.now() });
-                });
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'calculations' },
+                    (payload) => {
+                        const id =
+                            (payload.new as { id?: string | number })?.id ||
+                            (payload.old as { id?: string | number })?.id;
+                        if (id)
+                            callback({ id: String(id), type: payload.eventType, ts: Date.now() });
+                    }
+                );
         });
 
         return () => this.releaseChannel(channelName);

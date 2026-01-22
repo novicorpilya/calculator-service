@@ -39,8 +39,24 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-CREATE POLICY "Users can view own profile" ON public.profiles
-    FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Managers can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view profiles of their contacts" ON public.profiles;
+
+CREATE POLICY "Users can view profiles of their contacts" ON public.profiles
+    FOR SELECT USING (
+        auth.uid() = id
+        OR public.is_manager_or_admin()
+        OR id IN (
+            SELECT user_id FROM public.calculations WHERE manager_id = auth.uid()
+            UNION
+            SELECT manager_id FROM public.calculations WHERE user_id = auth.uid()
+        )
+        OR id IN (
+            SELECT CASE WHEN sender_id = auth.uid() THEN receiver_id ELSE sender_id END
+            FROM public.messages
+            WHERE (sender_id = auth.uid() OR receiver_id = auth.uid())
+        )
+    );
 
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles
@@ -49,10 +65,6 @@ CREATE POLICY "Users can update own profile" ON public.profiles
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Managers can view all profiles" ON public.profiles;
-CREATE POLICY "Managers can view all profiles" ON public.profiles
-    FOR SELECT USING (public.is_manager_or_admin());
 
 -- ============================================================
 -- 3. TRIGGER: Auto-create profile on signup

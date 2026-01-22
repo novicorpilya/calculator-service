@@ -13,19 +13,29 @@ import {
     Hotel,
     Save,
     X,
+    type LucideIcon,
 } from 'lucide-react';
+import {
+    OBJECT_TYPES,
+    SANITARY_LEVELS,
+    INTENSITY_LEVELS,
+} from '@/features/dashboard/dashboard.types';
 
 import { type Venue, type CreateVenueData } from '@/services/venue.service';
 import { toast } from 'sonner';
 import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging';
 
-const VENUE_TYPE_CONFIG = {
+const VENUE_TYPE_CONFIG: Record<string, { label: string; icon: LucideIcon; color: string }> = {
     restaurant: { label: 'Ресторан', icon: UtensilsCrossed, color: 'text-orange-500' },
     cafe: { label: 'Кафе', icon: Coffee, color: 'text-blue-500' },
     bar: { label: 'Бар', icon: Wine, color: 'text-purple-500' },
     hotel: { label: 'Отель', icon: Hotel, color: 'text-emerald-500' },
-    other: { label: 'Другое', icon: Building2, color: 'text-gray-500' },
+    production_food: { label: 'Пищ. пр-во', icon: Building2, color: 'text-red-500' },
+    production_nonfood: { label: 'Пр-во', icon: Building2, color: 'text-gray-500' },
+    beauty: { label: 'Салон', icon: Users, color: 'text-pink-500' },
+    mall: { label: 'ТЦ/Общ.', icon: Maximize2, color: 'text-indigo-500' },
+    other: { label: 'Другое', icon: Building2, color: 'text-amber-500' },
 };
 
 export const VenuePage: React.FC = () => {
@@ -42,6 +52,8 @@ export const VenuePage: React.FC = () => {
         staff_count: 0,
         visitors_per_day: 0,
         address: '',
+        sanitary_level: 'medium',
+        intensity_level: 'medium',
     });
 
     const fetchVenues = useCallback(async () => {
@@ -86,6 +98,8 @@ export const VenuePage: React.FC = () => {
                     staff_count: 0,
                     visitors_per_day: 0,
                     address: '',
+                    sanitary_level: 'medium',
+                    intensity_level: 'medium',
                 });
             } else {
                 toast.error(res.error?.message || 'Ошибка при сохранении заведения');
@@ -125,6 +139,8 @@ export const VenuePage: React.FC = () => {
             staff_count: venue.staff_count,
             visitors_per_day: venue.visitors_per_day,
             address: venue.address || '',
+            sanitary_level: venue.sanitary_level || 'medium',
+            intensity_level: venue.intensity_level || 'medium',
         });
         setIsModalOpen(true);
     };
@@ -152,6 +168,8 @@ export const VenuePage: React.FC = () => {
                             staff_count: 0,
                             visitors_per_day: 0,
                             address: '',
+                            sanitary_level: 'medium',
+                            intensity_level: 'medium',
                         });
                         setIsModalOpen(true);
                     }}
@@ -305,21 +323,16 @@ export const VenuePage: React.FC = () => {
                                         onChange={(e) =>
                                             setFormData({
                                                 ...formData,
-                                                type: e.target.value as
-                                                    | 'restaurant'
-                                                    | 'cafe'
-                                                    | 'bar'
-                                                    | 'hotel'
-                                                    | 'other',
+                                                type: e.target.value as CreateVenueData['type'],
                                             })
                                         }
                                         className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all appearance-none"
                                     >
-                                        <option value="restaurant">Ресторан</option>
-                                        <option value="cafe">Кафе</option>
-                                        <option value="bar">Бар</option>
-                                        <option value="hotel">Отель</option>
-                                        <option value="other">Другое</option>
+                                        {OBJECT_TYPES.map((t) => (
+                                            <option key={t.value} value={t.value}>
+                                                {t.label}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -372,6 +385,50 @@ export const VenuePage: React.FC = () => {
                                         }
                                         className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all"
                                     />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest ml-1">
+                                        Сан. уровень
+                                    </label>
+                                    <select
+                                        value={formData.sanitary_level}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                sanitary_level: e.target.value,
+                                            })
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all appearance-none"
+                                    >
+                                        {SANITARY_LEVELS.map((l) => (
+                                            <option key={l.value} value={l.value}>
+                                                {l.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest ml-1">
+                                        Нагрузка
+                                    </label>
+                                    <select
+                                        value={formData.intensity_level}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                intensity_level: e.target.value,
+                                            })
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all appearance-none"
+                                    >
+                                        {INTENSITY_LEVELS.map((l) => (
+                                            <option key={l.value} value={l.value}>
+                                                {l.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 

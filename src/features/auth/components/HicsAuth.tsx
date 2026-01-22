@@ -28,7 +28,15 @@ interface HicsAuthProps {
 
 export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => {
     const navigate = useNavigate();
-    const { login, register, resetPassword, updatePassword, setIsRecoveryFlow, logout } = useAuth();
+    const {
+        login,
+        register,
+        resetPassword,
+        updatePassword,
+        setIsRecoveryFlow,
+        logout,
+        setIsAuthenticated,
+    } = useAuth();
 
     const [mode, setMode] = React.useState<AuthMode>(initialMode);
     const [loading, setLoading] = React.useState(false);
@@ -88,7 +96,7 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
     // Обработка экранов успеха
     if (mode === 'reset-success') {
         return (
-            <AuthLayout title="Пароль изменен" subtitle="Теперь вы можете войти с новыми данными">
+            <AuthLayout>
                 <SuccessView
                     type="reset-complete"
                     onContinue={async () => {
@@ -103,18 +111,27 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
 
     if (mode === 'success-login') {
         return (
-            <AuthLayout title="Успешно!">
-                <SuccessView type="login" onContinue={() => navigate(ROUTES.DASHBOARD.ROOT)} />
+            <AuthLayout>
+                <SuccessView
+                    type="login"
+                    onContinue={() => {
+                        setIsAuthenticated(true);
+                        navigate(ROUTES.DASHBOARD.ROOT);
+                    }}
+                />
             </AuthLayout>
         );
     }
 
     if (mode === 'success-register') {
         return (
-            <AuthLayout title="Добро пожаловать! 🎉">
+            <AuthLayout>
                 <SuccessView
                     type="registration"
-                    onContinue={() => navigate(ROUTES.DASHBOARD.ROOT)}
+                    onContinue={() => {
+                        setIsAuthenticated(true);
+                        navigate(ROUTES.DASHBOARD.ROOT);
+                    }}
                 />
             </AuthLayout>
         );
@@ -122,7 +139,7 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
 
     if (mode === 'forgot-success') {
         return (
-            <AuthLayout title="Инструкции отправлены">
+            <AuthLayout>
                 <SuccessView type="reset-request" onContinue={() => setMode('login')} />
             </AuthLayout>
         );
@@ -215,18 +232,5 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
         }
     };
 
-    const titles = {
-        register: { t: 'Регистрация', s: 'Начните пользоваться сервисом бесплатно.' },
-        'forgot-password': { t: 'Восстановление', s: 'Мы поможем вернуть доступ' },
-        'reset-password': { t: 'Новый пароль', s: 'Придумайте надежный пароль' },
-        login: { t: 'Вход в систему', s: '' },
-    };
-
-    const meta = titles[mode as keyof typeof titles] || titles.login;
-
-    return (
-        <AuthLayout title={meta.t} subtitle={meta.s}>
-            {renderForm()}
-        </AuthLayout>
-    );
+    return <AuthLayout>{renderForm()}</AuthLayout>;
 };

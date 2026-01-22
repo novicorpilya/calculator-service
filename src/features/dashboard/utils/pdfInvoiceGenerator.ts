@@ -9,7 +9,8 @@ const COMPANY_REQUISITES = {
     account: '40702810310001362623',
 };
 
-const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf';
+const FONT_URL =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf';
 
 /**
  * Remove emojis and characters that break standard PDF encoding
@@ -17,7 +18,10 @@ const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Ro
 const cleanForPDF = (text: string = ''): string => {
     return text
         .toString()
-        .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+        .replace(
+            /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g,
+            ''
+        )
         .trim();
 };
 
@@ -45,7 +49,12 @@ const loadCyrillicFont = async (doc: JsPDFDocument) => {
         const response = await fetch(FONT_URL);
         if (response.ok) {
             const fontBuffer = await response.arrayBuffer();
-            const base64Font = btoa(new Uint8Array(fontBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+            const base64Font = btoa(
+                new Uint8Array(fontBuffer).reduce(
+                    (data, byte) => data + String.fromCharCode(byte),
+                    ''
+                )
+            );
             doc.addFileToVFS('Roboto.ttf', base64Font);
             doc.addFont('Roboto.ttf', 'Roboto', 'normal');
             doc.setFont('Roboto');
@@ -60,44 +69,83 @@ const loadCyrillicFont = async (doc: JsPDFDocument) => {
 const numberToWordsRussian = (n: number): string => {
     const s = [
         ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'],
-        ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'],
-        ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'],
-        ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот']
+        [
+            'десять',
+            'одиннадцать',
+            'двенадцать',
+            'тринадцать',
+            'четырнадцать',
+            'пятнадцать',
+            'шестнадцать',
+            'семнадцать',
+            'восемнадцать',
+            'девятнадцать',
+        ],
+        [
+            '',
+            '',
+            'двадцать',
+            'тридцать',
+            'сорок',
+            'пятьдесят',
+            'шестьдесят',
+            'семьдесят',
+            'восемьдесят',
+            'девяносто',
+        ],
+        [
+            '',
+            'сто',
+            'двести',
+            'триста',
+            'четыреста',
+            'пятьсот',
+            'шестьсот',
+            'семьсот',
+            'восемьсот',
+            'девятьсот',
+        ],
     ];
-    
-    const p = [['', '', ''], ['тысяча', 'тысячи', 'тысяч'], ['миллион', 'миллиона', 'миллионов'], ['миллиард', 'миллиарда', 'миллиардов']];
-    
+
+    const p = [
+        ['', '', ''],
+        ['тысяча', 'тысячи', 'тысяч'],
+        ['миллион', 'миллиона', 'миллионов'],
+        ['миллиард', 'миллиарда', 'миллиардов'],
+    ];
+
     if (n === 0) return 'Ноль рублей 00 копеек';
 
     let res = '';
     const rub = Math.floor(n);
     const kop = Math.round((n - rub) * 100);
-    
+
     const getWords = (num: number, idx: number) => {
         let w = '';
         const h = Math.floor(num / 100);
         const t = Math.floor((num % 100) / 10);
         const u = num % 10;
-        
+
         if (h > 0) w += s[3][h] + ' ';
         if (t === 1) w += s[1][u] + ' ';
         else {
             if (t > 1) w += s[2][t] + ' ';
             if (u > 0) {
-                if (idx === 1) { // Thousand special case
+                if (idx === 1) {
+                    // Thousand special case
                     if (u === 1) w += 'одна ';
                     else if (u === 2) w += 'две ';
                     else w += s[0][u] + ' ';
                 } else w += s[0][u] + ' ';
             }
         }
-        
+
         let p_idx = 2; // Default plural (5+)
         if (t !== 1) {
             if (u === 1) p_idx = 0;
             else if (u >= 2 && u <= 4) p_idx = 1;
         }
-        
+
         if (num > 0 || idx === 0) w += p[idx][p_idx] + ' ';
         return w;
     };
@@ -108,12 +156,12 @@ const numberToWordsRussian = (n: number): string => {
         parts.push(tempRub % 1000);
         tempRub = Math.floor(tempRub / 1000);
     }
-    
+
     for (let i = 3; i >= 0; i--) {
         if (parts[i] > 0) res += getWords(parts[i], i);
         else if (i === 0 && rub === 0) res += 'ноль ';
     }
-    
+
     // Ruble pluralization
     const last2 = rub % 100;
     const last1 = rub % 10;
@@ -122,19 +170,22 @@ const numberToWordsRussian = (n: number): string => {
         if (last1 === 1) r_text = 'рубль';
         else if (last1 >= 2 && last1 <= 4) r_text = 'рубля';
     }
-    
+
     res = res.trim();
     res = res.charAt(0).toUpperCase() + res.slice(1);
-    
+
     if (res === '') res = 'Ноль';
-    
+
     return `${res} ${r_text} ${kop.toString().padStart(2, '0')} копеек`;
 };
 
 /**
  * Stable INVOICE Generator - Redesigned to match the classic Russian Standard
  */
-export const generateInvoicePDF = async (entity: CalculationEntity, buyerInfo?: { organizationName?: string; inn?: string; address?: string }) => {
+export const generateInvoicePDF = async (
+    entity: CalculationEntity,
+    buyerInfo?: { organizationName?: string; inn?: string; address?: string }
+) => {
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
 
@@ -144,14 +195,19 @@ export const generateInvoicePDF = async (entity: CalculationEntity, buyerInfo?: 
         const margin = 14;
         const pageWidth = doc.internal.pageSize.getWidth();
         const invoiceNo = entity.id.toString().slice(0, 8).toUpperCase();
-        const dateStr = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        const dateStr = new Date().toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        });
 
         doc.setFont(hasRussian ? 'Roboto' : 'helvetica', 'normal');
 
         // 1. Attention header
         doc.setFontSize(8);
         doc.setTextColor(50);
-        const headerNote = 'Внимание! Оплата данного счета означает согласие с условиями поставки товара. Уведомление об оплате обязательно, в противном случае не гарантируется наличие товара на складе. Товар отпускается по факту прихода денег на р/с Поставщика.';
+        const headerNote =
+            'Внимание! Оплата данного счета означает согласие с условиями поставки товара. Уведомление об оплате обязательно, в противном случае не гарантируется наличие товара на складе. Товар отпускается по факту прихода денег на р/с Поставщика.';
         doc.text(headerNote, margin, 12, { maxWidth: pageWidth - margin * 2, align: 'justify' });
 
         // 2. Bank Requisites Table
@@ -159,21 +215,30 @@ export const generateInvoicePDF = async (entity: CalculationEntity, buyerInfo?: 
             startY: 20,
             body: [
                 [
-                    { content: COMPANY_REQUISITES.bank + ', г. Москва', rowSpan: 2, styles: { valign: 'top' } },
+                    {
+                        content: COMPANY_REQUISITES.bank + ', г. Москва',
+                        rowSpan: 2,
+                        styles: { valign: 'top' },
+                    },
                     'БИК',
-                    COMPANY_REQUISITES.bik
+                    COMPANY_REQUISITES.bik,
                 ],
                 ['Сч. №', COMPANY_REQUISITES.account],
                 [
                     `ИНН ${COMPANY_REQUISITES.inn}`,
                     `КПП ${COMPANY_REQUISITES.kpp}`,
                     { content: 'Сч. №', rowSpan: 2, styles: { valign: 'top' } },
-                    { content: COMPANY_REQUISITES.account, rowSpan: 2, styles: { valign: 'top' } }
+                    { content: COMPANY_REQUISITES.account, rowSpan: 2, styles: { valign: 'top' } },
                 ],
-                [{ content: COMPANY_REQUISITES.name, colSpan: 2 }, '']
+                [{ content: COMPANY_REQUISITES.name, colSpan: 2 }, ''],
             ],
             theme: 'grid',
-            styles: { font: hasRussian ? 'Roboto' : 'helvetica', fontSize: 8, cellPadding: 2, fontStyle: 'normal' },
+            styles: {
+                font: hasRussian ? 'Roboto' : 'helvetica',
+                fontSize: 8,
+                cellPadding: 2,
+                fontStyle: 'normal',
+            },
             tableWidth: pageWidth - margin * 2,
         });
 
@@ -187,9 +252,13 @@ export const generateInvoicePDF = async (entity: CalculationEntity, buyerInfo?: 
         // 4. Seller & Buyer details
         doc.setFontSize(10);
         const sellerText = `${COMPANY_REQUISITES.name}, ИНН ${COMPANY_REQUISITES.inn}, КПП ${COMPANY_REQUISITES.kpp}, г. Москва`;
-        
+
         // Priority: Passed buyerInfo > Entity Client Profile Data > Entity Basic Org Name
-        const buyerName = buyerInfo?.organizationName || entity.clientOrganizationName || entity.organizationName || 'Клиент';
+        const buyerName =
+            buyerInfo?.organizationName ||
+            entity.clientOrganizationName ||
+            entity.organizationName ||
+            'Клиент';
         const buyerINN = buyerInfo?.inn || entity.clientInn || '___________';
         const buyerAddr = buyerInfo?.address || entity.clientAddress || '___________';
 
@@ -201,56 +270,151 @@ export const generateInvoicePDF = async (entity: CalculationEntity, buyerInfo?: 
         doc.text('Покупатель:', margin, finalY + 20);
         doc.text(buyerText, margin + 25, finalY + 20, { maxWidth: pageWidth - margin - 30 });
 
-        // 5. Main Items Table
-        const tableData = entity.results?.summary.map((item, index) => {
+        // 5. Main Items Table & Adjustments
+        const adjustments = entity.managerAdjustments;
+        const globalMargin = Number(adjustments.global_margin) || 1.0;
+        const deliveryCost = Math.round(Number(adjustments.delivery_cost) || 0);
+        const serviceCost = Math.round(Number(adjustments.service_cost) || 0);
+
+        let runningTotal = 0;
+
+        const tableData = (entity.results?.summary || []).map((item, index) => {
             const qty = Math.ceil(item.quantity || 0);
-            const price = Math.round(item.price || 0);
-            const total = item.calculation?.annualBudget || (qty * price);
+            // Calculate adjusted unit price with 2 decimal places for better precision
+            const unitPrice = Math.round(item.price * globalMargin * 100) / 100;
+            const lineTotal = Math.round(unitPrice * qty);
+
+            runningTotal += lineTotal;
+
             return [
                 index + 1,
                 cleanForPDF(item.inventory || 'Товар'),
                 qty,
                 item.unit || 'шт.',
-                price.toLocaleString(),
-                Math.round(total).toLocaleString()
+                unitPrice.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }),
+                lineTotal.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }),
             ];
-        }) || [];
+        });
+
+        // Add Delivery row if present
+        if (deliveryCost > 0) {
+            runningTotal += deliveryCost;
+            tableData.push([
+                tableData.length + 1,
+                'Доставка и логистические услуги',
+                1,
+                'усл.',
+                deliveryCost.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }),
+                deliveryCost.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }),
+            ]);
+        }
+
+        // Add Extra Services row if present
+        if (serviceCost > 0) {
+            runningTotal += serviceCost;
+            tableData.push([
+                tableData.length + 1,
+                'Дополнительные услуги (сборка, монтаж, аудит)',
+                1,
+                'усл.',
+                serviceCost.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }),
+                serviceCost.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }),
+            ]);
+        }
 
         autoTable(doc, {
             startY: finalY + 30,
-            head: [['№', 'Наименование товара, работ, услуг', 'Коли-\nчество', 'Ед.\nизм.', 'Цена', 'Сумма']],
+            head: [
+                [
+                    '№',
+                    'Наименование товара, работ, услуг',
+                    'Коли-\nчество',
+                    'Ед.\nизм.',
+                    'Цена',
+                    'Сумма',
+                ],
+            ],
             body: tableData,
             theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'normal' },
-            styles: { font: hasRussian ? 'Roboto' : 'helvetica', fontSize: 8, cellPadding: 2, fontStyle: 'normal' },
-            columnStyles: { 
-                0: { cellWidth: 10 }, 
-                2: { cellWidth: 15, halign: 'right' }, 
-                3: { cellWidth: 12, halign: 'center' }, 
-                4: { cellWidth: 20, halign: 'right' }, 
-                5: { cellWidth: 25, halign: 'right' } 
-            }
+            headStyles: {
+                fillColor: [255, 255, 255],
+                textColor: [0, 0, 0],
+                lineWidth: 0.1,
+                fontStyle: 'normal',
+            },
+            styles: {
+                font: hasRussian ? 'Roboto' : 'helvetica',
+                fontSize: 8,
+                cellPadding: 2,
+                fontStyle: 'normal',
+            },
+            columnStyles: {
+                0: { cellWidth: 10 },
+                2: { cellWidth: 15, halign: 'right' },
+                3: { cellWidth: 12, halign: 'center' },
+                4: { cellWidth: 25, halign: 'right' },
+                5: { cellWidth: 30, halign: 'right' },
+            },
         });
 
         // 6. Totals section
         const totalY = (doc.lastAutoTable?.finalY || 0) + 5;
-        const totalAmount = entity.totalCost;
-        
+        const subTotal = runningTotal;
+        const vatAmount = Math.round(subTotal * 0.2);
+        const totalAmount = subTotal + vatAmount;
+
         doc.setFontSize(10);
         doc.text('Итого:', pageWidth - margin - 50, totalY, { align: 'right' });
-        doc.text(totalAmount.toLocaleString() + ',00', pageWidth - margin, totalY, { align: 'right' });
+        doc.text(
+            subTotal.toLocaleString('ru-RU', { minimumFractionDigits: 2 }),
+            pageWidth - margin,
+            totalY,
+            { align: 'right' }
+        );
 
-        doc.text('В том числе НДС (20%):', pageWidth - margin - 50, totalY + 5, { align: 'right' });
-        doc.text(Math.round(totalAmount * (20/120)).toLocaleString() + ',00', pageWidth - margin, totalY + 5, { align: 'right' });
+        doc.text('НДС (20%):', pageWidth - margin - 50, totalY + 5, { align: 'right' });
+        doc.text(
+            vatAmount.toLocaleString('ru-RU', { minimumFractionDigits: 2 }),
+            pageWidth - margin,
+            totalY + 5,
+            { align: 'right' }
+        );
 
         doc.setFontSize(11);
         doc.text('Всего к оплате:', pageWidth - margin - 50, totalY + 12, { align: 'right' });
-        doc.text(totalAmount.toLocaleString() + ',00', pageWidth - margin, totalY + 12, { align: 'right' });
+        doc.text(
+            totalAmount.toLocaleString('ru-RU', { minimumFractionDigits: 2 }),
+            pageWidth - margin,
+            totalY + 12,
+            { align: 'right' }
+        );
 
         // 7. Summary text & Signature
         const summaryY = totalY + 25;
         doc.setFontSize(9);
-        doc.text(`Всего наименований ${tableData.length}, на сумму ${totalAmount.toLocaleString()} руб.`, margin, summaryY);
+        doc.text(
+            `Всего наименований ${tableData.length}, на сумму ${totalAmount.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} руб.`,
+            margin,
+            summaryY
+        );
         doc.setFontSize(10);
         doc.text(numberToWordsRussian(totalAmount), margin, summaryY + 5);
         doc.line(margin, summaryY + 8, pageWidth - margin, summaryY + 8);
@@ -268,7 +432,7 @@ export const generateInvoicePDF = async (entity: CalculationEntity, buyerInfo?: 
         doc.circle(stampX, stampY, 18); // Outer Thick Circle
         doc.setLineWidth(0.5);
         doc.circle(stampX, stampY, 15); // Inner Thin Circle
-        
+
         doc.setFontSize(6);
         doc.setTextColor(33, 150, 243);
         doc.text('ОГРН 1157746566415', stampX, stampY - 8, { align: 'center' });
@@ -300,26 +464,43 @@ export const generateProposalPDF = async (entity: CalculationEntity) => {
         doc.setFontSize(22);
         doc.setTextColor(46, 125, 50); // Professional Green
         doc.text(hasRussian ? 'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ' : 'COMMERCIAL PROPOSAL', margin, 20);
-        
+
         doc.setFontSize(10);
         doc.setTextColor(100);
-        doc.text(`${hasRussian ? 'Объект:' : 'Client:'} ${cleanForPDF(entity.organizationName)}`, margin, 32);
+        doc.text(
+            `${hasRussian ? 'Объект:' : 'Client:'} ${cleanForPDF(entity.organizationName)}`,
+            margin,
+            32
+        );
 
-        const tableData = entity.results?.summary.map((item, index) => [
-            index + 1,
-            cleanForPDF(item.inventory || 'Supply'),
-            Math.ceil(item.quantity || 0),
-            item.unit || 'pcs',
-            `${Math.round(item.calculation?.annualBudget || 0).toLocaleString()} р.`
-        ]) || [];
+        const tableData =
+            entity.results?.summary.map((item, index) => [
+                index + 1,
+                cleanForPDF(item.inventory || 'Supply'),
+                Math.ceil(item.quantity || 0),
+                item.unit || 'pcs',
+                `${Math.round(item.calculation?.annualBudget || 0).toLocaleString()} р.`,
+            ]) || [];
 
         autoTable(doc, {
             startY: 40,
-            head: [[hasRussian ? '№' : '#', hasRussian ? 'Наименование' : 'Description', hasRussian ? 'Кол-во (год)' : 'Qty (year)', hasRussian ? 'Ед.' : 'Unit', hasRussian ? 'Бюджет в год' : 'Annual Budget']],
+            head: [
+                [
+                    hasRussian ? '№' : '#',
+                    hasRussian ? 'Наименование' : 'Description',
+                    hasRussian ? 'Кол-во (год)' : 'Qty (year)',
+                    hasRussian ? 'Ед.' : 'Unit',
+                    hasRussian ? 'Бюджет в год' : 'Annual Budget',
+                ],
+            ],
             body: tableData,
             theme: 'grid',
-            headStyles: { fillColor: [46, 125, 50], font: hasRussian ? 'Roboto' : 'helvetica', fontStyle: 'normal' },
-            styles: { font: hasRussian ? 'Roboto' : 'helvetica', fontSize: 9, fontStyle: 'normal' }
+            headStyles: {
+                fillColor: [46, 125, 50],
+                font: hasRussian ? 'Roboto' : 'helvetica',
+                fontStyle: 'normal',
+            },
+            styles: { font: hasRussian ? 'Roboto' : 'helvetica', fontSize: 9, fontStyle: 'normal' },
         });
 
         doc.save(`Proposal_${entity.organizationName.replace(/\s+/g, '_')}.pdf`);
@@ -327,4 +508,3 @@ export const generateProposalPDF = async (entity: CalculationEntity) => {
         console.error(e);
     }
 };
-

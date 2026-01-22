@@ -1,29 +1,54 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useMemo } from 'react';
 import { supabase } from '@/services/supabase';
+import { logger, type ILogger } from '@/core/logging';
+
+// Repositories
 import { ChatRepository } from '@/features/chat/repositories/ChatRepository';
+import { CalculationRepository } from '@/features/dashboard/repositories/CalculationRepository';
+import { FilterPresetRepository } from '@/features/dashboard/manager/repositories/FilterPresetRepository';
+
+// Services
 import { ChatService, type IChatService } from '@/features/chat/services/ChatService';
 import { BroadcastService } from '@/features/chat/services/BroadcastService';
-import { logger, type ILogger } from '@/core/logging';
-import { CalculationRepository } from '@/features/dashboard/repositories/CalculationRepository';
+import { PresenceService, type IPresenceService } from '@/features/chat/services/PresenceService';
 import {
     CalculationService,
     type ICalculationService,
 } from '@/features/dashboard/services/CalculationService';
-
-import { PresenceService, type IPresenceService } from '@/features/chat/services/PresenceService';
+import {
+    VersionService,
+    type IVersionService,
+} from '@/features/dashboard/manager/services/version.service';
 import { AuditLogService, type IAuditLogService } from '@/services/audit.service';
 import { AdminService, type IAdminService } from '@/services/admin.service';
 import { EmailService, type IEmailService } from '@/services/email.service';
 import { VenueService, type IVenueService } from '@/services/venue.service';
 import { InventoryService, type IInventoryService } from '@/services/inventory.service';
-import { SupplierService, type ISupplierService } from '@/services/supplier.service';
-import { InventoryAdminService, type IInventoryAdminService } from '@/services/inventory-admin.service';
-import { VersionService, type IVersionService } from '@/features/dashboard/manager/services/version.service';
-import { DocumentService, type IDocumentService } from '@/features/dashboard/manager/services/document.service';
-import { NotificationService, type INotificationService } from '@/features/dashboard/services/notification.service';
-import { ManagerDashboardService, type IManagerDashboardService } from '@/features/dashboard/manager/services/dashboard.service';
+import {
+    DocumentService,
+    type IDocumentService,
+} from '@/features/dashboard/manager/services/document.service';
+import {
+    NotificationService,
+    type INotificationService,
+} from '@/features/dashboard/services/notification.service';
+import {
+    ManagerDashboardService,
+    type IManagerDashboardService,
+} from '@/features/dashboard/manager/services/dashboard.service';
 import { ReviewService, type IReviewService } from '@/services/review.service';
+import {
+    FilterPresetService,
+    type IFilterPresetService,
+} from '@/features/dashboard/manager/services/FilterPresetService';
+import { SupplierService, type ISupplierService } from '@/services/supplier.service';
+import {
+    InventoryAdminService,
+    type IInventoryAdminService,
+} from '@/services/inventory-admin.service';
+import { ConfigService, type IConfigService } from '@/services/config.service';
+import { PartnerService, type IPartnerService } from '@/services/partner.service';
 
 interface IServiceContainer {
     chatService: IChatService;
@@ -35,114 +60,86 @@ interface IServiceContainer {
     emailService: IEmailService;
     venueService: IVenueService;
     inventoryService: IInventoryService;
-    supplierService: ISupplierService;
-    inventoryAdminService: IInventoryAdminService;
     versionService: IVersionService;
     documentService: IDocumentService;
     notificationService: INotificationService;
     managerDashboardService: IManagerDashboardService;
     reviewService: IReviewService;
+    filterPresetService: IFilterPresetService;
+    supplierService: ISupplierService;
+    inventoryAdminService: IInventoryAdminService;
+    configService: IConfigService;
+    partnerService: IPartnerService;
 }
 
 const ServiceContext = createContext<IServiceContainer | null>(null);
 
-interface ServiceProviderProps {
+/**
+ * ServiceContainer - Production Grade DI
+ * Provides explicit orchestration of dependencies.
+ */
+// Allow injection of mock services for testing
+export const ServiceProvider: React.FC<{
     children: React.ReactNode;
     services?: Partial<IServiceContainer>;
-}
+}> = ({ children, services }) => {
+    const container = useMemo<IServiceContainer>(() => {
+        // If full mock container is provided (e.g. in tests), return it combined with defaults if needed
+        // For partial mocks, we instantiate defaults and override
 
-export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, services }) => {
-    const container = useMemo(() => {
-        if (services) {
-            const activeLogger = services.logger || logger;
-            const chatRepo = new ChatRepository(supabase, activeLogger);
-            const broadcastService = new BroadcastService(supabase);
-            const presenceService = services.presenceService || new PresenceService(supabase);
-            const calculationRepo = new CalculationRepository(supabase, activeLogger);
-
-            const auditLogService = services.auditLogService || new AuditLogService(supabase);
-            const adminService =
-                services.adminService || new AdminService(supabase, auditLogService);
-            const emailService = services.emailService || new EmailService(supabase);
-            const venueService = services.venueService || new VenueService(supabase);
-            const inventoryService = services.inventoryService || new InventoryService(supabase);
-            const supplierService = services.supplierService || new SupplierService(supabase, auditLogService);
-            const inventoryAdminService = services.inventoryAdminService || new InventoryAdminService(supabase, auditLogService);
-            const versionService = services.versionService || new VersionService(supabase);
-            const documentService = services.documentService || new DocumentService(supabase);
-            const notificationService = services.notificationService || new NotificationService(supabase);
-            const managerDashboardService = services.managerDashboardService || new ManagerDashboardService(supabase);
-            const reviewService = services.reviewService || new ReviewService(supabase);
-
-            const chatService = services.chatService || new ChatService(chatRepo, broadcastService);
-            const calculationService =
-                services.calculationService || new CalculationService(calculationRepo);
-
-            return {
-                chatService,
-                presenceService,
-                logger: activeLogger,
-                calculationService,
-                auditLogService,
-                adminService,
-                emailService,
-                venueService,
-                inventoryService,
-                supplierService,
-                inventoryAdminService,
-                versionService,
-                documentService,
-                notificationService,
-                managerDashboardService,
-                reviewService,
-                ...services,
-            } as IServiceContainer;
-        }
-
-        // Infrastructure Layer
+        // 1. Infrastructure Layer
         const chatRepo = new ChatRepository(supabase, logger);
-        const broadcastService = new BroadcastService(supabase);
-        const presenceService = new PresenceService(supabase);
-        const calculationRepo = new CalculationRepository(supabase, logger);
+        const broadcast = new BroadcastService(supabase);
+        const presence = new PresenceService(supabase);
+        const calcRepo = new CalculationRepository(supabase, logger);
+        const filterRepo = new FilterPresetRepository(supabase);
 
-        // Application Layer
-        const auditLogService = new AuditLogService(supabase);
-        const adminService = new AdminService(supabase, auditLogService);
-        const emailService = new EmailService(supabase);
+        // 2. Cross-cutting / Infrastructure Services
+        const audit = new AuditLogService(supabase);
+        const email = new EmailService(supabase);
+        const config = new ConfigService(supabase);
 
-        const chatService = new ChatService(chatRepo, broadcastService);
-        const venueService = new VenueService(supabase);
-        const inventoryService = new InventoryService(supabase);
-        const supplierService = new SupplierService(supabase, auditLogService);
-        const inventoryAdminService = new InventoryAdminService(supabase, auditLogService);
-        // Manager Services
-        const versionService = new VersionService(supabase);
-        const documentService = new DocumentService(supabase);
-        const notificationService = new NotificationService(supabase);
-        const managerDashboardService = new ManagerDashboardService(supabase);
-        const reviewService = new ReviewService(supabase);
+        // 3. Application Services
+        const chat = new ChatService(chatRepo, broadcast);
+        const version = new VersionService(supabase);
+        const calculation = new CalculationService(calcRepo, version, config);
 
-        // CalculationService - only needs repository
-        const calculationService = new CalculationService(calculationRepo);
+        const admin = new AdminService(supabase, audit);
+        const venue = new VenueService(supabase);
+        const inventory = new InventoryService(supabase);
+        const supplier = new SupplierService(supabase, audit);
+        const inventoryAdmin = new InventoryAdminService(supabase, audit);
+        const partner = new PartnerService(supabase);
 
-        return {
-            chatService,
-            presenceService,
+        const document = new DocumentService(supabase);
+        const notification = new NotificationService(supabase);
+        const managerDashboard = new ManagerDashboardService(supabase);
+        const review = new ReviewService(supabase);
+        const filterPreset = new FilterPresetService(filterRepo);
+
+        const defaultServices = {
+            chatService: chat,
+            presenceService: presence,
             logger,
-            calculationService,
-            auditLogService,
-            adminService,
-            emailService,
-            venueService,
-            inventoryService,
-            supplierService,
-            inventoryAdminService,
-            versionService,
-            documentService,
-            notificationService,
-            managerDashboardService,
-            reviewService,
+            calculationService: calculation,
+            auditLogService: audit,
+            adminService: admin,
+            emailService: email,
+            venueService: venue,
+            inventoryService: inventory,
+            versionService: version,
+            documentService: document,
+            notificationService: notification,
+            managerDashboardService: managerDashboard,
+            reviewService: review,
+            filterPresetService: filterPreset,
+            supplierService: supplier,
+            inventoryAdminService: inventoryAdmin,
+            configService: config,
+            partnerService: partner,
         };
+
+        return { ...defaultServices, ...services };
     }, [services]);
 
     return <ServiceContext.Provider value={container}>{children}</ServiceContext.Provider>;
@@ -150,8 +147,6 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children, serv
 
 export const useServices = () => {
     const context = useContext(ServiceContext);
-    if (!context) {
-        throw new Error('useServices must be used within a ServiceProvider');
-    }
+    if (!context) throw new Error('useServices must be used within a ServiceProvider');
     return context;
 };

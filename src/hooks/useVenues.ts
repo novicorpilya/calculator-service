@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { useServices } from '@/app/di/ServiceContainer';
 import { type Venue } from '@/services/venue.service';
 
-export function useVenues() {
+export function useVenues(options?: Partial<UseQueryOptions<Venue[]>>) {
     const { venueService } = useServices();
 
     return useQuery<Venue[]>({
@@ -15,5 +15,6 @@ export function useVenues() {
             return result.data;
         },
         staleTime: 1000 * 60 * 30, // 30 minutes
+        ...options,
     });
 }

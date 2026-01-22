@@ -1,13 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging';
-import {
-    AlertTriangle,
-    LayoutGrid,
-    ListFilter,
-    PieChart,
-    MessageSquare
-} from 'lucide-react';
+import { AlertTriangle, LayoutGrid, ListFilter, PieChart, MessageSquare } from 'lucide-react';
 import {
     type Calculation,
     type CalculationStatus,
@@ -85,16 +79,17 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
         );
         const canSeePrices = user?.role === 'manager' || user?.role === 'admin' || isFinancialStage;
 
-        // Metrics
-        const totalCost = entity.totalCost;
-        const totalUnits = entity.totalItems;
-
         // Custom Hooks
-        const { messages, loadingMessages, sendMessage, sendVoice, markAsRead } =
-            useProjectChat(entity, user);
+        const { messages, loadingMessages, sendMessage, sendVoice, markAsRead } = useProjectChat(
+            entity,
+            user
+        );
 
         useEffect(() => {
-            if (messages.length > 0 && messages.some(m => !m.is_read && m.sender_id !== user?.id)) {
+            if (
+                messages.length > 0 &&
+                messages.some((m) => !m.is_read && m.sender_id !== user?.id)
+            ) {
                 markAsRead();
             }
         }, [messages, markAsRead, user?.id]);
@@ -134,14 +129,27 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 <AlertTriangle size={36} />
                             </div>
                             <div className="space-y-3">
-                                <h3 className="text-2xl font-black tracking-tight">Удалить проект?</h3>
+                                <h3 className="text-2xl font-black tracking-tight">
+                                    Удалить проект?
+                                </h3>
                                 <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] leading-relaxed italic">
-                                    Это действие безвозвратно удалит расчет «{entity.organizationName}»
+                                    Это действие безвозвратно удалит расчет «
+                                    {entity.organizationName}»
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3">
-                                <button onClick={() => onDelete(entity.id)} className="btn-premium !bg-red-500 !text-white border-none">Удалить</button>
-                                <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 hover:text-foreground transition-colors">Отмена</button>
+                                <button
+                                    onClick={() => onDelete(entity.id)}
+                                    className="btn-premium !bg-red-500 !text-white border-none"
+                                >
+                                    Удалить
+                                </button>
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] text-foreground/50 hover:text-foreground transition-colors"
+                                >
+                                    Отмена
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -168,15 +176,24 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                 <div className="flex flex-col lg:flex-row gap-8 items-start">
                     {/* --- MAIN CONTENT AREA --- */}
                     <div className="w-full lg:flex-1 space-y-8 min-w-0">
-
-                        {(entity.canSubmitPayment() || entity.isPaymentSent() || (entity.isPaid() && calculation.receipt_path)) && (
+                        {(entity.canSubmitPayment() ||
+                            entity.isPaymentSent() ||
+                            (entity.isPaid() && calculation.receipt_path)) && (
                             <PaymentStatusView
                                 calculation={calculation}
-                                userRole={(user?.role ?? 'client') as 'client' | 'manager' | 'admin'}
+                                userRole={
+                                    (user?.role ?? 'client') as 'client' | 'manager' | 'admin'
+                                }
                                 onUploadReceipt={async (file: File) => {
-                                    const res = await calculationService.uploadReceipt(entity.id, file, entity.userId || user?.id || '');
+                                    const res = await calculationService.uploadReceipt(
+                                        entity.id,
+                                        file,
+                                        entity.userId || user?.id || ''
+                                    );
                                     if (res.success && res.data) {
-                                        await onUpdateStatus(entity.id, 'payment_review', { receipt_path: res.data });
+                                        await onUpdateStatus(entity.id, 'payment_review', {
+                                            receipt_path: res.data,
+                                        });
                                     } else {
                                         toast.error(res.error?.message || 'Ошибка загрузки чека');
                                     }
@@ -189,39 +206,48 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                         </div>
 
                         {/* TABS NAVIGATION */}
-                        <div className="flex items-center p-1.5 bg-foreground/5 rounded-2xl w-fit">
-                            {[
-                                { id: 'inventory', icon: ListFilter, label: 'Спецификация' },
-                                { id: 'zones', icon: LayoutGrid, label: 'Зоны' },
-                                { id: 'analytics', icon: PieChart, label: 'Аналитика и Чат' }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as TabType)}
-                                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id
-                                        ? 'bg-card text-primary shadow-sm'
-                                        : 'text-foreground/40 hover:text-foreground/60'
+                        <div className="overflow-x-auto scrollbar-hide -mx-2 px-2">
+                            <div className="flex items-center p-1.5 bg-foreground/5 rounded-2xl w-fit min-w-max">
+                                {[
+                                    { id: 'inventory', icon: ListFilter, label: 'Спецификация' },
+                                    { id: 'zones', icon: LayoutGrid, label: 'Зоны' },
+                                    { id: 'analytics', icon: PieChart, label: 'Аналитика' },
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id as TabType)}
+                                        className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                                            activeTab === tab.id
+                                                ? 'bg-card text-primary shadow-sm'
+                                                : 'text-foreground/40 hover:text-foreground/60'
                                         }`}
-                                >
-                                    <tab.icon size={14} />
-                                    <span>{tab.label}</span>
-                                </button>
-                            ))}
+                                    >
+                                        <tab.icon size={14} />
+                                        <span>{tab.label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div
+                            key={activeTab}
+                            className="animate-in fade-in slide-in-from-top-2 duration-300"
+                        >
                             {activeTab === 'inventory' && entity.results && (
                                 <div className="space-y-6">
-                                    {isAuditMode && (user?.role === 'manager' || user?.role === 'admin') && (
-                                        <AuditPricingPanel vm={vm} entity={entity} onUpdateAdjustments={handleUpdateAdjustments} />
-                                    )}
+                                    {isAuditMode &&
+                                        (user?.role === 'manager' || user?.role === 'admin') && (
+                                            <AuditPricingPanel
+                                                vm={vm}
+                                                entity={entity}
+                                                onUpdateAdjustments={handleUpdateAdjustments}
+                                            />
+                                        )}
                                     <CalculationInventoryList
                                         vm={vm}
                                         user={user}
                                         isAuditMode={isAuditMode}
                                         canSeePrices={canSeePrices}
-                                        totalCost={totalCost}
-                                        totalUnits={totalUnits}
                                         onSetAuditItemIndex={setAuditItemIndex}
                                         onRemoveItem={handleRemoveItem}
                                     />
@@ -234,8 +260,17 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
 
                             {activeTab === 'analytics' && (
                                 <div className="space-y-8">
-                                    {(entity.status === 'expert' || entity.status === 'revision') && <CalculationExpertiseInfo />}
-                                    <ErrorBoundary fallback={<div className="glass-card p-12 text-center opacity-40 uppercase font-black tracking-widest text-[10px]">Чат временно недоступен</div>}>
+                                    {(entity.status === 'expert' ||
+                                        entity.status === 'revision') && (
+                                        <CalculationExpertiseInfo />
+                                    )}
+                                    <ErrorBoundary
+                                        fallback={
+                                            <div className="glass-card p-12 text-center opacity-40 uppercase font-black tracking-widest text-[10px]">
+                                                Чат временно недоступен
+                                            </div>
+                                        }
+                                    >
                                         <ProjectChatSection
                                             messages={messages}
                                             loadingMessages={loadingMessages}
@@ -258,7 +293,11 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                                 onAssign={onAssign}
                                 isAuditMode={isAuditMode}
                                 setIsAuditMode={setIsAuditMode}
-                                onDelete={setShowDeleteConfirm ? () => setShowDeleteConfirm(true) : undefined}
+                                onDelete={
+                                    setShowDeleteConfirm
+                                        ? () => setShowDeleteConfirm(true)
+                                        : undefined
+                                }
                                 userId={user?.id || ''}
                             />
 
@@ -285,7 +324,11 @@ export const ClientCalculationDetails = React.memo<ClientCalculationDetailsProps
                             else handleProductSelect(master);
                         }}
                         catalog={catalog}
-                        currentItem={auditItemIndex === -1 ? undefined : entity.results.summary[auditItemIndex]}
+                        currentItem={
+                            auditItemIndex === -1
+                                ? undefined
+                                : entity.results.summary[auditItemIndex]
+                        }
                     />
                 )}
             </div>

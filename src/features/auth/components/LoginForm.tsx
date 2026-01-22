@@ -112,7 +112,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                     </div>
-                    <label 
+                    <label
                         htmlFor="rememberMe"
                         className="text-[10px] font-black text-foreground/40 uppercase tracking-widest cursor-pointer hover:text-foreground/60 transition-colors"
                     >
@@ -124,11 +124,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <button
                 type="submit"
                 disabled={loading || !isValid}
-                className="btn-premium w-full !text-[12px] py-6 group"
+                className="btn-premium w-full !text-[10px] sm:!text-[12px] py-4 sm:py-6 group"
             >
                 <span className="relative z-10">{loading ? 'Вход...' : 'Войти в систему'}</span>
                 {!loading && (
-                    <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative z-10 transition-transform group-hover:translate-x-1" />
                 )}
             </button>
 

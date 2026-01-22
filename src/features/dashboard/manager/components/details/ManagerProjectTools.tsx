@@ -14,19 +14,25 @@ import {
     AlertCircle,
     CheckCircle,
     X,
-    Archive
+    Archive,
 } from 'lucide-react';
 import { type Calculation, type CalculationStatus } from '../../../dashboard.types';
 import { VersionHistoryModal } from './VersionHistoryModal';
 import { ProjectTimeline } from './ProjectTimeline';
 import { toast } from 'sonner';
 import { useServices } from '@/app/di/ServiceContainer';
-import { generateInvoicePDF, generateProposalPDF } from '../../../utils/pdfInvoiceGenerator';
+import { generateInvoicePDF } from '../../../utils/pdfInvoiceGenerator';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
+
+import { SnapshotReasonModal } from './SnapshotReasonModal';
 
 interface ManagerProjectToolsProps {
     calculation: Calculation;
-    onUpdateStatus: (id: string | number, status: CalculationStatus, additional?: Partial<Calculation>) => void;
+    onUpdateStatus: (
+        id: string | number,
+        status: CalculationStatus,
+        additional?: Partial<Calculation>
+    ) => void;
     onAssign?: (id: string | number) => void;
     isAuditMode: boolean;
     setIsAuditMode: (val: boolean) => void;
@@ -44,10 +50,12 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
     setIsAuditMode,
     onDelete,
     userId,
-    userRole
+    userRole,
 }) => {
     const { versionService, documentService } = useServices();
     const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
+    const [isReasonModalOpen, setIsReasonModalOpen] = useState(false);
+    const [suggestedReason, setSuggestedReason] = useState('');
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
     const [showValidationDetails, setShowValidationDetails] = useState(false);
     const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
@@ -61,11 +69,29 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
     const isAssigned = entity.isAssignedTo(userId);
     const isAdmin = userRole === 'admin';
 
-    const handleCreateSnapshot = async () => {
+    const handleOpenSnapshotDialog = async () => {
+        // Fetch latest version to calculate diff
+        const res = await versionService.getVersions(String(calculation.id));
+        const latest = res.success && res.data && res.data.length > 0 ? res.data[0] : null;
+
+        const summary = entity.getDiffSummary(latest?.snapshot_data as Partial<Calculation>);
+        setSuggestedReason(summary);
+        setIsReasonModalOpen(true);
+    };
+
+    const handleCreateSnapshot = async (reason: string) => {
+        setIsReasonModalOpen(false);
+        // Use full snapshot format consistent with expert adjustments
+        const snapshotData = {
+            results: calculation.results,
+            adjustments: calculation.manager_adjustments,
+            total_cost: entity.totalCost,
+        };
+
         const res = await versionService.createSnapshot(
             String(calculation.id),
-            calculation.results as unknown as Record<string, unknown>,
-            'Ручной снимок перед обновлением статуса'
+            snapshotData as unknown as Record<string, unknown>,
+            reason || suggestedReason
         );
         if (res.success) {
             toast.success('Снимок создан');
@@ -74,29 +100,25 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
         }
     };
 
-    const handleGenerateDoc = async (type: 'kp' | 'invoice') => {
+    const handleGenerateDoc = async (type: 'invoice') => {
         setGeneratingDoc(type);
         try {
-            if (type === 'invoice') {
-                await generateInvoicePDF(entity);
-            } else {
-                await generateProposalPDF(entity);
-            }
+            await generateInvoicePDF(entity);
 
             const res = await documentService.registerDocument({
                 calculation_id: String(calculation.id),
                 type,
-                file_name: `${type.toUpperCase()}_${calculation.project_number}.pdf`,
-                file_path: `/storage/docs/${type}/${calculation.id}.pdf`,
-                metadata: { generatedAt: new Date().toISOString() }
+                file_name: `INVOICE_${calculation.project_number}.pdf`,
+                file_path: `/storage/docs/invoice/${calculation.id}.pdf`,
+                metadata: { generatedAt: new Date().toISOString() },
             });
 
             if (res.success) {
-                toast.success(`${type.toUpperCase()} готов`);
+                toast.success(`Счет готов`);
             }
         } catch (error) {
             console.error('PDF Generation Error', error);
-            toast.error(`Ошибка PDF`);
+            toast.error(`Ошибка генерации счета`);
         }
         setGeneratingDoc(null);
     };
@@ -108,15 +130,24 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
     };
 
     return (
-        <div className="flex flex-col gap-4 w-full sticky top-4 animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="flex flex-col gap-4 w-full lg:sticky lg:top-4 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* --- COMPACT STATUS BAR --- */}
             <div className="grid grid-cols-2 gap-3">
-                <div className={`p-4 rounded-3xl border bg-card/40 backdrop-blur-sm relative overflow-hidden transition-all ${isOverdue ? 'border-red-500/30 ring-1 ring-red-500/10' : 'border-border-theme'}`}>
+                <div
+                    className={`p-4 rounded-3xl border bg-card/40 backdrop-blur-sm relative overflow-hidden transition-all ${isOverdue ? 'border-red-500/30 ring-1 ring-red-500/10' : 'border-border-theme'}`}
+                >
                     <div className="flex items-center gap-2 mb-2">
-                        <Timer size={14} className={isOverdue ? 'text-red-500 animate-pulse' : 'text-primary'} />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-foreground/40">SLA</span>
+                        <Timer
+                            size={14}
+                            className={isOverdue ? 'text-red-500 animate-pulse' : 'text-primary'}
+                        />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-foreground/40">
+                            SLA
+                        </span>
                     </div>
-                    <p className={`text-xs font-black uppercase italic ${isOverdue ? 'text-red-500' : 'text-emerald-500'}`}>
+                    <p
+                        className={`text-xs font-black uppercase italic ${isOverdue ? 'text-red-500' : 'text-emerald-500'}`}
+                    >
                         {isOverdue ? 'Истек' : 'Ок'}
                     </p>
                 </div>
@@ -124,9 +155,13 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                 <div className="p-4 rounded-3xl border border-border-theme bg-card/40 backdrop-blur-sm relative overflow-hidden">
                     <div className="flex items-center gap-2 mb-2">
                         <ShieldCheck size={14} className="text-indigo-500" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-foreground/40">Аудит</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-foreground/40">
+                            Аудит
+                        </span>
                     </div>
-                    <p className={`text-xs font-black italic ${statusColors[report.status].split(' ')[0]}`}>
+                    <p
+                        className={`text-xs font-black italic ${statusColors[report.status].split(' ')[0]}`}
+                    >
                         {report.score}%
                     </p>
                 </div>
@@ -135,7 +170,9 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
             {/* --- CORE LIFECYCLE ACTIONS --- */}
             <div className="glass-card !p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-foreground/30 italic">Этап проекта</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-foreground/50 italic">
+                        Этап проекта
+                    </p>
                     {report.messages.length > 0 && (
                         <button
                             onClick={() => setShowValidationDetails(!showValidationDetails)}
@@ -171,7 +208,9 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                                         <ShieldCheck size={16} />
                                         <span>{isAuditMode ? 'Стоп Аудит' : 'Аудит сметы'}</span>
                                     </div>
-                                    {isAuditMode && <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+                                    {isAuditMode && (
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                    )}
                                 </button>
                             )}
 
@@ -191,13 +230,22 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                                     <button
                                         disabled={!report.isValid || currentStatus === 'changes'}
                                         onClick={() => onUpdateStatus(calculation.id, 'invoice')}
-                                        className={`w-full flex items-center gap-3 p-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${currentStatus === 'changes'
-                                            ? 'bg-foreground/5 text-foreground/30 cursor-not-allowed border border-foreground/10'
-                                            : 'bg-emerald-500 text-white hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50'
-                                            }`}
+                                        className={`w-full flex items-center gap-3 p-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                            currentStatus === 'changes'
+                                                ? 'bg-foreground/5 text-foreground/50 cursor-not-allowed border border-foreground/10'
+                                                : 'bg-emerald-500 text-white hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50'
+                                        }`}
                                     >
-                                        {currentStatus === 'changes' ? <Timer size={16} /> : <CheckCircle size={16} />}
-                                        <span>{currentStatus === 'changes' ? 'Ждем клиента' : 'Выставить счет'}</span>
+                                        {currentStatus === 'changes' ? (
+                                            <Timer size={16} />
+                                        ) : (
+                                            <CheckCircle size={16} />
+                                        )}
+                                        <span>
+                                            {currentStatus === 'changes'
+                                                ? 'Ждем клиента'
+                                                : 'Выставить счет'}
+                                        </span>
                                     </button>
                                 )}
 
@@ -210,7 +258,9 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                                             <CheckCircle2 size={14} /> Оплата OK
                                         </button>
                                         <button
-                                            onClick={() => onUpdateStatus(calculation.id, 'payment_rejected')}
+                                            onClick={() =>
+                                                onUpdateStatus(calculation.id, 'payment_rejected')
+                                            }
                                             className="flex items-center justify-center gap-2 p-3.5 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-black text-[9px] uppercase tracking-widest hover:bg-red-500/20 transition-all"
                                         >
                                             <X size={14} /> Нет
@@ -230,7 +280,9 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
 
                                 {currentStatus === 'processing' && (
                                     <button
-                                        onClick={() => onUpdateStatus(calculation.id, 'sent_to_warehouse')}
+                                        onClick={() =>
+                                            onUpdateStatus(calculation.id, 'sent_to_warehouse')
+                                        }
                                         className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-violet-600 text-white font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-violet-500/20 transition-all"
                                     >
                                         <Package size={16} />
@@ -296,8 +348,12 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                     <div className="p-4 bg-red-500/5 rounded-2xl border border-red-500/10 space-y-2 animate-in slide-in-from-top-2 duration-300">
                         {report.messages.map((msg, i) => (
                             <div key={i} className="flex gap-2 items-start">
-                                <div className={`w-1 h-1 rounded-full shrink-0 mt-1.5 ${msg.type === 'error' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                                <p className="text-[9px] font-bold text-foreground/50 uppercase leading-relaxed">{msg.text}</p>
+                                <div
+                                    className={`w-1 h-1 rounded-full shrink-0 mt-1.5 ${msg.type === 'error' ? 'bg-red-500' : 'bg-amber-500'}`}
+                                />
+                                <p className="text-[9px] font-bold text-foreground/50 uppercase leading-relaxed">
+                                    {msg.text}
+                                </p>
                             </div>
                         ))}
                     </div>
@@ -307,37 +363,40 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
             {/* --- UTILITIES GRID --- */}
             <div className="grid grid-cols-2 gap-2">
                 <button
-                    onClick={handleCreateSnapshot}
+                    onClick={handleOpenSnapshotDialog}
                     className="group p-4 rounded-2xl bg-card border border-border-theme hover:border-primary/40 transition-all text-left space-y-2"
                 >
-                    <History size={14} className="text-primary group-hover:rotate-12 transition-transform" />
-                    <p className="text-[8px] font-black text-foreground/40 uppercase tracking-widest leading-none">Snapshot</p>
+                    <History
+                        size={14}
+                        className="text-primary group-hover:rotate-12 transition-transform"
+                    />
+                    <p className="text-[8px] font-black text-foreground/40 uppercase tracking-widest leading-none">
+                        Snapshot
+                    </p>
                 </button>
 
                 <button
                     onClick={() => setIsVersionModalOpen(true)}
                     className="group p-4 rounded-2xl bg-card border border-border-theme hover:border-indigo-500/40 transition-all text-left space-y-2"
                 >
-                    <Zap size={14} className="text-indigo-500 group-hover:-rotate-12 transition-transform" />
-                    <p className="text-[8px] font-black text-foreground/40 uppercase tracking-widest leading-none">History</p>
-                </button>
-
-                <button
-                    disabled={generatingDoc === 'kp'}
-                    onClick={() => handleGenerateDoc('kp')}
-                    className="group p-4 rounded-2xl bg-card border border-border-theme hover:border-amber-500/40 transition-all text-left space-y-2 disabled:opacity-50"
-                >
-                    <FileText size={14} className="text-amber-500" />
-                    <p className="text-[8px] font-black text-foreground/40 uppercase tracking-widest leading-none italic">КП (PDF)</p>
+                    <Zap
+                        size={14}
+                        className="text-indigo-500 group-hover:-rotate-12 transition-transform"
+                    />
+                    <p className="text-[8px] font-black text-foreground/40 uppercase tracking-widest leading-none">
+                        History
+                    </p>
                 </button>
 
                 <button
                     disabled={generatingDoc === 'invoice'}
                     onClick={() => handleGenerateDoc('invoice')}
-                    className="group p-4 rounded-2xl bg-card border border-border-theme hover:border-blue-500/40 transition-all text-left space-y-2 disabled:opacity-50"
+                    className="col-span-2 group p-4 rounded-2xl bg-primary/5 border border-primary/20 hover:border-primary transition-all text-left space-y-2 disabled:opacity-50"
                 >
-                    <FileText size={14} className="text-blue-500" />
-                    <p className="text-[8px] font-black text-foreground/40 uppercase tracking-widest leading-none italic">Счет (PDF)</p>
+                    <FileText size={14} className="text-primary" />
+                    <p className="text-[8px] font-black text-primary/60 uppercase tracking-widest leading-none italic">
+                        Выставить счёт (PDF)
+                    </p>
                 </button>
             </div>
 
@@ -350,7 +409,10 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                     <Activity size={14} />
                     <span className="text-[9px] font-black uppercase tracking-widest">События</span>
                 </div>
-                <ChevronDown size={14} className={`transition-transform duration-300 text-foreground/20 ${isTimelineOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                    size={14}
+                    className={`transition-transform duration-300 text-foreground/20 ${isTimelineOpen ? 'rotate-180' : ''}`}
+                />
             </button>
 
             {isTimelineOpen && (
@@ -373,6 +435,13 @@ export const ManagerProjectTools: React.FC<ManagerProjectToolsProps> = ({
                 calculationId={String(calculation.id)}
                 isOpen={isVersionModalOpen}
                 onClose={() => setIsVersionModalOpen(false)}
+            />
+
+            <SnapshotReasonModal
+                isOpen={isReasonModalOpen}
+                onClose={() => setIsReasonModalOpen(false)}
+                onConfirm={handleCreateSnapshot}
+                defaultReason={suggestedReason}
             />
         </div>
     );

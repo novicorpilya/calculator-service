@@ -5,6 +5,26 @@ import { App } from '@/app/App';
 import '@/styles/global.css';
 
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
+import { LogManager, LogLevel } from '@/core/logging/LogManager';
+
+// Global Error Monitoring (Production Safety)
+const logger = new LogManager(LogLevel.ERROR);
+
+window.addEventListener('error', (event) => {
+    logger.error(
+        'Uncaught Exception',
+        {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+        },
+        event.error
+    );
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    logger.error('Unhandled Promise Rejection', undefined, event.reason);
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

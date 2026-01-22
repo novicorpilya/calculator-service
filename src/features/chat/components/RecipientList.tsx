@@ -110,13 +110,21 @@ export const RecipientList: React.FC<RecipientListProps> = React.memo(
                                     {/* Avatar */}
                                     <div className="relative shrink-0">
                                         <div
-                                            className={`w-14 h-14 rounded-xl flex items-center justify-center font-black text-sm ${
+                                            className={`w-14 h-14 rounded-xl flex items-center justify-center font-black text-sm overflow-hidden ${
                                                 isSelected
                                                     ? 'bg-white/20'
                                                     : 'bg-primary/10 text-primary'
                                             }`}
                                         >
-                                            {getAvatar(recipient)}
+                                            {recipient.avatar_url ? (
+                                                <img
+                                                    src={recipient.avatar_url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                getAvatar(recipient)
+                                            )}
                                         </div>
                                         <div
                                             className={`absolute -bottom-1 -right-1 w-4 h-4 ${
@@ -159,8 +167,6 @@ export const RecipientList: React.FC<RecipientListProps> = React.memo(
                                                 ) : (
                                                     (() => {
                                                         const lm = recipient.lastMessage;
-                                                        const isMine =
-                                                            lm?.sender_id === currentUserId;
                                                         const content = lm?.content?.trim() || '';
 
                                                         // Defensive Check: If we have a lastMessage object but all relevant fields are empty
@@ -185,7 +191,8 @@ export const RecipientList: React.FC<RecipientListProps> = React.memo(
 
                                                         return (
                                                             <span className="flex items-center gap-1">
-                                                                {isMine && (
+                                                                {String(lm?.sender_id) ===
+                                                                    String(currentUserId) && (
                                                                     <span className="opacity-50">
                                                                         Вы:
                                                                     </span>

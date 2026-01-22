@@ -1,0 +1,38 @@
+# Vercel Build Context Exclusions
+# Only include artifacts necessary for deployment.
+
+# Testing
+tests/
+playwright-report/
+test-results/
+coverage/
+*.spec.ts
+*.test.ts
+playwright.config.ts
+vitest.config.ts
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git & Internal
+.git/
+.github/
+.husky/
+.agent/
+.gemini/
+.cursorrules
+.antigravityignore
+
+# Documentation (already in git, not needed in build)
+*.md
+!README.md
+
+# Supabase (edge functions deployed separately, migrations are DB-only)
+supabase/
+
+# Dev Configs
+.prettierrc
+.prettierignore

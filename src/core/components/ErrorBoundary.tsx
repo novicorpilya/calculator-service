@@ -122,7 +122,7 @@ export class ErrorBoundary extends Component<Props, State> {
                         {/* Support link */}
                         <p className="text-xs text-foreground/40">
                             Если проблема повторяется, свяжитесь с{' '}
-                            <a href="mailto:support@example.com" className="text-primary underline">
+                            <a href="mailto:support@hics.ru" className="text-primary underline">
                                 поддержкой
                             </a>
                         </p>

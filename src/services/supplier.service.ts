@@ -29,12 +29,14 @@ export const SupplierSchema = z.object({
     updated_at: z.string().optional(),
 });
 
-export type SupplierInput = z.infer<typeof SupplierSchema>; 
+export type SupplierInput = z.infer<typeof SupplierSchema>;
 
 export interface ISupplierService {
     getSuppliers(): Promise<ActionResult<Supplier[]>>;
     getSupplierById(id: string): Promise<ActionResult<Supplier | null>>;
-    createSupplier(data: Omit<SupplierInput, 'id' | 'created_at' | 'updated_at'>): Promise<ActionResult<Supplier>>;
+    createSupplier(
+        data: Omit<SupplierInput, 'id' | 'created_at' | 'updated_at'>
+    ): Promise<ActionResult<Supplier>>;
     updateSupplier(id: string, data: Partial<SupplierInput>): Promise<VoidResult>;
     deleteSupplier(id: string): Promise<VoidResult>;
 }
@@ -46,10 +48,7 @@ export class SupplierService implements ISupplierService {
     private supabase: SupabaseClient;
     private auditService: IAuditLogService;
 
-    constructor(
-        supabase: SupabaseClient,
-        auditService: IAuditLogService
-    ) {
+    constructor(supabase: SupabaseClient, auditService: IAuditLogService) {
         this.supabase = supabase;
         this.auditService = auditService;
     }
@@ -68,10 +67,24 @@ export class SupplierService implements ISupplierService {
                 return { success: false, error: wrapError(error) };
             }
 
-            // Using safeParse for array to allow partial data if schema is strict, 
+            // Using safeParse for array to allow partial data if schema is strict,
             // but ideally we want to ensure DB matches schema.
             // For now, we cast to Supplier[] to be permissive with existing data
-            return { success: true, data: data as Supplier[] };
+            const suppliers = (data as Supplier[]).map((s) => {
+                const mappings: Record<string, string> = {
+                    'https://www.tork.ru/static/logo-tork.png': '/assets/suppliers/tork-logo.png',
+                    'https://pro-brite.com/assets/images/logo.png':
+                        '/assets/suppliers/pro-brite-logo.png',
+                    'https://www.vileda-professional.com/media/Logo_Vileda_Professional.svg':
+                        '/assets/suppliers/vileda-logo.svg',
+                };
+
+                if (s.logo && mappings[s.logo]) {
+                    return { ...s, logo: mappings[s.logo] };
+                }
+                return s;
+            });
+            return { success: true, data: suppliers };
         } catch (error) {
             return { success: false, error: wrapError(error) };
         }
@@ -90,7 +103,20 @@ export class SupplierService implements ISupplierService {
 
             if (error) return { success: true, data: null };
 
-            return { success: true, data: data as Supplier };
+            const supplier = data as Supplier;
+            const mappings: Record<string, string> = {
+                'https://www.tork.ru/static/logo-tork.png': '/assets/suppliers/tork-logo.png',
+                'https://pro-brite.com/assets/images/logo.png':
+                    '/assets/suppliers/pro-brite-logo.png',
+                'https://www.vileda-professional.com/media/Logo_Vileda_Professional.svg':
+                    '/assets/suppliers/vileda-logo.svg',
+            };
+
+            if (supplier.logo && mappings[supplier.logo]) {
+                supplier.logo = mappings[supplier.logo];
+            }
+
+            return { success: true, data: supplier };
         } catch (error) {
             return { success: false, error: wrapError(error) };
         }
@@ -99,7 +125,9 @@ export class SupplierService implements ISupplierService {
     /**
      * Creates a new supplier
      */
-    async createSupplier(data: Omit<SupplierInput, 'id' | 'created_at' | 'updated_at'>): Promise<ActionResult<Supplier>> {
+    async createSupplier(
+        data: Omit<SupplierInput, 'id' | 'created_at' | 'updated_at'>
+    ): Promise<ActionResult<Supplier>> {
         try {
             const { data: created, error } = await this.supabase
                 .from('suppliers')
@@ -109,12 +137,9 @@ export class SupplierService implements ISupplierService {
 
             if (error) return { success: false, error: wrapError(error) };
 
-            await this.auditService.logAction(
-                'supplier_created',
-                'supplier',
-                created.id,
-                { name: created.name }
-            );
+            await this.auditService.logAction('supplier_created', 'supplier', created.id, {
+                name: created.name,
+            });
 
             return { success: true, data: created as Supplier };
         } catch (error) {
@@ -129,7 +154,12 @@ export class SupplierService implements ISupplierService {
         try {
             // Remove readonly fields
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { id: _, created_at, updated_at, ...updateData } = updates as Record<string, unknown>;
+            const {
+                id: _,
+                created_at,
+                updated_at,
+                ...updateData
+            } = updates as Record<string, unknown>;
 
             const { error } = await this.supabase
                 .from('suppliers')
@@ -138,12 +168,9 @@ export class SupplierService implements ISupplierService {
 
             if (error) return { success: false, error: wrapError(error) };
 
-            await this.auditService.logAction(
-                'supplier_updated',
-                'supplier',
-                id,
-                { updates: updateData }
-            );
+            await this.auditService.logAction('supplier_updated', 'supplier', id, {
+                updates: updateData,
+            });
 
             return { success: true };
         } catch (error) {
@@ -156,18 +183,11 @@ export class SupplierService implements ISupplierService {
      */
     async deleteSupplier(id: string): Promise<VoidResult> {
         try {
-            const { error } = await this.supabase
-                .from('suppliers')
-                .delete()
-                .eq('id', id);
+            const { error } = await this.supabase.from('suppliers').delete().eq('id', id);
 
             if (error) return { success: false, error: wrapError(error) };
 
-            await this.auditService.logAction(
-                'supplier_deleted',
-                'supplier',
-                id
-            );
+            await this.auditService.logAction('supplier_deleted', 'supplier', id);
 
             return { success: true };
         } catch (error) {

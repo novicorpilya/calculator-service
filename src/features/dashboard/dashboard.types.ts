@@ -27,7 +27,15 @@ export interface Supplier {
     updated_at?: string;
 }
 
-export type { Comment, Zone, Interaction, CalculationResults, ZoneResult, InventoryItem, InventoryItem as DashboardInventoryItem } from '@/core/types/calculation';
+export type {
+    Comment,
+    Zone,
+    Interaction,
+    CalculationResults,
+    ZoneResult,
+    InventoryItem,
+    InventoryItem as DashboardInventoryItem,
+} from '@/core/types/calculation';
 
 export type InteractionType =
     | 'created'
@@ -36,7 +44,6 @@ export type InteractionType =
     | 'revision'
     | 'invoice'
     | 'error';
-
 
 /**
  * Represents a single interaction/event in the project history trail.
@@ -115,3 +122,13 @@ export const COMPANY_REQUISITES = {
     corrAccount: '30101810300000000974',
     address: 'г. Москва, ул. Примерная, д. 10, оф. 5',
 };
+
+export interface DashboardStats {
+    totalVolume: number;
+    orderCount: number;
+    vipStatus: string;
+    avgDeliveryDays?: number;
+    monthlySpending: { name: string; value: number }[];
+    topCategories: { category: string; value: number; percentage: number }[];
+    [key: string]: unknown;
+}

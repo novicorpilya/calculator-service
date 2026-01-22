@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { 
-    Briefcase, 
-    FolderSearch, 
-    Search, 
-    Filter, 
-    Download, 
-    ChevronLeft, 
+import {
+    Briefcase,
+    FolderSearch,
+    Search,
+    Filter,
+    ChevronLeft,
     ChevronRight,
-    CheckCircle2
+    CheckCircle2,
 } from 'lucide-react';
 import type { AdminCalculation } from '@/services/admin.service';
 import type { User } from '@/features/auth/auth.types';
@@ -29,13 +28,12 @@ interface AdminProjectsListProps {
     currentPage: number;
     totalCount: number;
     onPageChange: (page: number) => void;
-    onExport: () => void;
 }
 
-export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({ 
-    projects, 
+export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
+    projects,
     managers,
-    onStatusReturn, 
+    onStatusReturn,
     onDelete,
     onAssignManager,
     onBulkDelete,
@@ -47,9 +45,24 @@ export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
     currentPage,
     totalCount,
     onPageChange,
-    onExport
 }) => {
-    const statuses = ['all', 'draft', 'sent', 'expert', 'changes', 'revision', 'invoice', 'payment_review', 'paid', 'processing', 'sent_to_warehouse', 'ready', 'shipping', 'completed', 'closed'];
+    const statuses = [
+        'all',
+        'draft',
+        'sent',
+        'expert',
+        'changes',
+        'revision',
+        'invoice',
+        'payment_review',
+        'paid',
+        'processing',
+        'sent_to_warehouse',
+        'ready',
+        'shipping',
+        'completed',
+        'closed',
+    ];
     const pageSize = 12;
     const totalPages = Math.ceil(totalCount / pageSize);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -58,7 +71,7 @@ export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
         if (selectedIds.size === projects.length) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(projects.map(p => p.id)));
+            setSelectedIds(new Set(projects.map((p) => p.id)));
         }
     };
 
@@ -74,35 +87,30 @@ export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 relative">
-             {/* Header Section */}
-             <div className="flex flex-col gap-6">
+            {/* Header Section */}
+            <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                           <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                            <div className="p-3 bg-primary/10 rounded-2xl text-primary">
                                 <Briefcase size={24} />
-                           </div>
-                           Реестр Проектов
+                            </div>
+                            Реестр Проектов
                         </h2>
                         <p className="text-muted-foreground mt-1 text-sm font-medium ml-1">
                             Управление всеми расчетами и статусами в системе
                         </p>
                     </div>
-
-                    <button 
-                        onClick={onExport}
-                        className="bg-card hover:bg-muted border border-border-theme px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 shadow-sm"
-                    >
-                        <Download size={16} />
-                        Экспорт CSV
-                    </button>
                 </div>
 
                 {/* Filters */}
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative group flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={20} />
-                        <input 
+                        <Search
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
+                            size={20}
+                        />
+                        <input
                             type="text"
                             placeholder="Поиск по организации..."
                             value={searchTerm}
@@ -111,25 +119,32 @@ export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
                         />
                     </div>
                     <div className="relative group min-w-[240px]">
-                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                        <Filter
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
+                            size={18}
+                        />
                         <select
                             value={statusFilter}
                             onChange={(e) => onStatusFilterChange(e.target.value)}
                             className="w-full bg-card/50 border border-border-theme focus:border-primary/50 rounded-2xl pl-12 pr-10 py-3.5 outline-none transition-all font-bold text-sm appearance-none cursor-pointer"
                         >
-                            {statuses.map(s => (
-                                <option key={s} value={s}>{s === 'all' ? 'Все статусы' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                            {statuses.map((s) => (
+                                <option key={s} value={s}>
+                                    {s === 'all'
+                                        ? 'Все статусы'
+                                        : s.charAt(0).toUpperCase() + s.slice(1)}
+                                </option>
                             ))}
                         </select>
                     </div>
                 </div>
             </div>
 
-            <BulkActionsBar 
+            <BulkActionsBar
                 selectedCount={selectedIds.size}
                 onClear={() => setSelectedIds(new Set())}
                 onDelete={() => {
-                   if (confirm(`Удалить ${selectedIds.size} проектов?`)) {
+                    if (confirm(`Удалить ${selectedIds.size} проектов?`)) {
                         onBulkDelete(Array.from(selectedIds));
                         setSelectedIds(new Set());
                     }
@@ -142,9 +157,16 @@ export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
 
             {/* Select All */}
             {projects.length > 0 && (
-                <div className="flex items-center gap-3 px-2 opacity-60 hover:opacity-100 transition-opacity w-fit cursor-pointer" onClick={toggleSelectAll}>
-                    <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${selectedIds.size === projects.length ? 'bg-primary border-primary text-white' : 'border-muted-foreground/40 bg-card'}`}>
-                         {selectedIds.size === projects.length && <CheckCircle2 size={14} strokeWidth={4} />}
+                <div
+                    className="flex items-center gap-3 px-2 opacity-60 hover:opacity-100 transition-opacity w-fit cursor-pointer"
+                    onClick={toggleSelectAll}
+                >
+                    <div
+                        className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${selectedIds.size === projects.length ? 'bg-primary border-primary text-white' : 'border-muted-foreground/40 bg-card'}`}
+                    >
+                        {selectedIds.size === projects.length && (
+                            <CheckCircle2 size={14} strokeWidth={4} />
+                        )}
                     </div>
                     <span className="text-[10px] font-bold uppercase tracking-widest select-none">
                         Выбрать все на странице
@@ -162,7 +184,7 @@ export const AdminProjectsList: React.FC<AdminProjectsListProps> = ({
                     </div>
                 ) : (
                     projects.map((calc) => (
-                        <ProjectCard 
+                        <ProjectCard
                             key={calc.id}
                             calc={calc}
                             managers={managers}

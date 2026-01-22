@@ -8,12 +8,7 @@ import { RecentReviews } from './kpi/RecentReviews';
 import { KPISkeleton } from './kpi/KPISkeleton';
 
 export const ManagerKPIDashboard: React.FC<{ managerId: string }> = ({ managerId }) => {
-    const { 
-        data, 
-        loading, 
-        isRefreshing, 
-        refreshData
-    } = useManagerKPI(managerId);
+    const { data, loading, isRefreshing, refreshData } = useManagerKPI(managerId);
 
     if (loading) {
         return <KPISkeleton />;
@@ -28,17 +23,28 @@ export const ManagerKPIDashboard: React.FC<{ managerId: string }> = ({ managerId
                         <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                             <Target size={20} className="animate-pulse" />
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter text-foreground/90">Личный KPI</h1>
+                        <h1 className="text-3xl font-black tracking-tighter text-foreground/90">
+                            Личный KPI
+                        </h1>
                     </div>
-                    <p className="text-xs font-bold text-foreground/30 uppercase tracking-[0.2em]">Ваш дашборд эффективности</p>
+                    <p className="text-xs font-bold text-foreground/50 uppercase tracking-[0.2em]">
+                        Ваш дашборд эффективности
+                    </p>
                 </div>
-                
-                <button 
+
+                <button
                     onClick={refreshData}
                     disabled={isRefreshing}
                     className="group flex items-center gap-2 px-4 py-2 bg-background border border-border-theme rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all disabled:opacity-50"
                 >
-                    <RotateCcw size={14} className={isRefreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
+                    <RotateCcw
+                        size={14}
+                        className={
+                            isRefreshing
+                                ? 'animate-spin'
+                                : 'group-hover:rotate-180 transition-transform duration-500'
+                        }
+                    />
                     <span>Обновить данные</span>
                 </button>
             </div>

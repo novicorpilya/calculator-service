@@ -97,6 +97,9 @@ export const rawDBCalculationSchema = z.object({
     project_number: z.number().nullable().optional(),
     manager_info: z.any().optional(), // Joined data
     client_info: z.any().optional(), // Joined data
+    venue_id: z.string().nullable().optional(),
+    source_id: z.string().nullable().optional(),
+    sla_deadline: z.string().nullable().optional(),
 });
 
 export type RawDBCalculation = z.infer<typeof rawDBCalculationSchema>;

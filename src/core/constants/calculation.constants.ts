@@ -23,6 +23,7 @@ export const CALCULATION_STATUS = {
 
 export const CALCULATION_ACTION = {
     SUBMIT: 'submit',
+    START_EXPERT: 'start_expert',
     APPROVE: 'approve',
     REJECT: 'reject',
     RESOLVE: 'resolve',

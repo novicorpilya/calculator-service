@@ -33,17 +33,26 @@ export const CalculationZonesBreakdown: React.FC<CalculationZonesBreakdownProps>
                         {/* Zone Header with colored accent */}
                         <div className="p-6 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
                             <div className="space-y-1">
-                                <h4 className="font-black text-base tracking-tight">{zone.zoneName}</h4>
+                                <h4 className="font-black text-base tracking-tight">
+                                    {zone.zoneName}
+                                </h4>
                                 <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: zone.color }} />
-                                    <span className="text-[9px] font-bold uppercase tracking-widest text-foreground/30">
+                                    <div
+                                        className="w-1.5 h-1.5 rounded-full"
+                                        style={{ backgroundColor: zone.color }}
+                                    />
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-foreground/50">
                                         ID: {zone.type?.toUpperCase() || 'GENERAL'}
                                     </span>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-sm font-black text-foreground/80">{zone.area} м²</p>
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-foreground/20">Площадь</p>
+                                <p className="text-sm font-black text-foreground/80">
+                                    {zone.area} м²
+                                </p>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-foreground/20">
+                                    Площадь
+                                </p>
                             </div>
                         </div>
 
@@ -57,24 +66,31 @@ export const CalculationZonesBreakdown: React.FC<CalculationZonesBreakdownProps>
                                     >
                                         <div className="flex items-center gap-2 min-w-0">
                                             <div className="w-1 h-1 rounded-full bg-foreground/20" />
-                                            <span className="text-foreground/60 truncate font-medium">{item.inventory}</span>
+                                            <span className="text-foreground/60 truncate font-medium">
+                                                {item.inventory}
+                                            </span>
                                         </div>
-                                        <span className="font-mono text-[10px] text-foreground/30 whitespace-nowrap ml-4">
+                                        <span className="font-mono text-[10px] text-foreground/50 whitespace-nowrap ml-4">
                                             {Math.ceil(item.quantity)} ед.
                                         </span>
                                     </div>
                                 ))}
                             </div>
-                            
+
                             {zone.items.length > 3 ? (
                                 <div className="pt-3 flex items-center justify-between border-t border-white/5">
                                     <span className="text-[9px] font-black text-primary/60 uppercase tracking-widest">
                                         + еще {zone.items.length - 3} позиций
                                     </span>
                                     <div className="flex -space-x-1.5">
-                                        {[...Array(Math.min(zone.items.length - 3, 3))].map((_, idx) => (
-                                            <div key={idx} className="w-4 h-4 rounded-full border border-background bg-white/5" />
-                                        ))}
+                                        {[...Array(Math.min(zone.items.length - 3, 3))].map(
+                                            (_, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="w-4 h-4 rounded-full border border-background bg-white/5"
+                                                />
+                                            )
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -85,8 +101,10 @@ export const CalculationZonesBreakdown: React.FC<CalculationZonesBreakdownProps>
                         </div>
 
                         {/* Background Decoration */}
-                        <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-700 pointer-events-none"
-                             style={{ backgroundColor: zone.color }} />
+                        <div
+                            className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-700 pointer-events-none"
+                            style={{ backgroundColor: zone.color }}
+                        />
                     </div>
                 ))}
             </div>

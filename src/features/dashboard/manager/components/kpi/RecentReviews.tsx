@@ -29,16 +29,21 @@ export const RecentReviews: React.FC<RecentReviewsProps> = ({ data }) => {
             <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {data?.recentReviews && data.recentReviews.length > 0 ? (
                     data.recentReviews.map((r) => (
-                        <div key={r.id} className="p-5 rounded-3xl bg-foreground/[0.03] border border-border-theme">
+                        <div
+                            key={r.id}
+                            className="p-5 rounded-3xl bg-foreground/[0.03] border border-border-theme"
+                        >
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center gap-0.5 text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-lg border border-yellow-500/20">
                                         <Star size={10} fill="currentColor" />
                                         <span className="text-xs font-black">{r.rating}</span>
                                     </div>
-                                    <span className="text-[10px] font-black text-foreground/20 uppercase">{formatDate(r.createdAt)}</span>
+                                    <span className="text-[10px] font-black text-foreground/20 uppercase">
+                                        {formatDate(r.createdAt)}
+                                    </span>
                                 </div>
-                                <div className="text-[9px] font-bold text-foreground/30 uppercase">
+                                <div className="text-[9px] font-bold text-foreground/50 uppercase">
                                     Проект {r.projectNumber}
                                 </div>
                             </div>
@@ -54,9 +59,11 @@ export const RecentReviews: React.FC<RecentReviewsProps> = ({ data }) => {
                     </div>
                 )}
             </div>
-            
+
             <div className="mt-8 pt-6 border-t border-border-theme flex items-center justify-between">
-                <span className="text-[10px] font-black text-foreground/20 uppercase tracking-widest">Аналитика за 30 дней</span>
+                <span className="text-[10px] font-black text-foreground/20 uppercase tracking-widest">
+                    Аналитика за 30 дней
+                </span>
                 <TrendingUp size={12} className="text-emerald-500" />
             </div>
         </div>

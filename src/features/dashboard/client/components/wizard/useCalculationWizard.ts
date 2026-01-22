@@ -1,10 +1,5 @@
-import { useState } from 'react';
-import {
-    type Calculation,
-    type CalculationResults,
-    type Zone,
-    ZONE_TYPES,
-} from '@/features/dashboard/dashboard.types';
+import { useState, useEffect, useMemo } from 'react';
+import { type Calculation, type Zone, ZONE_TYPES } from '@/features/dashboard/dashboard.types';
 import { toast } from 'sonner';
 import { CalculationEngine } from '@/utils/calculation-engine';
 import { useVenues } from '@/hooks/useVenues';
@@ -33,31 +28,93 @@ export const useCalculationWizard = (initialData?: Calculation) => {
         page: 1,
         pageSize: 10000,
     });
-    const globalInventory = inventoryData?.data || [];
+    const globalInventory = useMemo(() => inventoryData?.data || [], [inventoryData]);
 
     const isLoadingData = isLoadingVenues || isLoadingInventory;
 
     // Step 1 State: Object Characteristics
-    const [objectData, setObjectData] = useState<ObjectData>({
-        name: initialData?.organizationName || '',
-        type: initialData?.type || '',
-        totalArea: initialData?.totalArea?.toString() || '',
-        staffCount: initialData?.staffCount?.toString() || '',
-        dailyVisitors: initialData?.dailyVisitors?.toString() || '',
-        sanitaryLevel: initialData?.sanitaryLevel || 'medium',
-        intensityLevel: initialData?.intensityLevel || 'medium',
-        replacementCycle: initialData?.replacementCycle || 'weekly',
-        selectedVenueId: '',
+    // Initialize from localStorage if available and no initialData provided
+    const [objectData, setObjectData] = useState<ObjectData>(() => {
+        if (initialData) {
+            return {
+                name: initialData.organizationName || '',
+                type: initialData.type || '',
+                totalArea: initialData.totalArea?.toString() || '',
+                staffCount: initialData.staffCount?.toString() || '',
+                dailyVisitors: initialData.dailyVisitors?.toString() || '',
+                sanitaryLevel: initialData.sanitaryLevel || 'medium',
+                intensityLevel: initialData.intensityLevel || 'medium',
+                replacementCycle: initialData.replacementCycle || 'weekly',
+                selectedVenueId: '',
+            };
+        }
+
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('calculator_draft_data');
+            if (saved) {
+                try {
+                    return JSON.parse(saved).objectData;
+                } catch (err) {
+                    console.error('Failed to parse draft data', err);
+                }
+            }
+        }
+
+        return {
+            name: '',
+            type: '',
+            totalArea: '',
+            staffCount: '',
+            dailyVisitors: '',
+            sanitaryLevel: 'medium',
+            intensityLevel: 'medium',
+            replacementCycle: 'weekly',
+            selectedVenueId: '',
+        };
     });
 
     // Step 2 State: Zones
-    const [zones, setZones] = useState<Zone[]>(initialData?.zoneDetails || []);
+    const [zones, setZones] = useState<Zone[]>(() => {
+        if (initialData?.zoneDetails) return initialData.zoneDetails;
+
+        if (typeof window !== 'undefined' && !initialData) {
+            const saved = localStorage.getItem('calculator_draft_data');
+            if (saved) {
+                try {
+                    return JSON.parse(saved).zones || [];
+                } catch {
+                    // Ignore malformed draft data
+                }
+            }
+        }
+        return [];
+    });
+
     const [showZoneModal, setShowZoneModal] = useState(false);
 
-    // Step 3 State: Results
-    const [results, setResults] = useState<CalculationResults | null>(initialData?.results || null);
+    const [step, setStep] = useState(() => {
+        if (initialData) return 1; // Was 2 in 1-based, so 1 in 0-based
+        if (typeof window !== 'undefined') {
+            const savedStep = localStorage.getItem('calculator_draft_step');
+            if (savedStep) return parseInt(savedStep, 10);
+        }
+        return 0; // Start at 0
+    });
 
-    const [step, setStep] = useState(initialData ? 2 : 1);
+    // Persistence Effect
+    useEffect(() => {
+        if (!initialData && typeof window !== 'undefined') {
+            localStorage.setItem('calculator_draft_data', JSON.stringify({ objectData, zones }));
+            localStorage.setItem('calculator_draft_step', step.toString());
+        }
+    }, [objectData, zones, step, initialData]);
+
+    const clearDraft = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('calculator_draft_data');
+            localStorage.removeItem('calculator_draft_step');
+        }
+    };
 
     const handleVenueSelect = (venueId: string) => {
         const selectedVenue = venues.find((v: Venue) => v.id === venueId);
@@ -69,6 +126,8 @@ export const useCalculationWizard = (initialData?: Calculation) => {
                 totalArea: selectedVenue.total_area.toString(),
                 staffCount: selectedVenue.staff_count.toString(),
                 dailyVisitors: selectedVenue.visitors_per_day.toString(),
+                sanitaryLevel: selectedVenue.sanitary_level || 'medium',
+                intensityLevel: selectedVenue.intensity_level || 'medium',
                 selectedVenueId: venueId,
             }));
             toast.success(`Данные подтянуты из объекта "${selectedVenue.name}"`);
@@ -92,15 +151,24 @@ export const useCalculationWizard = (initialData?: Calculation) => {
         setZones((prev) => prev.filter((z) => z.id !== id));
     };
 
-    const calculate = () => {
-        const calculationResults = CalculationEngine.calculateInventory(
+    // Real-time calculation using useMemo to avoid effect loops
+    const results = useMemo(() => {
+        if (!globalInventory.length) {
+            return initialData?.results || null;
+        }
+
+        return CalculationEngine.calculateInventory(
             zones,
             objectData,
             globalInventory,
             (initialData?.calculator_config_snapshot as unknown as CalculatorConfig) || config
         );
-        setResults(calculationResults);
-        setStep(3);
+    }, [zones, objectData, globalInventory, config, initialData]);
+
+    const calculate = () => {
+        if (results) {
+            setStep(2);
+        }
     };
 
     return {
@@ -120,5 +188,6 @@ export const useCalculationWizard = (initialData?: Calculation) => {
         showZoneModal,
         setShowZoneModal,
         config,
+        clearDraft,
     };
 };

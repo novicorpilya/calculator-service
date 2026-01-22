@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM || 'HORECA Contact Form <onboarding@resend.dev>';
 // Defaults to a safe testing email if not provided in production
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'onboarding@resend.dev';
 
@@ -18,11 +19,11 @@ const bodySchema = z.object({
 // Basic HTML sanitization to prevent injection
 const escapeHtml = (unsafe: string) => {
     return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -40,9 +41,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         // 3. Payload validation
         const result = bodySchema.safeParse(req.body);
-        
+
         if (!result.success) {
-            const errorMessage = result.error.issues.map(i => i.message).join(', ');
+            const errorMessage = result.error.issues.map((i) => i.message).join(', ');
             return res.status(400).json({ error: `Validation Error: ${errorMessage}` });
         }
 
@@ -56,8 +57,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // SECURITY: Rate Limiting via Supabase
-        const supabaseAdmin = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-        const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+        const supabaseAdmin = createClient(
+            process.env.VITE_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const ip =
+            (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
 
         // Check last submission from this IP
         const { data: recentLogs } = await supabaseAdmin
@@ -74,7 +79,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (now - lastTime < COOLDOWN_MS) {
                 console.warn(`[send-feedback] Rate limit hit for IP: ${ip}`);
-                return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' });
+                return res
+                    .status(429)
+                    .json({ error: 'Too many requests. Please try again in a minute.' });
             }
         }
 
@@ -88,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 5. Send Email via Resend
         const data = await resend.emails.send({
-            from: 'HORECA Contact Form <onboarding@resend.dev>',
+            from: MAIL_FROM,
             to: [ADMIN_EMAIL],
             replyTo: email, // Use raw email for reply-to as it expects a valid email format
             subject: `🔔 Новое сообщение от ${safeName}`,
@@ -112,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         Это письмо отправлено автоматически с формы обратной связи.
                     </p>
                 </div>
-            `
+            `,
         });
 
         if (data.error) {
@@ -120,16 +127,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Return 400 or 500 depending on error type, but usually 400 for bad requests to external service
             return res.status(400).json({ error: 'Failed to send email. Please try again later.' });
         }
-        
+
         // Log success to audit trail
         await supabaseAdmin.from('feedback_logs').insert({
             ip_address: ip,
             email: email,
-            user_agent: req.headers['user-agent']
+            user_agent: req.headers['user-agent'],
         });
 
         return res.status(200).json({ success: true, id: data.data?.id });
-
     } catch (error) {
         console.error('[send-feedback] Critical Error:', error);
         return res.status(500).json({ error: 'Internal Server Error' });

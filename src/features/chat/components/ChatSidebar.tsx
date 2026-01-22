@@ -2,11 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { useRecipients } from '../hooks/useRecipients';
 import type { ChatRecipient } from '../types';
+import { MESSAGE_SNIPPETS } from '../types';
 
 interface ChatSidebarProps {
     currentUserId: string;
     selectedUserId?: string;
     onSelectUser: (user: ChatRecipient) => void;
+    isUserOnline?: (userId: string) => boolean;
     className?: string;
 }
 
@@ -15,8 +17,9 @@ const ChatRecipientItem = React.memo<{
     selectedUserId?: string;
     currentUserId: string;
     unreadCount: number;
+    isOnline?: boolean;
     onSelect: (user: ChatRecipient) => void;
-}>(({ recipient, selectedUserId, currentUserId, unreadCount, onSelect }) => {
+}>(({ recipient, selectedUserId, currentUserId, unreadCount, isOnline, onSelect }) => {
     const isSelected = selectedUserId === recipient.id;
 
     const lastMessageTime = useMemo(() => {
@@ -35,16 +38,19 @@ const ChatRecipientItem = React.memo<{
         if (!recipient.lastMessage) return null;
         const msg = recipient.lastMessage;
         const content = msg.content?.trim();
+
+        // Emoji-only detection regex
         const isEmojiOnly =
             content &&
             /^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])+\s*$/.test(
                 content
             );
 
-        if (isEmojiOnly) return '😊 Смайлик';
+        if (isEmojiOnly) return MESSAGE_SNIPPETS.EMOJI;
+
         return (
-            msg.content ||
-            (msg.image_url ? '📷 Изображение' : msg.voice_url ? '🎤 Голосовое сообщение' : '')
+            content ||
+            (msg.image_url ? MESSAGE_SNIPPETS.PHOTO : msg.voice_url ? MESSAGE_SNIPPETS.VOICE : '')
         );
     }, [recipient.lastMessage]);
 
@@ -55,11 +61,21 @@ const ChatRecipientItem = React.memo<{
         >
             <div className="relative shrink-0">
                 <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center font-black text-sm ${isSelected ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}
+                    className={`w-14 h-14 rounded-xl flex items-center justify-center font-black text-sm overflow-hidden ${isSelected ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}
                 >
-                    {recipient.first_name?.[0] || recipient.organization_name?.[0] || '?'}
+                    {recipient.avatar_url ? (
+                        <img
+                            src={recipient.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        recipient.first_name?.[0] || recipient.organization_name?.[0] || '?'
+                    )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-background rounded-full" />
+                <div
+                    className={`absolute -bottom-1 -right-1 w-4 h-4 ${isOnline ? 'bg-emerald-500' : 'bg-gray-400'} border-2 border-background rounded-full transition-colors`}
+                />
             </div>
 
             <div className="flex-1 text-left min-w-0 flex flex-col justify-center">
@@ -81,17 +97,22 @@ const ChatRecipientItem = React.memo<{
 
                 <div className="flex items-center justify-between gap-3">
                     <p
-                        className={`text-[11px] truncate flex-1 ${isSelected ? 'text-white/70' : 'text-foreground/40'}`}
+                        className={`text-[11px] truncate flex-1 transition-colors duration-300 ${
+                            isSelected ? 'text-white/70' : 'text-foreground/40'
+                        }`}
                     >
                         {recipient.lastMessage ? (
                             <span className="flex items-center gap-1">
-                                {recipient.lastMessage.sender_id === currentUserId && (
+                                {String(recipient.lastMessage.sender_id) ===
+                                    String(currentUserId) && (
                                     <span className="opacity-50">Вы:</span>
                                 )}
                                 <span className="truncate">{lastMessagePreview}</span>
                             </span>
                         ) : (
-                            <span className="opacity-40 italic">Нет сообщений</span>
+                            <span className="opacity-40 italic lowercase tracking-wider">
+                                Нет сообщений
+                            </span>
                         )}
                     </p>
 
@@ -111,7 +132,7 @@ const ChatRecipientItem = React.memo<{
 ChatRecipientItem.displayName = 'ChatRecipientItem';
 
 export const ChatSidebar = React.memo<ChatSidebarProps>(
-    ({ currentUserId, selectedUserId, onSelectUser, className }) => {
+    ({ currentUserId, selectedUserId, isUserOnline, onSelectUser, className }) => {
         const [searchQuery, setSearchQuery] = useState('');
         const { recipients, unreadCounts, isLoading } = useRecipients({ currentUserId });
 
@@ -163,6 +184,7 @@ export const ChatSidebar = React.memo<ChatSidebarProps>(
                                 selectedUserId={selectedUserId}
                                 currentUserId={currentUserId}
                                 unreadCount={unreadCounts[recipient.id] || 0}
+                                isOnline={isUserOnline?.(recipient.id)}
                                 onSelect={onSelectUser}
                             />
                         ))

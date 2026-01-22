@@ -15,6 +15,7 @@ import { AdminInventoryManager } from './components/AdminInventoryManager';
 import { AdminSupplierManager } from './components/AdminSupplierManager';
 import { AdminThemeManager } from './components/AdminThemeManager';
 import { AdminCalculatorConfig } from './components/AdminCalculatorConfig';
+import { AdminPartnerManager } from './components/AdminPartnerManager';
 import { ClientProfile } from '@/features/dashboard/client/components/ClientProfile';
 
 export const AdminDashboard: React.FC = () => {
@@ -26,7 +27,8 @@ export const AdminDashboard: React.FC = () => {
             const matchesSearch = project.organization_name
                 .toLowerCase()
                 .includes(admin.projectSearch.toLowerCase());
-            const matchesStatus = admin.statusFilter === 'all' || project.status === admin.statusFilter;
+            const matchesStatus =
+                admin.statusFilter === 'all' || project.status === admin.statusFilter;
             return matchesSearch && matchesStatus;
         });
     }, [admin.allCalculations, admin.projectSearch, admin.statusFilter]);
@@ -55,21 +57,22 @@ export const AdminDashboard: React.FC = () => {
                     isOpen={sidebarOpen}
                     currentPage={admin.currentPage}
                     onNavigate={admin.setCurrentPage}
+                    onClose={() => setSidebarOpen(false)}
                 />
 
                 <main className="flex-1 overflow-auto p-4 sm:p-8 custom-scrollbar">
                     <div className="max-w-7xl mx-auto space-y-12">
                         <ErrorBoundary text="Ошибка при загрузке раздела">
                             {admin.currentPage === 'admin-overview' && (
-                                <AdminOverview 
-                                    stats={admin.stats} 
-                                    users={admin.users} 
+                                <AdminOverview
+                                    stats={admin.stats}
+                                    users={admin.users}
                                     invitations={admin.invitations}
                                     onNavigate={admin.setCurrentPage}
                                 />
                             )}
                             {admin.currentPage === 'admin-logs' && (
-                                <AdminLogsTable 
+                                <AdminLogsTable
                                     logs={admin.logs}
                                     totalCount={admin.logTotal}
                                     currentPage={admin.logPage}
@@ -89,7 +92,7 @@ export const AdminDashboard: React.FC = () => {
                                 />
                             )}
                             {admin.currentPage === 'team' && (
-                                <AdminTeamManager 
+                                <AdminTeamManager
                                     users={admin.users}
                                     invitations={admin.invitations}
                                     inviteEmail={admin.inviteEmail}
@@ -107,22 +110,17 @@ export const AdminDashboard: React.FC = () => {
                                     onRefresh={admin.refresh}
                                 />
                             )}
-                            {admin.currentPage === 'admin-inventory' && (
-                                <AdminInventoryManager />
-                            )}
-                            {admin.currentPage === 'admin-suppliers' && (
-                                <AdminSupplierManager />
-                            )}
-                            {admin.currentPage === 'admin-labeling' && (
-                                <AdminThemeManager />
-                            )}
-                            {admin.currentPage === 'admin-calculator' && (
-                                <AdminCalculatorConfig />
-                            )}
+                            {admin.currentPage === 'admin-inventory' && <AdminInventoryManager />}
+                            {admin.currentPage === 'admin-suppliers' && <AdminSupplierManager />}
+                            {admin.currentPage === 'admin-labeling' && <AdminThemeManager />}
+                            {admin.currentPage === 'admin-calculator' && <AdminCalculatorConfig />}
+                            {admin.currentPage === 'admin-partners' && <AdminPartnerManager />}
                             {admin.currentPage === 'projects' && (
-                                <AdminProjectsList 
+                                <AdminProjectsList
                                     projects={filteredProjects}
-                                    managers={admin.users.filter(u => u.role === 'manager' || u.role === 'admin')}
+                                    managers={admin.users.filter(
+                                        (u) => u.role === 'manager' || u.role === 'admin'
+                                    )}
                                     onStatusReturn={admin.handleStatusReturn}
                                     onDelete={admin.handleDeleteCalculation}
                                     onAssignManager={admin.handleAssignManager}
@@ -133,7 +131,6 @@ export const AdminDashboard: React.FC = () => {
                                     currentPage={admin.calcPage}
                                     totalCount={admin.calcTotal}
                                     onPageChange={admin.setCalcPage}
-                                    onExport={admin.handleExportCSV}
                                     onBulkDelete={admin.handleBulkDelete}
                                     onBulkStatusUpdate={admin.handleBulkStatusUpdate}
                                 />

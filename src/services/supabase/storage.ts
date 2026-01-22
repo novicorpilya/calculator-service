@@ -1,20 +1,14 @@
 /**
- * Security-Enhanced Storage Adapter for HICS.
- * Использует обфускацию ключей для защиты от базовых парсеров localStorage.
- * Уровень: Middle+ Production Security
+ * Standard Storage Adapter for HICS.
+ * Handles persistence preferences (session vs local) based on user choice.
  */
 
-// Хешированные или запутанные имена ключей (вместо явных названий)
-const STORAGE_PREFIX = 'hrc_auth_v1_';
+const STORAGE_PREFIX = 'hics_';
 const REMEMBER_ME_KEY = 'hrc_rm_pref';
 
-/**
- * Вспомогательная функция для запутывания имен ключей
- */
 const getSecureKey = (key: string) => {
-    // В реальном продакшене здесь можно использовать простую хеш-функцию
-    // Сейчас используем префикс, чтобы было легко отличить наши ключи
-    return `${STORAGE_PREFIX}${key.split('.').pop()}`;
+    // Standard prefixing to avoid collisions with other apps on the same domain
+    return `${STORAGE_PREFIX}${key}`;
 };
 
 export const authStorage = {

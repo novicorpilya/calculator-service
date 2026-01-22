@@ -17,6 +17,8 @@ interface MessageListProps {
     onContextMenu: (e: React.MouseEvent, message: Message) => void;
     onImageClick: (imageUrl: string) => void;
     onMessageRead?: (messageId: string) => void;
+    recipientAvatarUrl?: string;
+    currentUserAvatarUrl?: string;
 }
 
 interface MessageBubbleProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onContextMenu'> {
@@ -26,57 +28,82 @@ interface MessageBubbleProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
     searchQuery: string;
     onContextMenu: (e: React.MouseEvent, message: Message) => void;
     onImageClick: (imageUrl: string) => void;
+    avatarUrl?: string;
+    showAvatar?: boolean;
     innerRef?: React.Ref<HTMLDivElement>;
 }
 
-const MessageBubble = React.memo<MessageBubbleProps>(({ msg, isOwn, replyTo, searchQuery, onContextMenu, onImageClick, innerRef, ...rest }) => {
-    const highlightText = useCallback((text: string, query: string) => {
-        if (!query) return text;
-        const parts = text.split(new RegExp(`(${query})`, 'gi'));
-        return parts.map((part, i) =>
-            part.toLowerCase() === query.toLowerCase() ? (
-                <span key={i} className="bg-yellow-200 text-black px-1 rounded">
-                    {part}
-                </span>
-            ) : (
-                part
-            )
-        );
-    }, []);
+const MessageBubble = React.memo<MessageBubbleProps>(
+    ({
+        msg,
+        isOwn,
+        replyTo,
+        searchQuery,
+        onContextMenu,
+        onImageClick,
+        avatarUrl,
+        showAvatar,
+        innerRef,
+        ...rest
+    }) => {
+        const highlightText = useCallback((text: string, query: string) => {
+            if (!query) return text;
+            const parts = text.split(new RegExp(`(${query})`, 'gi'));
+            return parts.map((part, i) =>
+                part.toLowerCase() === query.toLowerCase() ? (
+                    <span key={i} className="bg-yellow-200 text-black px-1 rounded">
+                        {part}
+                    </span>
+                ) : (
+                    part
+                )
+            );
+        }, []);
 
-    const formatTime = useCallback((dateString: string) => {
-        return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }, []);
+        const formatTime = useCallback((dateString: string) => {
+            return new Date(dateString).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        }, []);
 
-    const isTemp = msg.id.startsWith('temp-');
-    
-    // Restore logic: Hide message until image is fully loaded to prevent empty blocks/loaders
-    const mustLoad = msg.image_url && !msg.image_url.startsWith('blob:') && !isTemp;
-    const [imageLoaded, setImageLoaded] = React.useState(!mustLoad);
+        const isTemp = msg.id.startsWith('temp-');
 
-    // DEBUG LOGS removed by request
-    
-    if (mustLoad && !imageLoaded) {
-        // Return invisible container so flex gap handles it correctly (no gap)
+        // Restore logic: Hide message until image is fully loaded to prevent empty blocks/loaders
+        const mustLoad = msg.image_url && !msg.image_url.startsWith('blob:') && !isTemp;
+        const [imageLoaded, setImageLoaded] = React.useState(!mustLoad);
+
+        // DEBUG LOGS removed by request
+
+        if (mustLoad && !imageLoaded) {
+            // Return invisible container so flex gap handles it correctly (no gap)
+            return (
+                <div style={{ display: 'none' }}>
+                    <ChatImage src={msg.image_url!} onReady={() => setImageLoaded(true)} />
+                </div>
+            );
+        }
+
         return (
-            <div style={{ display: 'none' }}>
-                 <ChatImage 
-                    src={msg.image_url!} 
-                    onReady={() => setImageLoaded(true)} 
-                 />
-            </div>
-        );
-    }
-    
-    return (
-        <div 
-            ref={innerRef}
-            {...rest}
-            className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}
-        >
             <div
-                onContextMenu={(e) => onContextMenu(e, msg)}
-                className={`
+                ref={innerRef}
+                {...rest}
+                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}
+            >
+                {showAvatar && (
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex-shrink-0 mt-auto mb-1 overflow-hidden">
+                        {avatarUrl ? (
+                            <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary/40 uppercase">
+                                ?
+                            </div>
+                        )}
+                    </div>
+                )}
+                <div
+                    onContextMenu={(e) => onContextMenu(e, msg)}
+                    className={`
                     max-w-[85%] lg:max-w-[70%] rounded-[1.5rem] relative group cursor-context-menu overflow-hidden
                     ${msg.image_url && !msg.content ? 'p-0 bg-transparent' : 'p-4 sm:p-5'}
                     ${
@@ -89,96 +116,96 @@ const MessageBubble = React.memo<MessageBubbleProps>(({ msg, isOwn, replyTo, sea
                               : 'bg-card border border-border-theme rounded-tl-none text-foreground'
                     }
                 `}
-            >
-                {replyTo && (
-                    <div className="mb-2 pl-3 border-l-2 border-white/50 opacity-70 text-[11px] font-medium truncate">
-                        <span className="font-bold">Ответ на сообщение</span>
-                        <div className="truncate">{replyTo.content || 'Вложение'}</div>
-                    </div>
-                )}
+                >
+                    {replyTo && (
+                        <div className="mb-2 pl-3 border-l-2 border-white/50 opacity-70 text-[11px] font-medium truncate">
+                            <span className="font-bold">Ответ на сообщение</span>
+                            <div className="truncate">{replyTo.content || 'Вложение'}</div>
+                        </div>
+                    )}
 
-                {msg.image_url && (
-                    <ChatImage
-                        src={msg.image_url}
-                        altText={msg.content || 'Изображение в сообщении'}
-                        onImageClick={() => msg.image_url && onImageClick(msg.image_url)}
+                    {msg.image_url && (
+                        <ChatImage
+                            src={msg.image_url}
+                            altText={msg.content || 'Изображение в сообщении'}
+                            onImageClick={() => msg.image_url && onImageClick(msg.image_url)}
+                            isTemp={isTemp}
+                            footer={
+                                !msg.content ? (
+                                    <div className="flex items-center gap-1 justify-end">
+                                        <span className="text-[10px] text-white/80 leading-none tabular-nums">
+                                            {formatTime(msg.created_at)}
+                                        </span>
+                                        {isOwn && (
+                                            <div className="flex items-center ml-0.5">
+                                                {isTemp ? (
+                                                    <Clock size={10} className="text-white/70" />
+                                                ) : msg.is_read ? (
+                                                    <CheckCheck size={14} className="text-white" />
+                                                ) : (
+                                                    <Check size={14} className="text-white/80" />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : undefined
+                            }
+                        />
+                    )}
 
-                        isTemp={isTemp}
-                        footer={
-                            !msg.content ? (
-                                <div className="flex items-center gap-1 justify-end">
-                                    <span className="text-[10px] text-white/80 leading-none tabular-nums">
-                                        {formatTime(msg.created_at)}
-                                    </span>
-                                    {isOwn && (
-                                        <div className="flex items-center ml-0.5">
-                                            {isTemp ? (
-                                                <Clock size={10} className="text-white/70" />
-                                            ) : msg.is_read ? (
-                                                <CheckCheck size={14} className="text-white" />
-                                            ) : (
-                                                <Check size={14} className="text-white/80" />
-                                            )}
-                                        </div>
+                    {msg.voice_url && (
+                        <VoicePlayer
+                            voiceUrl={msg.voice_url}
+                            duration={msg.voice_duration || undefined}
+                            className="min-w-[200px]"
+                            showLoading={isTemp}
+                            isOwn={isOwn}
+                            isRead={msg.is_read}
+                            isTemp={isTemp}
+                        />
+                    )}
+
+                    {msg.content && (
+                        <div className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap">
+                            {highlightText(msg.content, searchQuery)}
+                        </div>
+                    )}
+
+                    {msg.message_type === 'rating_card' && (
+                        <RatingCardWidget
+                            calculationId={String(msg.calculation_id)}
+                            userId={msg.sender_id || ''}
+                            isOwn={isOwn}
+                            title={msg.metadata?.title}
+                            subtitle={msg.metadata?.subtitle}
+                            initialRating={msg.metadata?.rating_value}
+                        />
+                    )}
+
+                    {(msg.content || msg.voice_url) && (
+                        <div className="flex items-center gap-1 mt-1 justify-end select-none">
+                            <span className="text-[10px] opacity-40 leading-none tabular-nums">
+                                {msg.is_edited && <span className="mr-1">изм.</span>}
+                                {formatTime(msg.created_at)}
+                            </span>
+                            {isOwn && (
+                                <div className="flex items-center ml-0.5 text-primary-foreground/60">
+                                    {isTemp ? (
+                                        <Clock size={10} className="opacity-70" />
+                                    ) : msg.is_read ? (
+                                        <CheckCheck size={14} className="text-white" />
+                                    ) : (
+                                        <Check size={14} className="text-white/80" />
                                     )}
                                 </div>
-                            ) : undefined
-                        }
-                    />
-                )}
-
-                {msg.voice_url && (
-                    <VoicePlayer
-                        voiceUrl={msg.voice_url}
-                        duration={msg.voice_duration || undefined}
-                        className="min-w-[200px]"
-                        showLoading={isTemp}
-                        isOwn={isOwn}
-                        isRead={msg.is_read}
-                        isTemp={isTemp}
-                    />
-                )}
-
-                {msg.content && (
-                    <div className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap">
-                        {highlightText(msg.content, searchQuery)}
-                    </div>
-                )}
-
-                {msg.message_type === 'rating_card' && (
-                    <RatingCardWidget
-                        calculationId={String(msg.calculation_id)}
-                        userId={msg.sender_id || ''}
-                        isOwn={isOwn}
-                        title={msg.metadata?.title}
-                        subtitle={msg.metadata?.subtitle}
-                        initialRating={msg.metadata?.rating_value}
-                    />
-                )}
-
-                {(msg.content || msg.voice_url) && (
-                    <div className="flex items-center gap-1 mt-1 justify-end select-none">
-                        <span className="text-[10px] opacity-40 leading-none tabular-nums">
-                            {msg.is_edited && <span className="mr-1">изм.</span>}
-                            {formatTime(msg.created_at)}
-                        </span>
-                        {isOwn && (
-                            <div className="flex items-center ml-0.5 text-primary-foreground/60">
-                                {isTemp ? (
-                                    <Clock size={10} className="opacity-70" />
-                                ) : msg.is_read ? (
-                                    <CheckCheck size={14} className="text-white" />
-                                ) : (
-                                    <Check size={14} className="text-white/80" />
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
-    );
-});
+        );
+    }
+);
 
 export const MessageList: React.FC<MessageListProps> = React.memo(
     ({
@@ -189,11 +216,13 @@ export const MessageList: React.FC<MessageListProps> = React.memo(
         onContextMenu,
         onImageClick,
         onMessageRead,
+        recipientAvatarUrl,
+        currentUserAvatarUrl,
     }) => {
         const messagesEndRef = useRef<HTMLDivElement>(null);
         const lastMessageCountRef = useRef(messages.length);
         const observerRef = useRef<IntersectionObserver | null>(null);
-        
+
         // Batch read events with debounce
         const pendingReadsRef = useRef<Set<string>>(new Set());
         const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -216,15 +245,20 @@ export const MessageList: React.FC<MessageListProps> = React.memo(
                             entries.forEach((entry) => {
                                 if (entry.isIntersecting) {
                                     const id = entry.target.getAttribute('data-message-id');
-                                    const isRead = entry.target.getAttribute('data-is-read') === 'true';
+                                    const isRead =
+                                        entry.target.getAttribute('data-is-read') === 'true';
                                     const senderId = entry.target.getAttribute('data-sender-id');
                                     if (id && !isRead && senderId !== currentUserId) {
                                         pendingReadsRef.current.add(id);
                                         observerRef.current?.unobserve(entry.target);
-                                        
+
                                         // Debounce: flush after 500ms of no new reads
-                                        if (flushTimeoutRef.current) clearTimeout(flushTimeoutRef.current);
-                                        flushTimeoutRef.current = setTimeout(flushPendingReads, 500);
+                                        if (flushTimeoutRef.current)
+                                            clearTimeout(flushTimeoutRef.current);
+                                        flushTimeoutRef.current = setTimeout(
+                                            flushPendingReads,
+                                            500
+                                        );
                                     }
                                 }
                             });
@@ -273,28 +307,35 @@ export const MessageList: React.FC<MessageListProps> = React.memo(
             return (
                 <div className="h-full flex flex-col items-center justify-center text-foreground/10 space-y-4">
                     <MessageSquare size={64} />
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">Начните общение первым</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">
+                        Начните общение первым
+                    </p>
                 </div>
             );
         }
 
         return (
             <div className="flex flex-col gap-4">
-                {filteredMessages.map((msg) => (
-                    <MessageBubble
-                        key={msg.client_message_id || msg.id}
-                        innerRef={msg.is_read || msg.sender_id === currentUserId ? undefined : setRef}
-                        data-message-id={msg.id}
-                        data-is-read={msg.is_read}
-                        data-sender-id={msg.sender_id}
-                        msg={msg}
-                        isOwn={msg.sender_id === currentUserId}
-                        replyTo={msg.reply_to_id ? messageMap.get(msg.reply_to_id) : undefined}
-                        searchQuery={searchQuery}
-                        onContextMenu={onContextMenu}
-                        onImageClick={onImageClick}
-                    />
-                ))}
+                {filteredMessages.map((msg) => {
+                    const isOwn = msg.sender_id === currentUserId;
+                    return (
+                        <MessageBubble
+                            key={msg.client_message_id || msg.id}
+                            innerRef={msg.is_read || isOwn ? undefined : setRef}
+                            data-message-id={msg.id}
+                            data-is-read={msg.is_read}
+                            data-sender-id={msg.sender_id}
+                            msg={msg}
+                            isOwn={isOwn}
+                            avatarUrl={isOwn ? currentUserAvatarUrl : recipientAvatarUrl}
+                            showAvatar={!isOwn}
+                            replyTo={msg.reply_to_id ? messageMap.get(msg.reply_to_id) : undefined}
+                            searchQuery={searchQuery}
+                            onContextMenu={onContextMenu}
+                            onImageClick={onImageClick}
+                        />
+                    );
+                })}
                 <div ref={messagesEndRef} />
             </div>
         );

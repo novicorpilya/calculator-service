@@ -12,7 +12,7 @@ const mockCalculation = (
         status,
         organizationName: 'Test Org',
         createdDate: '2025-01-01T00:00:00Z',
-        manager_id: null,
+        manager_id: undefined,
         user_id: 'user1',
         type: 'Biuro',
         totalArea: 100,
@@ -90,15 +90,17 @@ describe('CalculationEntity', () => {
     describe('Business Logic: Financials', () => {
         test('should calculate total cost from summary items', () => {
             const entity = new CalculationEntity(mockCalculation('draft'));
-            // 10*100 + 5*200 = 1000 + 1000 = 2000
-            expect(entity.totalCost).toBe(2000);
+            // (10*100 + 5*200) * 1.20 = 2000 * 1.2 = 2400
+            expect(entity.totalCost).toBe(2400);
         });
 
         test('should use pre-calculated totalCost if no summary items exist', () => {
-            const entity = new CalculationEntity(mockCalculation('draft', { 
-                totalCost: 5000,
-                results: { summary: [], byZone: [] }
-            }));
+            const entity = new CalculationEntity(
+                mockCalculation('draft', {
+                    totalCost: 5000,
+                    results: { summary: [], byZone: [] },
+                })
+            );
             expect(entity.totalCost).toBe(5000);
         });
 
@@ -182,6 +184,68 @@ describe('CalculationEntity', () => {
                 true
             );
             expect(new CalculationEntity(mockCalculation('paid')).isPaid()).toBe(true);
+        });
+    });
+
+    describe('Manager Adjustments & Validation', () => {
+        test('should apply global margin to total cost', () => {
+            const entity = new CalculationEntity(
+                mockCalculation('expert', {
+                    manager_adjustments: { global_margin: 1.2 }, // 20% margin
+                })
+            );
+            // Base = 2000. 2000 * 1.2 (margin) = 2400. 2400 * 1.2 (VAT) = 2880
+            expect(entity.totalCost).toBe(2880);
+        });
+
+        test('should add delivery and service costs', () => {
+            const entity = new CalculationEntity(
+                mockCalculation('expert', {
+                    manager_adjustments: {
+                        global_margin: 1.0,
+                        delivery_cost: 500,
+                        service_cost: 300,
+                    },
+                })
+            );
+            // Base = (2000 * 1.0) + 500 + 300 = 2800 Net. 2800 * 1.2 (VAT) = 3360 Total
+            expect(entity.totalCost).toBe(3360);
+        });
+
+        test('getValidationReport: should return errors for empty specification', () => {
+            const entity = new CalculationEntity(
+                mockCalculation('sent', {
+                    results: { summary: [], byZone: [] },
+                })
+            );
+            const report = entity.getValidationReport();
+            expect(report.isValid).toBe(false);
+            expect(report.messages.some((m) => m.type === 'error')).toBe(true);
+            expect(report.score).toBeLessThan(100);
+        });
+
+        test('getValidationReport: should return error for unassigned manager', () => {
+            const entity = new CalculationEntity(
+                mockCalculation('sent', {
+                    manager_id: undefined,
+                })
+            );
+            const report = entity.getValidationReport();
+            expect(report.messages.some((m) => m.text.includes('Менеджер не назначен'))).toBe(true);
+        });
+
+        test('getValidationReport: should flag low margin warning', () => {
+            const entity = new CalculationEntity(
+                mockCalculation('expert', {
+                    manager_adjustments: { global_margin: 1.02 }, // 2% < 5%
+                })
+            );
+            const report = entity.getValidationReport();
+            expect(
+                report.messages.some(
+                    (m) => m.type === 'warning' && m.text.includes('Низкая маржинальность')
+                )
+            ).toBe(true);
         });
     });
 });

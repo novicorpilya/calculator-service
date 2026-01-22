@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    X, 
-    Save, 
+import {
+    X,
+    Save,
     Building2,
     Globe,
     Phone,
@@ -10,7 +10,7 @@ import {
     Star,
     Image,
     Cpu,
-    Activity
+    Activity,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useServices } from '@/app/di/ServiceContainer';
@@ -23,14 +23,14 @@ interface AdminSupplierFormProps {
     onSuccess: () => void;
 }
 
-export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({ 
-    initialData, 
-    onClose, 
-    onSuccess 
+export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
+    initialData,
+    onClose,
+    onSuccess,
 }) => {
     const { supplierService } = useServices();
     const [loading, setLoading] = useState(false);
-    
+
     // We treat contacts as flattened fields in UI for simplicity, then reconstruct object on submit
     const [formData, setFormData] = useState({
         name: '',
@@ -43,7 +43,7 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
         contact_phone: '',
         contact_email: '',
         contact_website: '',
-        contact_address: ''
+        contact_address: '',
     });
 
     useEffect(() => {
@@ -58,7 +58,7 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                 contact_phone: initialData.contacts?.phone || '',
                 contact_email: initialData.contacts?.email || '',
                 contact_website: initialData.contacts?.website || '',
-                contact_address: initialData.contacts?.address || ''
+                contact_address: initialData.contacts?.address || '',
             });
         }
     }, [initialData]);
@@ -79,12 +79,12 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                     phone: formData.contact_phone || undefined,
                     email: formData.contact_email || undefined,
                     website: formData.contact_website || undefined,
-                    address: formData.contact_address || undefined
-                }
+                    address: formData.contact_address || undefined,
+                },
             };
 
             // Cleanup empty contacts object if all undefined
-            if (Object.values(payload.contacts || {}).every(v => v === undefined)) {
+            if (Object.values(payload.contacts || {}).every((v) => v === undefined)) {
                 payload.contacts = null;
             }
 
@@ -93,9 +93,11 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                 res = await supplierService.updateSupplier(initialData.id, payload);
             } else {
                 // For creation, we need the specific type.
-                // Since payload is Partial<SupplierInput> and we validated it's compliant 
+                // Since payload is Partial<SupplierInput> and we validated it's compliant
                 // (except ID/timestamps), we can cast it safely to the Omit type.
-                res = await supplierService.createSupplier(payload as Omit<SupplierInput, 'id' | 'created_at' | 'updated_at'>);
+                res = await supplierService.createSupplier(
+                    payload as Omit<SupplierInput, 'id' | 'created_at' | 'updated_at'>
+                );
             }
 
             if (res.success) {
@@ -113,8 +115,8 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div 
-                className="bg-[#0A0A0A] w-full max-w-2xl rounded-[2rem] border border-white/10 shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 overflow-hidden"
+            <div
+                className="bg-card w-full max-w-2xl rounded-[2rem] border border-border-theme shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -130,22 +132,26 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                             {initialData ? `ID: ${initialData.id}` : 'Добавление партнера'}
                         </p>
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
-                        className="p-2 hover:bg-white/5 rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                        className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground"
                     >
                         <X size={20} />
                     </button>
                 </div>
 
                 {/* Form Content */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8">
-                    
+                <form
+                    onSubmit={handleSubmit}
+                    className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8"
+                >
                     {/* Main Info Section */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 text-primary/80 mb-2">
                             <Activity size={16} />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">Основная информация</h3>
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">
+                                Основная информация
+                            </h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -154,13 +160,21 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                     Название компании <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative group">
-                                    <Building2 className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+                                    <Building2
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="text"
                                         required
                                         value={formData.name}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                name: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                         placeholder="ООО 'Пример'"
                                     />
                                 </div>
@@ -172,23 +186,36 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                 </label>
                                 <textarea
                                     value={formData.description}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                    className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30 min-h-[80px] resize-none"
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            description: e.target.value,
+                                        }))
+                                    }
+                                    className="w-full bg-background border border-border-theme rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50 min-h-[80px] resize-none"
                                     placeholder="Краткое описание деятельности..."
                                 />
                             </div>
 
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">
                                     Логотип (URL)
                                 </label>
                                 <div className="relative group">
-                                    <Image className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+                                    <Image
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="url"
                                         value={formData.logo}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, logo: e.target.value }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                logo: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                         placeholder="https://..."
                                     />
                                 </div>
@@ -199,15 +226,23 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                     Рейтинг (0-5)
                                 </label>
                                 <div className="relative group">
-                                    <Star className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-amber-500 transition-colors" size={16} />
+                                    <Star
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-amber-500 transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="number"
                                         min="0"
                                         max="5"
                                         step="0.1"
                                         value={formData.rating}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, rating: Number(e.target.value) }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                rating: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                     />
                                 </div>
                             </div>
@@ -218,7 +253,9 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 text-indigo-400 mb-2">
                             <Cpu size={16} />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">Настройки интеграции</h3>
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">
+                                Настройки интеграции
+                            </h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -229,8 +266,16 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                 <div className="relative">
                                     <select
                                         value={formData.integration_type}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, integration_type: e.target.value as 'internal' | 'api_1c' | 'api_custom' }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                integration_type: e.target.value as
+                                                    | 'internal'
+                                                    | 'api_1c'
+                                                    | 'api_custom',
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all appearance-none cursor-pointer"
                                     >
                                         <option value="internal">Внутренняя</option>
                                         <option value="api_1c">API 1C</option>
@@ -249,8 +294,13 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                 <div className="relative">
                                     <select
                                         value={formData.status}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                status: e.target.value as 'active' | 'inactive',
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all appearance-none cursor-pointer"
                                     >
                                         <option value="active">Активен</option>
                                         <option value="inactive">Неактивен</option>
@@ -267,7 +317,9 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 text-emerald-400 mb-2">
                             <Phone size={16} />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">Контакты</h3>
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">
+                                Контакты
+                            </h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -276,12 +328,20 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                     Телефон
                                 </label>
                                 <div className="relative group">
-                                    <Phone className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors" size={16} />
+                                    <Phone
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="tel"
                                         value={formData.contact_phone}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, contact_phone: e.target.value }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                contact_phone: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                         placeholder="+7 (999) 000-00-00"
                                     />
                                 </div>
@@ -292,44 +352,68 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                                     Email
                                 </label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors" size={16} />
+                                    <Mail
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="email"
                                         value={formData.contact_email}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                contact_email: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                         placeholder="info@company.com"
                                     />
                                 </div>
                             </div>
 
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">
                                     Веб-сайт
                                 </label>
                                 <div className="relative group">
-                                    <Globe className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors" size={16} />
+                                    <Globe
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="url"
                                         value={formData.contact_website}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, contact_website: e.target.value }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                contact_website: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                         placeholder="https://company.com"
                                     />
                                 </div>
                             </div>
 
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">
                                     Адрес
                                 </label>
                                 <div className="relative group">
-                                    <MapPin className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors" size={16} />
+                                    <MapPin
+                                        className="absolute left-4 top-3.5 text-muted-foreground group-focus-within:text-emerald-400 transition-colors"
+                                        size={16}
+                                    />
                                     <input
                                         type="text"
                                         value={formData.contact_address}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, contact_address: e.target.value }))}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                contact_address: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full bg-background border border-border-theme rounded-xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                                         placeholder="Москва, ул. Ленина, 1"
                                     />
                                 </div>
@@ -339,12 +423,12 @@ export const AdminSupplierForm: React.FC<AdminSupplierFormProps> = ({
                 </form>
 
                 {/* Footer Buttons */}
-                <div className="p-6 border-t border-white/5 bg-card flex justify-end gap-3">
+                <div className="p-6 border-t border-border-theme/50 bg-card flex justify-end gap-3">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-6 py-3 rounded-xl font-bold bg-white/5 hover:bg-white/10 text-foreground transition-all disabled:opacity-50"
+                        className="px-6 py-3 rounded-xl font-bold bg-muted hover:bg-muted/80 text-foreground transition-all disabled:opacity-50"
                     >
                         Отмена
                     </button>

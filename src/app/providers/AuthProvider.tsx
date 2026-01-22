@@ -159,7 +159,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result.success && result.data) {
             setToken(result.data.token);
             setUser(result.data.user);
-            setIsAuthenticated(true);
             setLoading(false);
             return { success: true, data: result.data.user };
         } else {
@@ -178,7 +177,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result.success && result.data) {
             setToken(result.data.token);
             setUser(result.data.user);
-            setIsAuthenticated(true);
             setLoading(false);
             return { success: true, data: result.data.user };
         } else {

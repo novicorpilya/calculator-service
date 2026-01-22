@@ -1,0 +1,14 @@
+# HICS - Enterprise HoReCa Inventory Management System
+# Production robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /embed/calculator
+Disallow: /assets/*.js$
+Disallow: /assets/*.css$
+
+Sitemap: https://hics.ru/sitemap.xml

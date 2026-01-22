@@ -11,7 +11,10 @@ import {
     EyeOff,
     ArrowRight,
     User as UserIcon,
+    FileText,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '@/app/routes/routes.constants';
 import { IconInput } from '@/components/ui/IconInput';
 import { registerSchema } from '@/features/auth/auth.validation';
 import type { RegisterFormValues } from '@/features/auth/auth.form.types';
@@ -65,6 +68,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         setValue('phone', value, { shouldValidate: true });
     };
 
+    const handleNameChange =
+        (name: 'firstName' | 'lastName') => (e: React.ChangeEvent<HTMLInputElement>) => {
+            const value = e.target.value.replace(/[0-9]/g, '');
+            setValue(name, value, { shouldValidate: true });
+        };
+
+    const handleInnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value.replace(/\D/g, '');
+        setValue('inn', value, { shouldValidate: true });
+    };
+
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {serverError && (
@@ -101,6 +115,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                                 error={errors.address?.message}
                             />
                         </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                ИНН
+                            </label>
+                            <IconInput
+                                {...register('inn')}
+                                placeholder="7700000000"
+                                icon={<FileText />}
+                                error={errors.inn?.message}
+                                onChange={handleInnChange}
+                            />
+                        </div>
                     </>
                 ) : (
                     <>
@@ -113,6 +140,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                                 placeholder="Иван"
                                 icon={<UserIcon />}
                                 error={errors.firstName?.message}
+                                onChange={handleNameChange('firstName')}
                             />
                         </div>
 
@@ -125,6 +153,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                                 placeholder="Иванов"
                                 icon={<UserIcon />}
                                 error={errors.lastName?.message}
+                                onChange={handleNameChange('lastName')}
                             />
                         </div>
                     </>
@@ -189,25 +218,25 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <div className="py-2 px-1">
                 <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest leading-loose">
                     Нажимая кнопку, вы соглашаетесь с{' '}
-                    <a
-                        href="#"
+                    <Link
+                        to={ROUTES.ERRORS.PRIVACY}
                         className="text-primary hover:opacity-80 transition-opacity font-black"
                     >
                         политикой конфиденциальности
-                    </a>
+                    </Link>
                 </p>
             </div>
 
             <button
                 type="submit"
                 disabled={loading || !isValid}
-                className="btn-premium w-full py-5 text-[11px] sm:text-[12px]"
+                className="btn-premium w-full py-4 sm:py-5 text-[10px] sm:text-[12px]"
             >
                 <span className="relative z-10">
                     {loading ? 'Создание...' : 'Зарегистрироваться'}
                 </span>
                 {!loading && (
-                    <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1 shrink-0" />
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative z-10 transition-transform group-hover:translate-x-1 shrink-0" />
                 )}
             </button>
 

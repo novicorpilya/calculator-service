@@ -15,11 +15,11 @@ export const IconInput = forwardRef<HTMLInputElement, IconInputProps>(
             <div className="w-full space-y-2">
                 <div className="relative group">
                     {icon && (
-                        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-foreground/40 group-focus-within:text-primary transition-colors flex items-center justify-center">
+                        <div className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-foreground/40 group-focus-within:text-primary transition-colors flex items-center justify-center">
                             {React.isValidElement(icon)
                                 ? React.cloneElement(
                                       icon as React.ReactElement<{ size?: number }>,
-                                      { size: 18 }
+                                      { size: 16 }
                                   )
                                 : icon}
                         </div>
@@ -28,7 +28,7 @@ export const IconInput = forwardRef<HTMLInputElement, IconInputProps>(
                     <input
                         ref={ref}
                         className={`
-                        input-premium ${icon ? 'pl-16' : 'pl-6'} ${rightIcon ? 'pr-16' : 'pr-6'}
+                        input-premium ${icon ? 'pl-11 sm:pl-16' : 'pl-4 sm:pl-6'} ${rightIcon ? 'pr-11 sm:pr-16' : 'pr-4 sm:pr-6'}
                         ${hasError ? 'border-red-500/50 bg-red-500/5' : ''}
                         ${className}
                     `}
@@ -39,12 +39,12 @@ export const IconInput = forwardRef<HTMLInputElement, IconInputProps>(
                         <button
                             type="button"
                             onClick={onRightIconClick}
-                            className="absolute right-6 top-1/2 -translate-y-1/2 text-foreground/40 hover:text-primary transition-colors flex items-center justify-center"
+                            className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-foreground/40 hover:text-primary transition-colors flex items-center justify-center"
                         >
                             {React.isValidElement(rightIcon)
                                 ? React.cloneElement(
                                       rightIcon as React.ReactElement<{ size?: number }>,
-                                      { size: 18 }
+                                      { size: 16 }
                                   )
                                 : rightIcon}
                         </button>

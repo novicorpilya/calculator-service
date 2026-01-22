@@ -1,14 +1,12 @@
 import React from 'react';
-import { Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
-import {
-    OBJECT_TYPES,
-    SANITARY_LEVELS,
-    INTENSITY_LEVELS,
-} from '@/features/dashboard/dashboard.types';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { SANITARY_LEVELS, INTENSITY_LEVELS } from '@/features/dashboard/dashboard.types';
 import { getTotalZonesStaff } from '@/core/domain/calculator.utils';
 import type { Venue } from '@/services/venue.service';
 import type { ObjectData } from './useCalculationWizard';
 import type { Zone } from '@/features/dashboard/dashboard.types';
+import { VenueSelector } from '@/features/calculator/components/VenueSelector';
+import { ObjectBasicSpecs } from '@/features/calculator/components/ObjectBasicSpecs';
 
 interface WizardStep1Props {
     objectData: ObjectData;
@@ -38,104 +36,30 @@ export const WizardStep1_Object: React.FC<WizardStep1Props> = ({
                         Характеристики объекта
                     </h3>
 
-                    {venues.length > 0 && (
-                        <div className="space-y-3 bg-primary/5 p-6 rounded-3xl border border-primary/10">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Sparkles className="w-4 h-4 text-primary" />
-                                <label className="block text-fluid-xs font-black text-primary uppercase tracking-[0.2em]">
-                                    Выбрать из моих объектов
-                                </label>
-                            </div>
-                            <select
-                                value={objectData.selectedVenueId || ''}
-                                onChange={(e) => onVenueSelect(e.target.value)}
-                                className="w-full bg-background border border-primary/20 rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all appearance-none cursor-pointer"
-                            >
-                                <option value="">-- Выберите заведение --</option>
-                                {venues.map((v) => (
-                                    <option key={v.id} value={v.id}>
-                                        {v.name} ({v.total_area} м²)
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                    <VenueSelector
+                        venues={venues}
+                        selectedVenueId={objectData.selectedVenueId}
+                        onSelect={onVenueSelect}
+                    />
+
+                    <ObjectBasicSpecs
+                        data={{
+                            type: objectData.type,
+                            totalArea: objectData.totalArea,
+                            staffCount:
+                                zones.length > 0
+                                    ? totalZonesStaff.toString()
+                                    : objectData.staffCount,
+                            dailyVisitors: objectData.dailyVisitors,
+                        }}
+                        onChange={(updates) => setObjectData({ ...objectData, ...updates })}
+                    />
+
+                    {zones.length > 0 && (
+                        <p className="text-[10px] font-bold text-primary/50 uppercase tracking-widest mt-[-20px] ml-1 animate-pulse italic">
+                            * Персонал рассчитан автоматически по зонам
+                        </p>
                     )}
-
-                    <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                            Тип объекта
-                        </label>
-                        <select
-                            value={objectData.type}
-                            onChange={(e) => setObjectData({ ...objectData, type: e.target.value })}
-                            className="input-premium appearance-none cursor-pointer"
-                        >
-                            <option value="">Выбрать тип...</option>
-                            {OBJECT_TYPES.map((t) => (
-                                <option key={t.value} value={t.value}>
-                                    {t.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-8">
-                        <div className="space-y-3">
-                            <label className="block text-fluid-xs font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                                Площадь (м²)
-                            </label>
-                            <input
-                                type="number"
-                                value={objectData.totalArea}
-                                onChange={(e) =>
-                                    setObjectData({ ...objectData, totalArea: e.target.value })
-                                }
-                                className="input-premium"
-                                placeholder="90"
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <label className="block text-fluid-xs font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                                Общее количество персонала
-                            </label>
-                            <div className="relative group/staff">
-                                <input
-                                    type="number"
-                                    value={
-                                        zones.length > 0 ? totalZonesStaff : objectData.staffCount
-                                    }
-                                    onChange={(e) =>
-                                        setObjectData({ ...objectData, staffCount: e.target.value })
-                                    }
-                                    disabled={zones.length > 0}
-                                    className={`input-premium ${zones.length > 0 ? 'bg-primary/5 border-primary/20 text-primary font-black' : ''}`}
-                                    placeholder="55"
-                                />
-                                {zones.length > 0 && (
-                                    <p className="text-[8px] font-bold text-primary/50 uppercase tracking-widest mt-2 ml-1 animate-pulse">
-                                        Сумма всех сотрудников по всем зонам
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        <label className="block text-fluid-xs font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                            Среднее количество посетителей в день
-                        </label>
-                        <div className="space-y-2">
-                            <input
-                                type="number"
-                                value={objectData.dailyVisitors}
-                                onChange={(e) =>
-                                    setObjectData({ ...objectData, dailyVisitors: e.target.value })
-                                }
-                                className="input-premium"
-                                placeholder="100"
-                            />
-                        </div>
-                    </div>
                 </div>
 
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-8">

@@ -138,6 +138,7 @@ export const authService = {
                 .from('profiles')
                 .update({
                     organization_name: credentials.organizationName,
+                    inn: credentials.inn,
                     first_name: credentials.firstName,
                     last_name: credentials.lastName,
                     phone: credentials.phone,
@@ -272,9 +273,9 @@ export const authService = {
 
             if (!profile) {
                 // Пользователь не найден - явно сообщаем об этом
-                return { 
-                    success: false, 
-                    error: { message: 'Пользователь с таким email не найден' } 
+                return {
+                    success: false,
+                    error: { message: 'Пользователь с таким email не найден' },
                 };
             }
 
@@ -282,11 +283,14 @@ export const authService = {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/auth/reset-password`,
             });
-            
+
             if (error) {
-                 // Обработка лимита
+                // Обработка лимита
                 if (error.message.includes('rate limit')) {
-                    return { success: false, error: { message: 'Слишком много попыток. Подождите минуту.' } };
+                    return {
+                        success: false,
+                        error: { message: 'Слишком много попыток. Подождите минуту.' },
+                    };
                 }
                 return { success: false, error: { message: error.message } };
             }
@@ -344,7 +348,7 @@ export const authService = {
                 .from('attachments')
                 .upload(filePath, file, {
                     cacheControl: '3600',
-                    upsert: true
+                    upsert: true,
                 });
 
             if (uploadError) return { success: false, error: { message: uploadError.message } };

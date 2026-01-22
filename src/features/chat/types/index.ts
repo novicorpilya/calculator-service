@@ -49,7 +49,14 @@ export const MessageCreatePayloadSchema = z.object({
 
 export type MessageCreatePayload = z.infer<typeof MessageCreatePayloadSchema>;
 
-export type MessageEventType = 'INSERT' | 'UPDATE' | 'DELETE' | 'READ' | 'RECONNECT' | 'TYPING' | 'ACK';
+export type MessageEventType =
+    | 'INSERT'
+    | 'UPDATE'
+    | 'DELETE'
+    | 'READ'
+    | 'RECONNECT'
+    | 'TYPING'
+    | 'ACK';
 
 export interface BroadcastSignal {
     id: string;
@@ -79,6 +86,7 @@ export const RecipientSchema = z.object({
     role: z.string(),
     first_name: z.string().nullable().optional(),
     last_name: z.string().nullable().optional(),
+    avatar_url: z.string().nullable().optional(),
     lastMessage: z
         .object({
             id: z.string().nullable().optional(),

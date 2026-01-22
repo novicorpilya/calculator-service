@@ -50,8 +50,16 @@ export const RecipientListItem: React.FC<RecipientListItemProps> = React.memo(
             >
                 {/* Avatar with Online Status */}
                 <div className="relative shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-lg">
-                        {(displayName || '?').charAt(0).toUpperCase()}
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-lg overflow-hidden">
+                        {recipient.avatar_url ? (
+                            <img
+                                src={recipient.avatar_url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            (displayName || '?').charAt(0).toUpperCase()
+                        )}
                     </div>
                     <div
                         className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-background ${

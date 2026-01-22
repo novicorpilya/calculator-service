@@ -1,12 +1,5 @@
 import React from 'react';
-import { 
-    ChevronLeft, 
-    Send, 
-    FileText, 
-    Briefcase, 
-    Calendar, 
-    Trash2 
-} from 'lucide-react';
+import { ChevronLeft, Send, FileText, Briefcase, Calendar, Trash2 } from 'lucide-react';
 import { ModernStatusBadge } from '@/features/dashboard/components/ModernStatusBadge';
 import type { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
 import type { User } from '@/features/auth';
@@ -23,7 +16,11 @@ interface CalculationHeaderProps {
     onBack: () => void;
     onDelete: (id: string | number) => void;
     onEdit: (calc: Calculation) => void;
-    onUpdateStatus: (id: string | number, status: CalculationStatus, additional?: Partial<Calculation>) => void;
+    onUpdateStatus: (
+        id: string | number,
+        status: CalculationStatus,
+        additional?: Partial<Calculation>
+    ) => void;
     onDownloadPDF: () => void;
     onAssign?: (id: string | number) => void;
     isAuditMode: boolean;
@@ -49,19 +46,27 @@ export const CalculationHeader: React.FC<CalculationHeaderProps> = ({
                 {/* Advanced Back Button */}
                 <button
                     onClick={onBack}
-                    className="group relative w-12 h-12 rounded-xl bg-foreground/[0.03] border border-foreground/10 flex items-center justify-center hover:border-primary/50 hover:bg-foreground/[0.05] transition-all duration-300 active:scale-95 shadow-sm"
+                    className="group relative flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-foreground/[0.03] border border-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 active:scale-95 shadow-sm"
+                    aria-label="Вернуться к списку проектов"
                 >
-                    <ChevronLeft className="w-5 h-5 text-foreground/40 group-hover:text-primary transition-colors" />
+                    <ChevronLeft className="w-5 h-5 text-foreground/40 group-hover:text-primary transition-colors group-hover:-translate-x-0.5" />
+                    <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-foreground/40 group-hover:text-primary transition-colors">
+                        Назад
+                    </span>
                 </button>
 
                 <div className="space-y-3">
                     {/* Breadcrumbs / System Label */}
                     <div className="flex items-center gap-3">
                         <div className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
-                            <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">Проект {displayId && `ID-${String(displayId).padStart(3, '0')}`}</span>
+                            <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">
+                                Проект {displayId && `ID-${String(displayId).padStart(3, '0')}`}
+                            </span>
                         </div>
                         <div className="h-px w-8 bg-foreground/10" />
-                        <span className="text-[9px] font-black text-foreground/20 uppercase tracking-[0.2em]">Управление расчетами</span>
+                        <span className="text-[9px] font-black text-foreground/20 uppercase tracking-[0.2em]">
+                            Управление расчетами
+                        </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 lg:gap-6">
@@ -75,11 +80,15 @@ export const CalculationHeader: React.FC<CalculationHeaderProps> = ({
                     <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-foreground/[0.02] border border-foreground/5">
                             <Calendar className="w-3.5 h-3.5 text-primary/60" />
-                            <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest">{formattedDate}</span>
+                            <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest">
+                                {formattedDate}
+                            </span>
                         </div>
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-foreground/[0.02] border border-foreground/5">
                             <Briefcase className="w-3.5 h-3.5 text-primary/60" />
-                            <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest">{vm.manager}</span>
+                            <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest">
+                                {vm.managerName}
+                            </span>
                         </div>
                     </div>
                 </div>

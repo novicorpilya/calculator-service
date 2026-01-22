@@ -39,10 +39,14 @@ export const AuditPricingPanel: React.FC<AuditPricingPanelProps> = ({
                                 global_margin: parseFloat(e.target.value) || 1.0,
                             })
                         }
-                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                        onKeyDown={(e) =>
+                            e.key === 'Enter' && (e.target as HTMLInputElement).blur()
+                        }
                         className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
                     />
-                    <p className="text-[9px] text-foreground/30 italic">Пример: 1.1 = +10% к сумме товаров</p>
+                    <p className="text-[9px] text-foreground/50 italic">
+                        Пример: 1.1 = +10% к сумме товаров
+                    </p>
                 </div>
 
                 <div className="space-y-3">
@@ -58,10 +62,14 @@ export const AuditPricingPanel: React.FC<AuditPricingPanelProps> = ({
                                 delivery_cost: parseFloat(e.target.value) || 0,
                             })
                         }
-                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                        onKeyDown={(e) =>
+                            e.key === 'Enter' && (e.target as HTMLInputElement).blur()
+                        }
                         className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
                     />
-                    <p className="text-[9px] text-foreground/30 italic">Фиксированная стоимость логистики</p>
+                    <p className="text-[9px] text-foreground/50 italic">
+                        Фиксированная стоимость логистики
+                    </p>
                 </div>
 
                 <div className="space-y-3">
@@ -77,10 +85,14 @@ export const AuditPricingPanel: React.FC<AuditPricingPanelProps> = ({
                                 service_cost: parseFloat(e.target.value) || 0,
                             })
                         }
-                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                        onKeyDown={(e) =>
+                            e.key === 'Enter' && (e.target as HTMLInputElement).blur()
+                        }
                         className="w-full bg-background border border-border-theme p-4 rounded-2xl font-black focus:border-primary outline-none transition-all"
                     />
-                    <p className="text-[9px] text-foreground/30 italic">Монтаж, занос или другие услуги</p>
+                    <p className="text-[9px] text-foreground/50 italic">
+                        Монтаж, занос или другие услуги
+                    </p>
                 </div>
             </div>
 

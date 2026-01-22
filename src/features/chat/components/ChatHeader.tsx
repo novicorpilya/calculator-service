@@ -97,8 +97,16 @@ export const ChatHeader: React.FC<ChatHeaderProps> = React.memo(
                         >
                             <ArrowLeft size={20} />
                         </button>
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black uppercase">
-                            {getAvatar()}
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black uppercase overflow-hidden">
+                            {selectedUser.avatar_url ? (
+                                <img
+                                    src={selectedUser.avatar_url}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                getAvatar()
+                            )}
                         </div>
                         <div>
                             <h3 className="text-[14px] font-black tracking-tight">

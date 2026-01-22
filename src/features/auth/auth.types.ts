@@ -18,6 +18,7 @@ export interface LoginCredentials {
 
 export interface RegisterCredentials extends LoginCredentials {
     organizationName?: string;
+    inn?: string;
     firstName?: string;
     lastName?: string;
     phone: string;

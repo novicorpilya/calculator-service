@@ -5,6 +5,7 @@ import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
 import { MessageContextMenu } from './MessageContextMenu';
 import { MessageList } from './MessageList';
 import type { Message, ChatRecipient } from '../types';
+import type { User } from '@/features/auth/auth.types';
 import { logger } from '@/core/logging';
 import { toast } from 'sonner';
 
@@ -13,8 +14,9 @@ import { ChatHeader } from './window/ChatHeader';
 import { ChatInput } from './window/ChatInput';
 
 interface ChatWindowProps {
-    currentUser: { id: string };
+    currentUser: User;
     selectedUser: ChatRecipient | null;
+    isOnline: boolean;
     messages: Message[];
     isLoading: boolean;
     onSendMessage: (params: {
@@ -50,6 +52,7 @@ export const ChatWindow = React.memo<ChatWindowProps>(
     ({
         currentUser,
         selectedUser,
+        isOnline,
         messages,
         isLoading,
         onSendMessage,
@@ -67,9 +70,13 @@ export const ChatWindow = React.memo<ChatWindowProps>(
         const [isRecordingVoice, setIsRecordingVoice] = useState(false);
         const [showEmojiPicker, setShowEmojiPicker] = useState(false);
         const [previewImage, setPreviewImage] = useState<string | null>(null);
-        
+
         // Context Menu & Actions
-        const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: Message } | null>(null);
+        const [contextMenu, setContextMenu] = useState<{
+            x: number;
+            y: number;
+            message: Message;
+        } | null>(null);
         const [replyingTo, setReplyingTo] = useState<Message | null>(null);
         const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
@@ -117,7 +124,7 @@ export const ChatWindow = React.memo<ChatWindowProps>(
                 e.preventDefault();
                 const text = newMessage.trim();
                 const attachments = [...pendingAttachments];
-                
+
                 if (editingMessage) {
                     if (!text || !onEditMessage) return;
                     try {
@@ -217,7 +224,7 @@ export const ChatWindow = React.memo<ChatWindowProps>(
         const handleVoiceStart = React.useCallback(() => setIsRecordingVoice(true), []);
         const handleImagePreviewClose = React.useCallback(() => setPreviewImage(null), []);
         const handleImageClick = React.useCallback((url: string) => setPreviewImage(url), []);
-        
+
         const handleContextMenu = React.useCallback((e: React.MouseEvent, message: Message) => {
             e.preventDefault();
             setContextMenu({ x: e.clientX, y: e.clientY, message });
@@ -246,7 +253,7 @@ export const ChatWindow = React.memo<ChatWindowProps>(
         }, [editingMessage]);
 
         const handleContextMenuClose = React.useCallback(() => setContextMenu(null), []);
-        
+
         const handleContextMenuDelete = React.useCallback(async () => {
             if (!contextMenu?.message) return;
             if (onDeleteMessage) {
@@ -283,7 +290,7 @@ export const ChatWindow = React.memo<ChatWindowProps>(
 
         return (
             <div className="flex-1 flex flex-col bg-background h-full overflow-hidden">
-                <ChatHeader selectedUser={selectedUser} onBack={onBack} />
+                <ChatHeader selectedUser={selectedUser} onBack={onBack} isOnline={isOnline} />
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-8">
@@ -295,6 +302,8 @@ export const ChatWindow = React.memo<ChatWindowProps>(
                         onContextMenu={handleContextMenu}
                         onImageClick={handleImageClick}
                         onMessageRead={onMarkAsRead}
+                        recipientAvatarUrl={selectedUser.avatar_url || undefined}
+                        currentUserAvatarUrl={currentUser.avatarUrl || undefined}
                     />
                 </div>
 
@@ -321,7 +330,7 @@ export const ChatWindow = React.memo<ChatWindowProps>(
                 {previewImage && (
                     <ImagePreviewModal imageUrl={previewImage} onClose={handleImagePreviewClose} />
                 )}
-                
+
                 {contextMenu && (
                     <MessageContextMenu
                         x={contextMenu.x}

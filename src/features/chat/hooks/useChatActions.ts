@@ -3,6 +3,12 @@ import { useServices } from '@/app/di/ServiceContainer';
 import type { Message, MessageCreatePayload } from '../types';
 import { sortMessages } from '../utils/chatUtils';
 
+interface Recipient {
+    id: string;
+    lastMessage?: Message | null;
+    [key: string]: unknown;
+}
+
 interface SendImageParams {
     file: File;
     previewUrl: string;
@@ -24,6 +30,31 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
     const { chatService } = useServices();
     const queryClient = useQueryClient();
     const queryKey = ['messages', currentUserId, selectedUserId];
+
+    const updateRecipientsLastMessage = (message: Partial<Message>) => {
+        const recipientsKey = ['recipients', currentUserId];
+        queryClient.setQueryData<Recipient[]>(recipientsKey, (old = []) => {
+            const updated = old.map((r) =>
+                r.id === selectedUserId
+                    ? {
+                          ...r,
+                          lastMessage: {
+                              ...r.lastMessage,
+                              ...message,
+                              sender_id: currentUserId,
+                              created_at: new Date().toISOString(),
+                          } as Message,
+                      }
+                    : r
+            );
+            // Sort by date to bring updated chat to top
+            return [...updated].sort((a, b) => {
+                const dateA = a.lastMessage?.created_at || '0';
+                const dateB = b.lastMessage?.created_at || '0';
+                return dateB.localeCompare(dateA);
+            });
+        });
+    };
 
     const sendMutation = useMutation({
         mutationFn: async (params: MessageCreatePayload) => {
@@ -48,9 +79,14 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
                 is_optimistic: true,
             };
 
-            queryClient.setQueryData<Message[]>(queryKey, (old = []) => 
+            queryClient.setQueryData<Message[]>(queryKey, (old = []) =>
                 sortMessages([...old, optimisticMessage])
             );
+
+            // OPTIMISTIC SIDEBAR UPDATE
+            updateRecipientsLastMessage({
+                content: newMessage.content,
+            });
 
             return { previousMessages };
         },
@@ -59,6 +95,8 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
                 const filtered = old.filter((m) => !m.is_optimistic);
                 return sortMessages([...filtered, data]);
             });
+            // Final sync for sidebar
+            updateRecipientsLastMessage(data);
             // Update counts
             queryClient.invalidateQueries({ queryKey: ['unread-counts'] });
         },
@@ -102,6 +140,13 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
             };
 
             queryClient.setQueryData<Message[]>(queryKey, (old = []) => [...old, optimistic]);
+
+            // OPTIMISTIC SIDEBAR UPDATE
+            updateRecipientsLastMessage({
+                content: '',
+                image_url: params.previewUrl,
+            });
+
             return { previousMessages };
         },
         onSuccess: (data: Message) => {
@@ -109,9 +154,11 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
                 const filtered = old.filter((m) => !m.is_optimistic);
                 return sortMessages([...filtered, data]);
             });
+            updateRecipientsLastMessage(data);
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousMessages) queryClient.setQueryData(queryKey, context.previousMessages);
+            if (context?.previousMessages)
+                queryClient.setQueryData(queryKey, context.previousMessages);
         },
     });
 
@@ -127,7 +174,8 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
                 client_message_id: params.client_message_id,
             };
             const res = await chatService.sendMediaMessage(params.blob, payload);
-            if (!res.success || !res.data) throw new Error(res.error?.message || 'Voice upload failed');
+            if (!res.success || !res.data)
+                throw new Error(res.error?.message || 'Voice upload failed');
             return res.data;
         },
         onMutate: async (params: SendVoiceParams & { client_message_id?: string }) => {
@@ -150,6 +198,13 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
             };
 
             queryClient.setQueryData<Message[]>(queryKey, (old = []) => [...old, optimistic]);
+
+            // OPTIMISTIC SIDEBAR UPDATE
+            updateRecipientsLastMessage({
+                content: '',
+                voice_url: params.previewUrl,
+            });
+
             return { previousMessages };
         },
         onSuccess: (data: Message) => {
@@ -157,9 +212,11 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
                 const filtered = old.filter((m) => !m.is_optimistic);
                 return sortMessages([...filtered, data]);
             });
+            updateRecipientsLastMessage(data);
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousMessages) queryClient.setQueryData(queryKey, context.previousMessages);
+            if (context?.previousMessages)
+                queryClient.setQueryData(queryKey, context.previousMessages);
         },
     });
 
@@ -172,11 +229,14 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
         onMutate: async (id: string) => {
             await queryClient.cancelQueries({ queryKey });
             const previousMessages = queryClient.getQueryData<Message[]>(queryKey);
-            queryClient.setQueryData<Message[]>(queryKey, (old = []) => old.filter((m) => m.id !== id));
+            queryClient.setQueryData<Message[]>(queryKey, (old = []) =>
+                old.filter((m) => m.id !== id)
+            );
             return { previousMessages };
         },
         onError: (_err, _id, context) => {
-            if (context?.previousMessages) queryClient.setQueryData(queryKey, context.previousMessages);
+            if (context?.previousMessages)
+                queryClient.setQueryData(queryKey, context.previousMessages);
         },
     });
 
@@ -206,6 +266,7 @@ export function useChatActions(currentUserId: string, selectedUserId: string) {
         },
         deleteMessage: deleteMutation.mutate,
         editMessage: editMutation.mutate,
-        isSending: sendMutation.isPending || sendImageMutation.isPending || sendVoiceMutation.isPending,
+        isSending:
+            sendMutation.isPending || sendImageMutation.isPending || sendVoiceMutation.isPending,
     };
 }

@@ -7,13 +7,13 @@ import {
     Sparkles,
     FileText,
     ChevronLeft,
+    ChevronDown,
 } from 'lucide-react';
 import {
     type CalculationResults,
     type CalculationStatus,
 } from '@/features/dashboard/dashboard.types';
 import { CalculationBreakdown } from '../CalculationBreakdown';
-import { useAuth } from '@/features/auth';
 
 interface WizardStep3Props {
     results: CalculationResults;
@@ -30,8 +30,19 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
     onSendToManager,
     onBackToStep2,
 }) => {
-    const { user } = useAuth();
-    const totalItemsCount = results.summary.reduce((sum, item) => sum + item.total, 0);
+    // const { user } = useAuth();
+    // const totalItemsCount = results.summary.reduce((sum, item) => sum + item.total, 0);
+
+    // Group items by category
+    const groupedItems = results.summary.reduce(
+        (acc, item) => {
+            const cat = item.category || 'Основной инвентарь';
+            if (!acc[cat]) acc[cat] = [];
+            acc[cat].push(item);
+            return acc;
+        },
+        {} as Record<string, typeof results.summary>
+    );
 
     return (
         <div className="animate-in fade-in slide-in-from-right-8 duration-700 space-y-12 pb-20">
@@ -44,23 +55,44 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
                     <h2 className="text-fluid-3xl font-black tracking-tighter leading-none italic uppercase">
                         Ваш расчет готов
                     </h2>
-                    <p className="text-fluid-xs font-black text-foreground/30 uppercase tracking-[0.5em] mt-4">
+                    <p className="text-fluid-xs font-black text-foreground/50 uppercase tracking-[0.5em] mt-4">
                         Автоматизированный подбор инвентаря
                     </p>
                 </div>
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
             </div>
 
-            {/* Operational Summary Benchmarks (Prices Hidden for Clients) */}
+            {/* Operational Summary Benchmarks & Transparent Formula */}
             <div className="adaptive-grid gap-8">
                 <div className="glass-card p-fluid space-y-4">
                     <p className="text-fluid-xs font-black text-foreground/40 uppercase tracking-widest">
-                        Текущий запас
+                        Итоговая смета (с НДС)
                     </p>
                     <h4 className="text-fluid-2xl font-black tracking-tighter">
-                        {totalItemsCount.toLocaleString()}{' '}
-                        <span className="text-xs text-foreground/20">ЕД</span>
+                        {((results.grandTotal || 0) * 0.95).toLocaleString('ru-RU', {
+                            maximumFractionDigits: 0,
+                        })}
+                        <span className="text-primary mx-2">-</span>
+                        {((results.grandTotal || 0) * 1.05).toLocaleString('ru-RU', {
+                            maximumFractionDigits: 0,
+                        })}
+                        <span className="text-xs text-foreground/20 ml-2">RUB</span>
                     </h4>
+
+                    <div className="flex flex-col gap-1 pt-4 border-t border-dashed border-foreground/10">
+                        <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold opacity-60">
+                            <span>Товары</span>
+                            <span>{(results.totalGoods || 0).toLocaleString()} ₽</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold opacity-60">
+                            <span>Доставка</span>
+                            <span>{(results.totalDelivery || 0).toLocaleString()} ₽</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold text-primary">
+                            <span>НДС 20%</span>
+                            <span>{(results.totalVat || 0).toLocaleString()} ₽</span>
+                        </div>
+                    </div>
                 </div>
                 <div className="glass-card p-fluid space-y-4">
                     <p className="text-fluid-xs font-black text-foreground/40 uppercase tracking-widest">
@@ -75,7 +107,7 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
                 </div>
             </div>
 
-            {/* Detailed Product Breakdown Cards */}
+            {/* Detailed Product Breakdown Cards (Grouped Accordions) */}
             <div className="space-y-8">
                 <div className="flex items-center gap-6 px-1">
                     <h3 className="text-fluid-xs font-black uppercase tracking-[0.3em] text-primary">
@@ -83,13 +115,38 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
                     </h3>
                     <div className="h-px grow bg-primary/10" />
                 </div>
-                <div className="grid grid-cols-1 gap-12">
-                    {results.summary.map((item, i) => (
-                        <CalculationBreakdown
-                            key={i}
-                            item={item}
-                            hidePrices={user?.role !== 'admin' && user?.role !== 'manager'}
-                        />
+
+                <div className="grid grid-cols-1 gap-8">
+                    {Object.entries(groupedItems).map(([category, items]) => (
+                        <details
+                            key={category}
+                            open
+                            className="group/details glass-card !p-0 overflow-hidden !bg-card/50"
+                        >
+                            <summary className="list-none flex items-center justify-between p-6 cursor-pointer hover:bg-white/5 transition-colors select-none">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-open/details:bg-primary group-open/details:text-white transition-colors">
+                                        <ChevronDown className="w-4 h-4 transition-transform duration-300 group-open/details:rotate-180" />
+                                    </div>
+                                    <h3 className="text-lg font-black uppercase tracking-tight">
+                                        {category}
+                                    </h3>
+                                </div>
+                                <span className="text-[10px] font-black text-foreground/50 px-3 py-1 bg-white/5 rounded-full uppercase tracking-widest">
+                                    {items.length} поз.
+                                </span>
+                            </summary>
+                            <div className="p-6 pt-0 space-y-6 animate-in slide-in-from-top-4 duration-300">
+                                <div className="h-px w-full bg-gradient-to-r from-transparent via-border-theme to-transparent mb-6" />
+                                {items.map((item, i) => (
+                                    <CalculationBreakdown
+                                        key={category + item.sku + i}
+                                        item={item}
+                                        displayMode="range"
+                                    />
+                                ))}
+                            </div>
+                        </details>
                     ))}
                 </div>
             </div>
@@ -110,16 +167,16 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-border-theme">
-                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30">
+                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/50">
                                     Наименование инвентаря
                                 </th>
-                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">
+                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/50 text-center">
                                     Зона
                                 </th>
-                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">
+                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/50 text-center">
                                     Количество
                                 </th>
-                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/30 text-center">
+                                <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-foreground/50 text-center">
                                     Цикл замены
                                 </th>
                             </tr>
@@ -134,7 +191,7 @@ export const WizardStep3_Results: React.FC<WizardStep3Props> = ({
                                         <p className="text-sm font-black group-hover:text-primary transition-colors">
                                             {item.inventory}
                                         </p>
-                                        <p className="text-[8px] font-bold text-foreground/30 uppercase tracking-widest">
+                                        <p className="text-[8px] font-bold text-foreground/50 uppercase tracking-widest">
                                             {item.sku}
                                         </p>
                                     </td>

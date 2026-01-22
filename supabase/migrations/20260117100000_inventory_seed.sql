@@ -10,7 +10,7 @@ VALUES
     '33333333-3333-3333-3333-333333333333', 
     'Pro-Brite', 
     'Российский эксперт в производстве промышленной химии для HoReCa и пищевых производств.',
-    'https://pro-brite.com/assets/images/logo.png', 
+    '/assets/suppliers/pro-brite-logo.png', 
     4.8, 
     'internal', 
     'active'
@@ -19,7 +19,7 @@ VALUES
     '44444444-4444-4444-4444-444444444444', 
     'Vileda Professional', 
     'Мировой лидер в производстве эргономичного уборочного инвентаря для профессионалов.',
-    'https://www.vileda-professional.com/media/Logo_Vileda_Professional.svg', 
+    '/assets/suppliers/vileda-logo.svg', 
     5.0, 
     'api_custom', 
     'active'
@@ -28,7 +28,7 @@ VALUES
     '55555555-5555-5555-5555-555555555555', 
     'Tork (Essity)', 
     'Ведущий бренд гигиенических решений: бумажные полотенца, мыло и системы дозирования.',
-    'https://www.tork.ru/static/logo-tork.png', 
+    '/assets/suppliers/tork-logo.png', 
     4.9, 
     'api_1c', 
     'active'

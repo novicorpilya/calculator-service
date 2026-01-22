@@ -26,8 +26,11 @@ build
 .env.production.local
 .env.*.local
 
-# Supabase (if using local development)
+# Supabase (local development artifacts)
 .supabase
+supabase/.branches/
+supabase/.temp/
+supabase/snippets/
 
 # TypeScript
 *.tsbuildinfo
@@ -110,13 +113,6 @@ out
 # Nuxt.js build / generate output
 .nuxt
 
-# Gatsby files
-.cache/
-public
-
-# vuepress build output
-.vuepress/dist
-
 # Serverless directories
 .serverless/
 
@@ -145,3 +141,8 @@ temp/
 playwright-report/
 test-results/
 lint_output.txt
+
+# Internal Agent/IDE files
+.gemini/
+.agent/
+.antigravityignore

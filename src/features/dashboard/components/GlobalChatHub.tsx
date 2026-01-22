@@ -5,6 +5,7 @@ import { ChatSidebar } from '@/features/chat/components/ChatSidebar';
 import { ChatWindow } from '@/features/chat/components/ChatWindow';
 import { useRecipients } from '@/features/chat/hooks/useRecipients';
 import { useMessages } from '@/features/chat/hooks/useMessages';
+import { usePresence } from '@/hooks/usePresence';
 import { useServices } from '@/app/di/ServiceContainer';
 import type { ChatRecipient, Message, HistoryClearedPayload } from '@/features/chat/types';
 
@@ -19,20 +20,23 @@ export const GlobalChatHub = React.memo(() => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // 1. Sidebar Data & Actions
-    const { 
-        recipients, 
-        updateRecipientLastMessage, 
-        incrementUnread, 
-        clearUnread, 
+    const {
+        recipients,
+        updateRecipientLastMessage,
+        incrementUnread,
+        clearUnread,
         clearRecipientLastMessage,
-        isFetched: isRecipientsFetched
+        isFetched: isRecipientsFetched,
     } = useRecipients({ currentUserId: user?.id || '' });
+
+    // 2. Presence tracking
+    const { isUserOnline } = usePresence(user?.id);
 
     // 1.1 AUTO-SELECT contact from URL (Deep Linking)
     useEffect(() => {
         const contactId = searchParams.get('contact');
         if (contactId && isRecipientsFetched && !selectedUser) {
-            const recipient = recipients.find(r => r.id === contactId);
+            const recipient = recipients.find((r) => r.id === contactId);
             if (recipient) {
                 // Defer state updates to avoid cascading renders
                 queueMicrotask(() => {
@@ -102,19 +106,22 @@ export const GlobalChatHub = React.memo(() => {
     ]);
 
     // 5. Read Status Management (Event-driven via IntersectionObserver)
-    const handleMessageRead = React.useCallback(async (messageId: string) => {
-        const selectedId = selectedUser?.id;
-        const currentUserId = user?.id;
-        if (!selectedId || !currentUserId) return;
+    const handleMessageRead = React.useCallback(
+        async (messageId: string) => {
+            const selectedId = selectedUser?.id;
+            const currentUserId = user?.id;
+            if (!selectedId || !currentUserId) return;
 
-        // Mark as read in repository/service
-        const res = await chatService.markDirectAsRead(selectedId, currentUserId);
-        if (res.success) {
-            handlersRef.current.clearUnread(selectedId);
-            // Optionally logs messageId for future individual read markers
-            console.debug(`Message seen: ${messageId}`);
-        }
-    }, [selectedUser?.id, user?.id, chatService]);
+            // Mark as read in repository/service
+            const res = await chatService.markDirectAsRead(selectedId, currentUserId);
+            if (res.success) {
+                handlersRef.current.clearUnread(selectedId);
+                // Optionally logs messageId for future individual read markers
+                console.debug(`Message seen: ${messageId}`);
+            }
+        },
+        [selectedUser?.id, user?.id, chatService]
+    );
 
     // 6. Global Realtime Subscription
     useEffect(() => {
@@ -139,10 +146,7 @@ export const GlobalChatHub = React.memo(() => {
                         handlersRef.current.updateRecipientLastMessage(msg, contactId);
 
                         // Auto-increment unread if NOT the active chat
-                        if (
-                            msg.sender_id !== user.id &&
-                            msg.sender_id !== currentSelectedId
-                        ) {
+                        if (msg.sender_id !== user.id && msg.sender_id !== currentSelectedId) {
                             handlersRef.current.incrementUnread(msg.sender_id);
                         }
                     } else if (evt === 'UPDATE' && msg.sender_id && msg.receiver_id) {
@@ -180,13 +184,19 @@ export const GlobalChatHub = React.memo(() => {
         return () => unsubscribe();
     }, [user?.id, chatService]);
 
-    const handleEditMessage = React.useCallback(async (id: string, content: string) => {
-        await editMessage({ id, content });
-    }, [editMessage]);
+    const handleEditMessage = React.useCallback(
+        async (id: string, content: string) => {
+            await editMessage({ id, content });
+        },
+        [editMessage]
+    );
 
-    const handleDeleteMessage = React.useCallback(async (id: string) => {
-        await deleteMessage(id);
-    }, [deleteMessage]);
+    const handleDeleteMessage = React.useCallback(
+        async (id: string) => {
+            await deleteMessage(id);
+        },
+        [deleteMessage]
+    );
 
     const handleClearHistory = React.useCallback(async () => {
         await clearHistory();
@@ -205,6 +215,7 @@ export const GlobalChatHub = React.memo(() => {
                 <ChatSidebar
                     currentUserId={user.id}
                     selectedUserId={selectedUser?.id}
+                    isUserOnline={isUserOnline}
                     onSelectUser={setSelectedUser}
                 />
             </div>
@@ -216,6 +227,7 @@ export const GlobalChatHub = React.memo(() => {
                 <ChatWindow
                     currentUser={user}
                     selectedUser={selectedUser}
+                    isOnline={selectedUser ? isUserOnline(selectedUser.id) : false}
                     messages={messages}
                     isLoading={isLoadingMessages}
                     onSendMessage={async (params) => sendMessage(params)}

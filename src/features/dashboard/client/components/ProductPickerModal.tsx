@@ -118,7 +118,7 @@ export const ProductPickerModal: React.FC<ProductPickerModalProps> = ({
 
                                     <div className="flex items-center gap-4">
                                         <div className="text-right">
-                                            <p className="text-[8px] font-black text-foreground/30 uppercase tracking-[0.2em] mb-1">
+                                            <p className="text-[8px] font-black text-foreground/50 uppercase tracking-[0.2em] mb-1">
                                                 Остаток
                                             </p>
                                             <p

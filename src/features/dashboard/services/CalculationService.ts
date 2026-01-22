@@ -2,9 +2,12 @@ import type { ICalculationRepository } from '../repositories/CalculationReposito
 import { type PaginationParams, type PaginatedResult } from '@/core/types/pagination';
 import type { Calculation, CalculationResults } from '@/core/types/calculation';
 import { CALCULATION_STATUS, CALCULATION_ACTION } from '@/core/constants/calculation.constants';
-import { calculateTotalCost } from '@/core/domain/calculator.utils';
-import { logger } from '@/core/logging';
+import { type DashboardStats } from '../dashboard.types';
+import { PriceCalculator } from '@/core/domain/PriceCalculator';
+import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import type { ActionResult, VoidResult } from '@/core/types/results';
+import { type IVersionService } from '@/features/dashboard/manager/services/version.service';
+import { type IConfigService } from '@/services/config.service';
 
 export interface ICalculationService {
     getMyCalculations(userId: string): Promise<ActionResult<Calculation[]>>;
@@ -35,13 +38,25 @@ export interface ICalculationService {
     getSignedReceiptUrl(path: string): Promise<ActionResult<string>>;
     acquireLock(id: string | number): Promise<ActionResult<Calculation>>;
     releaseLock(id: string | number): Promise<ActionResult<Calculation>>;
+    getVersionHistory(id: string | number): Promise<ActionResult<Record<string, unknown>[]>>;
+    getDashboardStats(userId: string, venueId?: string): Promise<ActionResult<DashboardStats>>;
+    smartReorder(id: string | number): Promise<ActionResult<Calculation>>;
+    clearVersionHistory(id: string | number): Promise<VoidResult>;
 }
 
 export class CalculationService implements ICalculationService {
     private repository: ICalculationRepository;
+    private versionService: IVersionService;
+    private configService: IConfigService;
 
-    constructor(repository: ICalculationRepository) {
+    constructor(
+        repository: ICalculationRepository,
+        versionService: IVersionService,
+        configService: IConfigService
+    ) {
         this.repository = repository;
+        this.versionService = versionService;
+        this.configService = configService;
     }
 
     private wrapError(error: unknown): { message: string } {
@@ -49,7 +64,6 @@ export class CalculationService implements ICalculationService {
     }
 
     async getMyCalculations(userId: string): Promise<ActionResult<Calculation[]>> {
-        if (!userId) return { success: false, error: { message: 'User ID is required' } };
         return this.repository.getByUserId(userId);
     }
 
@@ -79,14 +93,13 @@ export class CalculationService implements ICalculationService {
     }
 
     async create(calc: Partial<Calculation>, userId: string): Promise<ActionResult<Calculation>> {
-        if (!userId) return { success: false, error: { message: 'User ID is required' } };
-        
-        const finalCalc = { ...calc };
-        if (calc.results?.summary) {
-            finalCalc.totalCost = calculateTotalCost(calc.results.summary);
-        }
-        
-        return this.repository.create(finalCalc, userId);
+        const rules = await this.configService.getBusinessRules();
+        const totalCost = PriceCalculator.calculateFinalTotal(
+            calc.results?.summary || [],
+            calc.manager_adjustments,
+            rules
+        );
+        return this.repository.create({ ...calc, totalCost }, userId);
     }
 
     async update(
@@ -94,124 +107,70 @@ export class CalculationService implements ICalculationService {
         updates: Partial<Calculation>
     ): Promise<ActionResult<Calculation>> {
         try {
-            const finalUpdates = { ...updates };
+            const rules = await this.configService.getBusinessRules();
+            const currentRes = await this.repository.getById(id);
+            if (!currentRes.success || !currentRes.data) return currentRes;
+            const entity = new CalculationEntity(currentRes.data, rules);
 
-            if (updates.results?.summary) {
-                finalUpdates.totalCost = calculateTotalCost(updates.results.summary);
+            // 1. Validate Status Transition
+            if (updates.status && updates.status !== entity.status) {
+                if (!entity.canTransitionTo(updates.status)) {
+                    return {
+                        success: false,
+                        error: {
+                            message: `Invalid status transition: ${entity.status} -> ${updates.status}`,
+                        },
+                    };
+                }
             }
 
-            if (updates.status) {
-                let action: string = updates.status;
-                switch (updates.status) {
-                    case CALCULATION_STATUS.SENT:
-                        action = CALCULATION_ACTION.SUBMIT;
-                        break;
-                    case CALCULATION_STATUS.INVOICE:
-                        action = CALCULATION_ACTION.APPROVE;
-                        break;
-                    case CALCULATION_STATUS.CHANGES:
-                        action = CALCULATION_ACTION.REJECT;
-                        break;
-                    case CALCULATION_STATUS.REVISION:
-                        action = CALCULATION_ACTION.RESOLVE;
-                        break;
-                    case CALCULATION_STATUS.PAID:
-                        action = CALCULATION_ACTION.ACCEPT_PAYMENT;
-                        break;
-                    case CALCULATION_STATUS.PAYMENT_REVIEW:
-                        action = CALCULATION_ACTION.SUBMIT_PAYMENT;
-                        break;
-                    case CALCULATION_STATUS.PROCESSING:
-                        action = CALCULATION_ACTION.START_PROCESSING;
-                        break;
-                    case CALCULATION_STATUS.SENT_TO_WAREHOUSE:
-                        action = CALCULATION_ACTION.SEND_TO_WAREHOUSE;
-                        break;
-                    case CALCULATION_STATUS.READY:
-                        action = CALCULATION_ACTION.MARK_READY;
-                        break;
-                    case CALCULATION_STATUS.SHIPPING:
-                        action = CALCULATION_ACTION.START_SHIPPING;
-                        break;
-                    case CALCULATION_STATUS.COMPLETED:
-                        action = CALCULATION_ACTION.FINISH_PROJECT;
-                        break;
-                    case CALCULATION_STATUS.PAYMENT_REJECTED:
-                        action = CALCULATION_ACTION.REJECT_PAYMENT;
-                        break;
-                    case CALCULATION_STATUS.CLOSED:
-                        action = CALCULATION_ACTION.ARCHIVE;
-                        break;
+            // 2. Automated Snapshotting on Critical Transitions
+            if (updates.status && updates.status !== entity.status) {
+                const snapshotStatuses: string[] = [
+                    CALCULATION_STATUS.INVOICE,
+                    CALCULATION_STATUS.PAID,
+                    CALCULATION_STATUS.COMPLETED,
+                ];
+                if (snapshotStatuses.includes(updates.status)) {
+                    await this.versionService.createSnapshot(
+                        String(id),
+                        {
+                            results: updates.results || entity.results,
+                            adjustments: updates.manager_adjustments || entity.managerAdjustments,
+                        },
+                        `Status change to ${updates.status}`
+                    );
+                }
+            }
+
+            // 3. Prepare Updates
+            const finalUpdates = { ...updates };
+            if (updates.results?.summary || updates.manager_adjustments) {
+                finalUpdates.totalCost = PriceCalculator.calculateFinalTotal(
+                    updates.results?.summary || entity.results?.summary || [],
+                    updates.manager_adjustments || entity.managerAdjustments,
+                    rules
+                );
+            }
+
+            // 4. Status Action Mapping
+            if (updates.status && updates.status !== entity.status) {
+                const action = this.mapStatusToAction(updates.status, entity.status);
+
+                const contentOnly = { ...finalUpdates };
+                delete contentOnly.status;
+                if (Object.keys(contentOnly).length > 0) {
+                    await this.repository.updateContent(id, contentOnly);
                 }
 
-                const currentRes = await this.repository.getById(id);
-                if (!currentRes.success || !currentRes.data) return currentRes;
-                const current = currentRes.data;
-
-                // --- STRICT STATUS TRANSITION VALIDATION ---
-                const allowedTransitions: Record<string, string[]> = {
-                    [CALCULATION_STATUS.DRAFT]: [CALCULATION_STATUS.SENT, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.SENT]: [CALCULATION_STATUS.EXPERT, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.EXPERT]: [CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.CHANGES, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.CHANGES]: [CALCULATION_STATUS.REVISION, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.REVISION]: [CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.EXPERT, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.INVOICE]: [CALCULATION_STATUS.PAYMENT_REVIEW, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.PAYMENT_REVIEW]: [CALCULATION_STATUS.PAID, CALCULATION_STATUS.PAYMENT_REJECTED, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.PAYMENT_REJECTED]: [CALCULATION_STATUS.PAYMENT_REVIEW, CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.PAID]: [CALCULATION_STATUS.PROCESSING, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.PROCESSING]: [CALCULATION_STATUS.SENT_TO_WAREHOUSE, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.SENT_TO_WAREHOUSE]: [CALCULATION_STATUS.READY, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.READY]: [CALCULATION_STATUS.SHIPPING, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.SHIPPING]: [CALCULATION_STATUS.COMPLETED, CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.COMPLETED]: [CALCULATION_STATUS.CLOSED],
-                    [CALCULATION_STATUS.CLOSED]: [CALCULATION_STATUS.COMPLETED, CALCULATION_STATUS.INVOICE, CALCULATION_STATUS.EXPERT] // Restore paths
-                };
-
-                const isAllowed = allowedTransitions[current.status]?.includes(updates.status) || current.status === updates.status;
-                if (!isAllowed) {
-                    const errorMsg = `Invalid status transition: ${current.status} -> ${updates.status}`;
-                    await this.recordError(id, errorMsg);
-                    return { success: false, error: { message: errorMsg } };
-                }
-
-                if (
-                    current.status === CALCULATION_STATUS.PAYMENT_REVIEW &&
-                    updates.status === CALCULATION_STATUS.PAYMENT_REJECTED
-                ) {
-                    action = CALCULATION_ACTION.REJECT_PAYMENT;
-                }
-
-                if (
-                    current.status === CALCULATION_STATUS.CLOSED &&
-                    (updates.status === CALCULATION_STATUS.COMPLETED || updates.status === CALCULATION_STATUS.INVOICE || updates.status === CALCULATION_STATUS.EXPERT)
-                ) {
-                    action = CALCULATION_ACTION.RESTORE;
-                }
-
-                const contentUpdates: Partial<Calculation> = { ...finalUpdates };
-                delete contentUpdates.status;
-
-                if (Object.keys(contentUpdates).length > 0) {
-                    const upRes = await this.repository.updateContent(id, contentUpdates);
-                    if (!upRes.success) return upRes;
-                }
-
-                return this.repository.executeAction(id, action);
+                return this.repository.executeAction(id, action, undefined, {
+                    manager_id: finalUpdates.manager_id,
+                });
             }
 
             return this.repository.updateContent(id, finalUpdates);
-        } catch (error: unknown) {
-            const errMsg = error instanceof Error ? error.message : String(error);
-            await this.recordError(id, `Update Error: ${errMsg}`);
+        } catch (error) {
             return { success: false, error: this.wrapError(error) };
-        }
-    }
-
-    private async recordError(id: string | number, message: string) {
-        try {
-            await this.repository.executeAction(id, 'log_error', message);
-        } catch (e) {
-            logger.error('Failed to record error in audit trail', { error: e });
         }
     }
 
@@ -219,18 +178,26 @@ export class CalculationService implements ICalculationService {
         return this.repository.delete(id);
     }
 
+    private mapStatusToAction(newStatus: string, oldStatus: string): string {
+        if (oldStatus === 'closed') return CALCULATION_ACTION.RESTORE;
+
+        const map: Record<string, string> = {
+            [CALCULATION_STATUS.SENT]: CALCULATION_ACTION.SUBMIT,
+            [CALCULATION_STATUS.EXPERT]: CALCULATION_ACTION.START_EXPERT,
+            [CALCULATION_STATUS.INVOICE]: CALCULATION_ACTION.APPROVE,
+            [CALCULATION_STATUS.CHANGES]: CALCULATION_ACTION.REJECT,
+            [CALCULATION_STATUS.REVISION]: CALCULATION_ACTION.RESOLVE,
+            [CALCULATION_STATUS.PAYMENT_REVIEW]: CALCULATION_ACTION.SUBMIT_PAYMENT,
+            [CALCULATION_STATUS.PAID]: CALCULATION_ACTION.ACCEPT_PAYMENT,
+            [CALCULATION_STATUS.PROCESSING]: CALCULATION_ACTION.START_PROCESSING,
+            [CALCULATION_STATUS.COMPLETED]: CALCULATION_ACTION.FINISH_PROJECT,
+            [CALCULATION_STATUS.CLOSED]: CALCULATION_ACTION.ARCHIVE,
+        };
+        return map[newStatus] || newStatus;
+    }
+
     async assignToMe(id: string | number, managerId: string): Promise<ActionResult<Calculation>> {
-        const res = await this.repository.executeAction(
-            id,
-            'assign',
-            'Project assigned to expert',
-            { manager_id: managerId }
-        );
-        if (!res.success) {
-            const errMsg = res.error?.message || 'Assignment failure';
-            await this.recordError(id, `Assignment Error: ${errMsg}`);
-        }
-        return res;
+        return this.repository.executeAction(id, 'assign', undefined, { manager_id: managerId });
     }
 
     async adjustExpert(
@@ -239,17 +206,7 @@ export class CalculationService implements ICalculationService {
         adjustments: Record<string, unknown>,
         version: number
     ): Promise<ActionResult<Calculation>> {
-        const res = await this.repository.adjustCalculationExpert(
-            id,
-            results,
-            adjustments,
-            version
-        );
-        if (!res.success) {
-            const errMsg = res.error?.message || 'Adjustment failure';
-            await this.recordError(id, `Expert Adjustment Error: ${errMsg}`);
-        }
-        return res;
+        return this.repository.adjustCalculationExpert(id, results, adjustments, version);
     }
 
     async uploadReceipt(
@@ -257,23 +214,9 @@ export class CalculationService implements ICalculationService {
         file: File,
         userId: string
     ): Promise<ActionResult<string>> {
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `receipt_${Date.now()}.${fileExt}`;
-            const filePath = `${userId}/${id}/${fileName}`;
-
-            const res = await this.repository.uploadFile(filePath, file, 'receipts');
-            if (!res.success) {
-                const errMsg = res.error?.message || 'Upload failure';
-                await this.recordError(id, `Receipt Upload Error: ${errMsg}`);
-                return { success: false, error: res.error };
-            }
-            return { success: true, data: filePath };
-        } catch (error: unknown) {
-            const errMsg = error instanceof Error ? error.message : String(error);
-            await this.recordError(id, `Receipt Upload Error: ${errMsg}`);
-            return { success: false, error: this.wrapError(error) };
-        }
+        const path = `${userId}/${id}/receipt_${Date.now()}.${file.name.split('.').pop()}`;
+        const res = await this.repository.uploadFile(path, file, 'receipts');
+        return res.success ? { success: true, data: path } : { success: false, error: res.error };
     }
 
     async getSignedReceiptUrl(path: string): Promise<ActionResult<string>> {
@@ -283,8 +226,22 @@ export class CalculationService implements ICalculationService {
     async acquireLock(id: string | number): Promise<ActionResult<Calculation>> {
         return this.repository.acquireLock(id);
     }
-
     async releaseLock(id: string | number): Promise<ActionResult<Calculation>> {
         return this.repository.releaseLock(id);
+    }
+    async getVersionHistory(id: string | number): Promise<ActionResult<Record<string, unknown>[]>> {
+        return this.repository.getVersions(id);
+    }
+    async getDashboardStats(
+        userId: string,
+        venueId?: string
+    ): Promise<ActionResult<DashboardStats>> {
+        return this.repository.getDashboardStats(userId, venueId);
+    }
+    async smartReorder(id: string | number): Promise<ActionResult<Calculation>> {
+        return this.repository.smartReorder(id);
+    }
+    async clearVersionHistory(id: string | number): Promise<VoidResult> {
+        return this.repository.clearVersions(id);
     }
 }

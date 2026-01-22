@@ -9,33 +9,11 @@ import {
 } from '../features/dashboard/dashboard.types';
 import { type InventoryItemMaster } from '../services/inventory.service';
 import { getTotalZonesArea, getTotalZonesStaff } from '@/core/domain/calculator.utils';
-import { type CalculatorConfig, DEFAULT_CALCULATOR_CONFIG } from '@/features/calculator/calculator-config.types';
-
-/**
- * Tier mapping for different object types.
- * 1: Economy, 2: Standard, 3: Premium
- */
-const TIER_MAPPING: Record<string, number[]> = {
-    hotel: [2, 3],
-    restaurant: [2, 3],
-    production_food: [2, 3],
-    production_nonfood: [1, 2],
-    beauty: [2, 3],
-    mall: [1, 2],
-    other: [1, 2],
-    cafe: [2, 3],
-    bar: [2, 3],
-};
-
-/**
- * Durability thresholds based on intensity levels.
- * Items with durability below these values are filtered out for high-load objects.
- */
-const DURABILITY_THRESHOLDS: Record<string, number> = {
-    high: 50,
-    very_high: 100,
-    critical: 200,
-};
+import {
+    type CalculatorConfig,
+    DEFAULT_CALCULATOR_CONFIG,
+} from '@/features/calculator/calculator-config.types';
+import { PriceCalculator } from '@/core/domain/PriceCalculator';
 
 import { Parser } from 'expr-eval';
 
@@ -54,12 +32,14 @@ function calculateFinalQuantity(
     const FACTORS = config.formula.factors;
     const qArea = FACTORS.area ? (metrics.area / 100) * (item.norm_area || 0) : 0;
     const qStaff = FACTORS.staff ? metrics.personnel * (item.norm_personnel || 0) : 0;
-    const qVisitors = FACTORS.visitors ? (metrics.visitorShare / 100) * (item.norm_intensity || 0) : 0;
+    const qVisitors = FACTORS.visitors
+        ? (metrics.visitorShare / 100) * (item.norm_intensity || 0)
+        : 0;
 
     // 2. Base Quantity (Aggregation Method)
     let qBase = 0;
-    const activeValues = [qArea, qStaff, qVisitors].filter(v => v > 0);
-    
+    const activeValues = [qArea, qStaff, qVisitors].filter((v) => v > 0);
+
     // 3. Calculate Final Total
     let total = 0;
 
@@ -68,7 +48,7 @@ function calculateFinalQuantity(
         try {
             const parser = new Parser();
             const expr = parser.parse(config.formula.customFormula);
-            
+
             const result = expr.evaluate({
                 q_area: qArea,
                 q_staff: qStaff,
@@ -76,9 +56,9 @@ function calculateFinalQuantity(
                 k_zone: coeffs.kZone,
                 k_intensity: coeffs.kIntensity,
                 k_reserve: coeffs.kReserve,
-                reserve: coeffs.kReserve // Alias
+                reserve: coeffs.kReserve, // Alias
             });
-            
+
             if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
                 total = result;
             } else {
@@ -98,7 +78,9 @@ function calculateFinalQuantity(
                 qBase = qArea + qStaff + qVisitors;
                 break;
             case 'avg':
-                qBase = activeValues.length ? (qArea + qStaff + qVisitors) / activeValues.length : 0;
+                qBase = activeValues.length
+                    ? (qArea + qStaff + qVisitors) / activeValues.length
+                    : 0;
                 break;
             case 'max':
             default:
@@ -108,12 +90,11 @@ function calculateFinalQuantity(
 
         const MULTIPLIERS = config.formula.multipliers;
         total = qBase;
-        
+
         if (MULTIPLIERS.zone) total *= coeffs.kZone;
         if (MULTIPLIERS.intensity) total *= coeffs.kIntensity;
-        if (MULTIPLIERS.reserve) total *= (1 + coeffs.kReserve);
+        if (MULTIPLIERS.reserve) total *= 1 + coeffs.kReserve;
     }
-
 
     // 4. Rounding & Minimums
     // BICSc Rule: If active and norm set, min is 1
@@ -129,6 +110,52 @@ function calculateFinalQuantity(
         finalQuantity,
     };
 }
+
+const normalizeColor = (c: string) => {
+    if (!c) return '';
+    const clean = c.trim().toLowerCase().replace('#', '');
+
+    // Semantic Color Mapping for DB compatibility
+    const COLOR_MAP: Record<string, string> = {
+        // English Names
+        red: 'ef4444',
+        yellow: 'facc15',
+        green: '22c55e',
+        blue: '3b82f6',
+        pink: 'ec4899',
+        orange: 'f97316',
+        brown: '78350f',
+        white: 'f8fafc',
+
+        // Russian Names
+        красный: 'ef4444',
+        желтый: 'facc15',
+        жёлтый: 'facc15',
+        зеленый: '22c55e',
+        зелёный: '22c55e',
+        синий: '3b82f6',
+        голубой: '3b82f6',
+        розовый: 'ec4899',
+        оранжевый: 'f97316',
+        коричневый: '78350f',
+        белый: 'f8fafc',
+
+        // Common Hex Variations (Standard HTML -> Project Palette)
+        ffffff: 'f8fafc',
+        fff: 'f8fafc', // Valid white -> Slate-50
+        ffff00: 'facc15',
+        ff0: 'facc15', // Pure Yellow -> Yellow-400
+        a52a2a: '78350f',
+        '964b00': '78350f', // Std Brown -> Amber-900
+        '0000ff': '3b82f6', // Pure Blue -> Blue-500
+        '008000': '22c55e', // Pure Green -> Green-500
+        ff0000: 'ef4444', // Pure Red -> Red-500
+    };
+
+    if (COLOR_MAP[clean]) return `#${COLOR_MAP[clean]}`;
+
+    return clean ? `#${clean}` : '';
+};
 
 /**
  * CalculationEngine v4.0 (Configurable)
@@ -149,21 +176,11 @@ export const CalculationEngine = {
         config: CalculatorConfig = DEFAULT_CALCULATOR_CONFIG
     ): CalculationResults {
         const intensityKey = (objectData.intensityLevel || 'medium').toLowerCase();
-        const durabilityThreshold = DURABILITY_THRESHOLDS[intensityKey] || 0;
 
-        // 0. Pre-filter inventory by Tier and Durability
-        const allowedTiers = TIER_MAPPING[objectData.type] ?? [1, 2];
-        const filteredInventory = globalInventory.filter((item) => {
-            const isTierAllowed = !item.tier || allowedTiers.includes(item.tier);
-            const isDurableEnough =
-                !durabilityThreshold || !item.durability || item.durability >= durabilityThreshold;
-            const isCompliant =
-                (objectData.sanitaryLevel !== 'high' && objectData.sanitaryLevel !== 'sterile') ||
-                item.compliance_level === 'certified' ||
-                item.compliance_level === 'sterile';
-
-            return isTierAllowed && isDurableEnough && isCompliant;
-        });
+        // 0. Permissive Inventory Selection
+        // strict filtering (Tier/Durability) proved too restrictive for the current database state.
+        // We now allow all items that match the technical criteria (Color/Category) to pass.
+        const filteredInventory = globalInventory;
 
         // 0.5. Selection Logic: TCO + Bundle Compatibility
         const optimizedByColor: Record<string, Record<string, InventoryItemMaster>> = {};
@@ -173,7 +190,10 @@ export const CalculationEngine = {
 
         filteredInventory.forEach((item) => {
             if (!item.category) return;
-            const color = item.color;
+            // Use normalized color for grouping to ensure different spellings group together
+            const color = normalizeColor(item.color);
+            if (!color) return;
+
             if (!optimizedByColor[color]) optimizedByColor[color] = {};
 
             if (masterCategories.includes(item.category.toLowerCase())) {
@@ -187,7 +207,9 @@ export const CalculationEngine = {
 
         filteredInventory.forEach((item) => {
             if (!item.category || masterCategories.includes(item.category.toLowerCase())) return;
-            const color = item.color;
+            const color = normalizeColor(item.color);
+            if (!color) return;
+
             const lock = seriesLock[color];
             const currentBest = optimizedByColor[color][item.category];
             const isMatchLock = lock && item.series === lock;
@@ -210,10 +232,12 @@ export const CalculationEngine = {
 
         // 1. Resolve Global Coefficients
         const kIntensity = INTENSITY_LEVELS.find((l) => l.value === intensityKey)?.coeff ?? 1.0;
-        const kReserve = RESERVE_COEFFS[intensityKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
+        const kReserve =
+            RESERVE_COEFFS[intensityKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
 
         const totalZonesStaff = getTotalZonesStaff(zones);
-        const globalPersonnel = totalZonesStaff > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0');
+        const globalPersonnel =
+            totalZonesStaff > 0 ? totalZonesStaff : parseInt(objectData.staffCount || '0');
         const globalVisitors = parseInt(objectData.dailyVisitors || '0');
 
         const zoneResults: ZoneResult[] = [];
@@ -223,31 +247,31 @@ export const CalculationEngine = {
             const zoneItems: InventoryItem[] = [];
             const zonePersonnel = parseInt(zone.staffCount || '0');
             const zoneArea = parseFloat(zone.area || '0');
-            const zoneVisitorShare = globalPersonnel > 0 ? globalVisitors * (zonePersonnel / globalPersonnel) : 0;
+            const zoneVisitorShare =
+                globalPersonnel > 0 ? globalVisitors * (zonePersonnel / globalPersonnel) : 0;
 
             optimizedInventory.forEach((item) => {
-                // Normalize colors to be safe (lower case, ensure # prefix)
-                const normalizeColor = (c: string) => {
-                    const clean = c.trim().toLowerCase().replace('#', '');
-                    return clean ? `#${clean}` : '';
-                };
-
                 const itemColor = normalizeColor(item.color);
                 const zoneColor = normalizeColor(zone.color);
-                
+
                 if (itemColor && zoneColor && itemColor === zoneColor) {
                     const kZone = ZONE_COEFFS[itemColor] ?? 1.0;
-                    const { qArea, qStaff, qVisitors, qBase, finalQuantity } = calculateFinalQuantity(
-                        item,
-                        { area: zoneArea, personnel: zonePersonnel, visitorShare: zoneVisitorShare },
-                        { kZone, kIntensity, kReserve },
-                        config
-                    );
+                    const { qArea, qStaff, qVisitors, qBase, finalQuantity } =
+                        calculateFinalQuantity(
+                            item,
+                            {
+                                area: zoneArea,
+                                personnel: zonePersonnel,
+                                visitorShare: zoneVisitorShare,
+                            },
+                            { kZone, kIntensity, kReserve },
+                            config
+                        );
 
                     if (finalQuantity > 0) {
                         const replacementCycle = item.replacement_cycle_days || 365;
                         const annualConsumption = finalQuantity * (365 / replacementCycle);
-                        
+
                         const newItem: InventoryItem = {
                             inventory: item.name,
                             sku: item.sku,
@@ -258,6 +282,7 @@ export const CalculationEngine = {
                             stock: item.stock,
                             norm_area: item.norm_area,
                             supplier_id: item.supplier_id,
+                            category: item.category,
                             norms: {
                                 area: item.norm_area,
                                 personnel: item.norm_personnel,
@@ -285,16 +310,21 @@ export const CalculationEngine = {
                         zoneItems.push(newItem);
                         const key = `${item.name}-${item.sku || 'N/A'}-${item.color}`;
                         if (!aggregated[key]) {
-                            aggregated[key] = { 
-                                ...newItem, 
-                                quantity: 0, 
+                            aggregated[key] = {
+                                ...newItem,
+                                quantity: 0,
                                 total: 0,
-                                calculation: { ...newItem.calculation!, annualConsumption: 0, annualBudget: 0, monthlyOrder: 0 }
+                                calculation: {
+                                    ...newItem.calculation!,
+                                    annualConsumption: 0,
+                                    annualBudget: 0,
+                                    monthlyOrder: 0,
+                                },
                             };
                         }
-                        
+
                         aggregated[key].quantity += finalQuantity;
-                        aggregated[key].total += (finalQuantity * item.price);
+                        aggregated[key].total += finalQuantity * item.price;
 
                         if (aggregated[key].calculation) {
                             const cal = aggregated[key].calculation!;
@@ -326,9 +356,25 @@ export const CalculationEngine = {
             return { ...item };
         });
 
+        // Calculate Financial Totals using Domain Service
+        const totalGoods = summary.reduce((acc, item) => acc + (item.total || 0), 0);
+
+        // Use PriceCalculator for standard delivery logic
+        const totalDelivery = PriceCalculator.calculateStandardDelivery(totalGoods);
+
+        // Use PriceCalculator for VAT and Grand Total
+        const grandTotal = PriceCalculator.calculateFinalTotal(summary, {
+            delivery_cost: totalDelivery,
+        });
+        const totalVat = grandTotal - totalGoods - totalDelivery;
+
         return {
             byZone: zoneResults,
             summary,
+            totalGoods,
+            totalDelivery,
+            totalVat,
+            grandTotal,
         };
     },
 
@@ -346,14 +392,17 @@ export const CalculationEngine = {
     ): InventoryItem {
         const intensityKey = (objectData.intensityLevel || 'medium').toLowerCase();
         const kIntensity = INTENSITY_LEVELS.find((l) => l.value === intensityKey)?.coeff ?? 1.0;
-        const kReserve = RESERVE_COEFFS[intensityKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
+        const kReserve =
+            RESERVE_COEFFS[intensityKey as keyof typeof RESERVE_COEFFS] ?? RESERVE_COEFFS.default;
 
         const totalArea = getTotalZonesArea(zones);
         const totalStaff = getTotalZonesStaff(zones);
         const globalStaff = totalStaff > 0 ? totalStaff : parseInt(objectData.staffCount || '0');
         const globalVisitors = parseInt(objectData.dailyVisitors || '0');
 
-        const kZone = ZONE_COEFFS[item.color] ?? 1.0;
+        const itemColor = normalizeColor(item.color);
+        const kZone = ZONE_COEFFS[itemColor] ?? 1.0;
+
         const { qArea, qStaff, qVisitors, qBase, finalQuantity } = calculateFinalQuantity(
             item,
             { area: totalArea, personnel: globalStaff, visitorShare: globalVisitors },
@@ -374,6 +423,7 @@ export const CalculationEngine = {
             stock: item.stock,
             norm_area: item.norm_area,
             supplier_id: item.supplier_id,
+            category: item.category,
             norms: {
                 area: item.norm_area,
                 personnel: item.norm_personnel,

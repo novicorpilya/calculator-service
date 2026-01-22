@@ -34,10 +34,14 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
 
     const getBgColor = () => {
         switch (code) {
-            case '404': return 'bg-blue-500/10';
-            case '403': return 'bg-amber-500/10';
-            case 'maintenance': return 'bg-slate-500/10';
-            default: return 'bg-red-500/10';
+            case '404':
+                return 'bg-blue-500/10';
+            case '403':
+                return 'bg-amber-500/10';
+            case 'maintenance':
+                return 'bg-slate-500/10';
+            default:
+                return 'bg-red-500/10';
         }
     };
 
@@ -46,13 +50,15 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
             <div className="max-w-md w-full text-center space-y-8 animate-in fade-in zoom-in duration-500">
                 {/* Visual Representation */}
                 <div className="relative">
-                    <div className={`w-24 h-24 ${getBgColor()} rounded-3xl flex items-center justify-center mx-auto rotate-12 transition-transform hover:rotate-0 duration-500`}>
+                    <div
+                        className={`w-24 h-24 ${getBgColor()} rounded-3xl flex items-center justify-center mx-auto rotate-12 transition-transform hover:rotate-0 duration-500`}
+                    >
                         {getIcon()}
                     </div>
                     <div className="absolute top-0 right-1/2 translate-x-12 -translate-y-2">
-                         <span className="px-3 py-1 bg-background border border-border-theme rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                        <span className="px-3 py-1 bg-background border border-border-theme rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
                             Status {code}
-                         </span>
+                        </span>
                     </div>
                 </div>
 
@@ -90,8 +96,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
 
                 {/* Footer Decoration */}
                 <div className="pt-12 opacity-10 flex justify-center gap-8 grayscale">
-                     <span className="text-4xl font-black italic select-none">HORECA</span>
-                     <span className="text-4xl font-black italic select-none">CALC</span>
+                    <span className="text-4xl font-black italic select-none">HICS</span>
                 </div>
             </div>
         </div>

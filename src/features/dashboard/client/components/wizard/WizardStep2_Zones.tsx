@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Pencil, Ruler, Plus, Layout, Trash2, AlertCircle, X } from 'lucide-react';
-import { ZONE_TYPES } from '@/features/dashboard/dashboard.types';
+import { ZONE_TYPES, type CalculationResults } from '@/features/dashboard/dashboard.types';
 import { getTotalZonesArea } from '@/core/domain/calculator.utils';
 import type { ObjectData } from './useCalculationWizard';
 import type { Zone } from '@/features/dashboard/dashboard.types';
@@ -14,6 +15,7 @@ interface WizardStep2Props {
     onCalculate: () => void;
     showModal: boolean;
     setShowModal: (vals: boolean) => void;
+    results?: CalculationResults | null; // Make optional to avoid breaking immediately? No, making it optional is safer.
 }
 
 export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
@@ -25,10 +27,11 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
     onCalculate,
     showModal,
     setShowModal,
+    results,
 }) => {
     const totalZonesArea = getTotalZonesArea(zones);
     const hasAreaWarning =
-        objectData.totalArea && totalZonesArea > parseFloat(objectData.totalArea);
+        !!objectData.totalArea && totalZonesArea > parseFloat(objectData.totalArea);
 
     // Local state for the modal form
     const [currentZone, setCurrentZone] = useState({
@@ -38,16 +41,8 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
         color: '',
     });
 
-    // Lock scroll when modal is open
-    useEffect(() => {
-        if (showModal) {
-            const originalStyle = window.getComputedStyle(document.body).overflow;
-            document.body.style.overflow = 'hidden';
-            return () => {
-                document.body.style.overflow = originalStyle;
-            };
-        }
-    }, [showModal]);
+    // NOTE: Scroll lock is handled by parent NewCalculationWizard via overflow-hidden class
+    // when showModal is true. No need to manipulate body styles here.
 
     const handleAddClick = () => {
         if (currentZone.type && currentZone.area) {
@@ -99,7 +94,7 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
                             <div className="w-20 h-20 bg-card rounded-[2rem] flex items-center justify-center text-foreground/10">
                                 <Layout size={40} />
                             </div>
-                            <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.3em]">
+                            <p className="text-[10px] font-black text-foreground/50 uppercase tracking-[0.3em]">
                                 Зоны еще не определены
                             </p>
                         </div>
@@ -116,7 +111,7 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
                                     />
                                     <div className="flex items-start justify-between">
                                         <div className="space-y-4">
-                                            <p className="text-[9px] font-black text-foreground/30 uppercase tracking-[0.3em]">
+                                            <p className="text-[9px] font-black text-foreground/50 uppercase tracking-[0.3em]">
                                                 Параметры зоны
                                             </p>
                                             <h3 className="text-xl font-black leading-none">
@@ -188,12 +183,83 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
                             </div>
                         </div>
 
+                        {/* Real-time Budget Estimation */}
+                        {results && results.summary.length > 0 && (
+                            <div className="space-y-6 pt-6 border-t border-background/10 animate-in fade-in duration-700">
+                                <p className="text-[10px] font-black text-background/40 uppercase tracking-[0.3em]">
+                                    Предварительный расчет
+                                </p>
+                                <div className="space-y-4">
+                                    <div className="group p-4 rounded-2xl bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors space-y-2 cursor-help relative">
+                                        <p className="text-[9px] font-black text-primary/60 uppercase tracking-widest">
+                                            Итого с НДС
+                                        </p>
+                                        <p className="text-fluid-xl font-black text-white tracking-tight">
+                                            {((results.grandTotal || 0) * 0.95).toLocaleString(
+                                                'ru-RU',
+                                                { maximumFractionDigits: 0 }
+                                            )}
+                                            <span className="text-primary mx-1">-</span>
+                                            {((results.grandTotal || 0) * 1.05).toLocaleString(
+                                                'ru-RU',
+                                                { maximumFractionDigits: 0 }
+                                            )}
+                                            <span className="text-sm text-white/40 ml-1">₽</span>
+                                        </p>
+                                        <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/10 p-3 rounded-lg -top-24 left-0 w-64 shadow-2xl z-50 pointer-events-none">
+                                            <div className="flex justify-between text-[10px] text-white/60 mb-1">
+                                                <span>Товары:</span>
+                                                <span>
+                                                    {(results.totalGoods || 0).toLocaleString()} ₽
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] text-white/60 mb-1">
+                                                <span>Доставка:</span>
+                                                <span>
+                                                    {(results.totalDelivery || 0).toLocaleString()}{' '}
+                                                    ₽
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] text-emerald-400 font-bold border-t border-white/10 pt-1 mt-1">
+                                                <span>НДС 20%:</span>
+                                                <span>
+                                                    {(results.totalVat || 0).toLocaleString()} ₽
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2 px-2">
+                                        <div className="flex justify-between items-center text-[10px] text-background/60">
+                                            <span>Товары</span>
+                                            <span className="font-bold">
+                                                {(results.totalGoods || 0).toLocaleString()} ₽
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px] text-background/60">
+                                            <span>Доставка (Авто)</span>
+                                            <span className="font-bold whitespace-nowrap">
+                                                {(results.totalDelivery || 0).toLocaleString()} ₽
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-3">
                             <button
                                 onClick={onCalculate}
-                                disabled={zones.length === 0}
-                                className="btn-premium w-full !bg-background !text-foreground hover:!bg-primary hover:!text-white disabled:opacity-20"
+                                disabled={zones.length === 0 || hasAreaWarning}
+                                className="btn-premium w-full !bg-background !text-foreground hover:!bg-primary hover:!text-white disabled:opacity-20 relative overflow-hidden group"
                             >
+                                {hasAreaWarning && (
+                                    <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center backdrop-blur-[1px] text-red-500 z-10">
+                                        <span className="bg-white px-2 py-1 rounded text-[10px]">
+                                            Площадь превышена!
+                                        </span>
+                                    </div>
+                                )}
                                 Сформировать расчет
                             </button>
                             <button
@@ -207,109 +273,19 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
                 </div>
             </div>
 
-            {showModal && (
-                <div
-                    className="fixed inset-0 z-[9999] animate-in fade-in duration-300 flex items-center justify-center p-fluid bg-background/80 backdrop-blur-xl"
-                    onClick={() => {
-                        setShowModal(false);
-                        setCurrentZone({ type: '', area: '', staffCount: '', color: '' });
-                    }}
-                >
+            {showModal &&
+                createPortal(
                     <div
-                        className="relative w-full max-h-full max-w-md overflow-y-auto bg-background/90 backdrop-blur-xl glass-card shadow-3xl p-fluid cursor-auto animate-in slide-in-from-bottom-10 zoom-in-95 duration-300"
-                        onClick={(e) => e.stopPropagation()}
+                        className="fixed inset-0 z-[9999] animate-in fade-in duration-300 flex items-center justify-center p-fluid bg-background/80 backdrop-blur-xl"
+                        onClick={() => {
+                            setShowModal(false);
+                            setCurrentZone({ type: '', area: '', staffCount: '', color: '' });
+                        }}
                     >
-                        <button
-                            onClick={() => {
-                                setShowModal(false);
-                                setCurrentZone({ type: '', area: '', staffCount: '', color: '' });
-                            }}
-                            className="absolute top-4 left-4 p-2 rounded-xl text-foreground/20 hover:text-foreground hover:bg-foreground/5 transition-all z-10"
+                        <div
+                            className="relative w-full max-h-full max-w-md overflow-y-auto bg-background/90 backdrop-blur-xl glass-card shadow-3xl p-fluid cursor-auto animate-in slide-in-from-bottom-10 zoom-in-95 duration-300"
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <X className="w-5 h-5" />
-                        </button>
-                        <div className="text-center mb-fluid">
-                            <div className="w-16 h-16 bg-primary/10 text-primary rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
-                                <Layout size={28} />
-                            </div>
-                            <h3 className="text-fluid-lg font-black tracking-tight">
-                                Добавить помещение
-                            </h3>
-                            <p className="text-fluid-xs font-black text-foreground/30 uppercase tracking-[0.3em] mt-2">
-                                Параметры рабочей зоны
-                            </p>
-                        </div>
-
-                        <div className="space-y-8">
-                            <div className="space-y-4">
-                                <label className="text-fluid-xs font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                                    Тип зоны
-                                </label>
-                                <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
-                                    {ZONE_TYPES.map((type) => (
-                                        <button
-                                            key={type.value}
-                                            onClick={() =>
-                                                setCurrentZone({
-                                                    ...currentZone,
-                                                    type: type.value,
-                                                    color: type.color,
-                                                })
-                                            }
-                                            className={`px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
-                                                currentZone.type === type.value
-                                                    ? 'bg-foreground border-foreground text-background shadow-xl'
-                                                    : 'bg-card border-transparent text-foreground/40 hover:border-border-theme'
-                                            }`}
-                                        >
-                                            {type.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-6">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                                        Площадь (м²)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={currentZone.area}
-                                        onChange={(e) =>
-                                            setCurrentZone({ ...currentZone, area: e.target.value })
-                                        }
-                                        className="input-premium"
-                                        placeholder="50"
-                                    />
-                                </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
-                                        Персонал в зоне
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={currentZone.staffCount}
-                                        onChange={(e) =>
-                                            setCurrentZone({
-                                                ...currentZone,
-                                                staffCount: e.target.value,
-                                            })
-                                        }
-                                        className="input-premium"
-                                        placeholder="5"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-12 flex flex-col gap-3">
-                            <button
-                                onClick={handleAddClick}
-                                disabled={!currentZone.type || !currentZone.area}
-                                className="btn-premium w-full"
-                            >
-                                Зафиксировать зону
-                            </button>
                             <button
                                 onClick={() => {
                                     setShowModal(false);
@@ -320,14 +296,128 @@ export const WizardStep2_Zones: React.FC<WizardStep2Props> = ({
                                         color: '',
                                     });
                                 }}
-                                className="w-full py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 hover:text-foreground transition-colors"
+                                className="absolute top-4 left-4 p-2 rounded-xl text-foreground/20 hover:text-foreground hover:bg-foreground/5 transition-all z-10"
                             >
-                                Отмена
+                                <X className="w-5 h-5" />
                             </button>
+                            <div className="text-center mb-fluid">
+                                <div className="w-16 h-16 bg-primary/10 text-primary rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
+                                    <Layout size={28} />
+                                </div>
+                                <h3 className="text-fluid-lg font-black tracking-tight">
+                                    Добавить помещение
+                                </h3>
+                                <p className="text-fluid-xs font-black text-foreground/50 uppercase tracking-[0.3em] mt-2">
+                                    Параметры рабочей зоны
+                                </p>
+                            </div>
+
+                            <div className="space-y-8">
+                                <div className="space-y-4">
+                                    <label className="text-fluid-xs font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                        Тип зоны
+                                    </label>
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
+                                        {ZONE_TYPES.map((type) => (
+                                            <button
+                                                key={type.value}
+                                                onClick={() =>
+                                                    setCurrentZone({
+                                                        ...currentZone,
+                                                        type: type.value,
+                                                        color: type.color,
+                                                    })
+                                                }
+                                                className={`px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
+                                                    currentZone.type === type.value
+                                                        ? 'bg-foreground border-foreground text-background shadow-xl'
+                                                        : 'bg-card border-transparent text-foreground/40 hover:border-border-theme'
+                                                }`}
+                                            >
+                                                {type.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-6">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                            Площадь (м²)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={currentZone.area}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (
+                                                    e.target.value === '' ||
+                                                    (!isNaN(val) && val >= 0)
+                                                ) {
+                                                    setCurrentZone({
+                                                        ...currentZone,
+                                                        area: e.target.value,
+                                                    });
+                                                }
+                                            }}
+                                            className="input-premium"
+                                            placeholder="50"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                            Персонал в зоне
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={currentZone.staffCount}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (
+                                                    e.target.value === '' ||
+                                                    (!isNaN(val) && val >= 0)
+                                                ) {
+                                                    setCurrentZone({
+                                                        ...currentZone,
+                                                        staffCount: e.target.value,
+                                                    });
+                                                }
+                                            }}
+                                            className="input-premium"
+                                            placeholder="5"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-12 flex flex-col gap-3">
+                                <button
+                                    onClick={handleAddClick}
+                                    disabled={!currentZone.type || !currentZone.area}
+                                    className="btn-premium w-full"
+                                >
+                                    Зафиксировать зону
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowModal(false);
+                                        setCurrentZone({
+                                            type: '',
+                                            area: '',
+                                            staffCount: '',
+                                            color: '',
+                                        });
+                                    }}
+                                    className="w-full py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] text-foreground/50 hover:text-foreground transition-colors"
+                                >
+                                    Отмена
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </div>,
+                    document.body
+                )}
         </div>
     );
 };

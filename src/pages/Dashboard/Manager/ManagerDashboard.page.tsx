@@ -19,6 +19,8 @@ import type {
 } from '@/features/dashboard/dashboard.types';
 import { useAuth } from '@/features/auth';
 import { useServices } from '@/app/di/ServiceContainer';
+import { PageSkeleton } from '@/components/ui/Skeleton';
+import { ErrorBoundary } from '@/core/components/ErrorBoundary';
 import { logger } from '@/core/logging';
 import {
     useManagerWorkload,
@@ -179,10 +181,10 @@ export const ManagerDashboard: React.FC = () => {
                 setSidebarOpen={setSidebarOpen}
                 title={
                     currentPage === 'pipeline'
-                        ? 'Проекты'
+                        ? 'Пайплайн'
                         : currentPage === 'overview'
                           ? 'Обзор'
-                            : currentPage === 'chat'
+                          : currentPage === 'chat'
                             ? 'Чат'
                             : currentPage === 'kpi'
                               ? 'Мои показатели (KPI)'
@@ -200,48 +202,51 @@ export const ManagerDashboard: React.FC = () => {
                         setCurrentPage(page);
                         if (window.innerWidth < 1024) setSidebarOpen(false);
                     }}
+                    onClose={() => setSidebarOpen(false)}
                 />
 
                 <main className="flex-1 overflow-auto bg-background/30">
-                    <div
-                        className={
-                            currentPage === 'chat'
-                                ? 'w-full'
-                                : 'p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full'
-                        }
-                    >
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-black uppercase tracking-widest">
-                                {error}
-                            </div>
-                        )}
+                    <ErrorBoundary>
+                        <div
+                            className={
+                                currentPage === 'chat'
+                                    ? 'w-full'
+                                    : 'p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full'
+                            }
+                        >
+                            {error && (
+                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-black uppercase tracking-widest">
+                                    {error}
+                                </div>
+                            )}
 
-                        {loading ? (
-                            <div className="flex items-center justify-center py-40">
-                                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            </div>
-                        ) : (
-                            <>
-                                {currentPage === 'overview' && (
-                                    <ManagerOverview
-                                        calculations={allCalculations}
-                                        onNavigate={setCurrentPage}
-                                        onSelect={setSelectedId}
-                                    />
-                                )}
-                                {currentPage === 'pipeline' && (
-                                    <ManagerCalculationsList
-                                        userId={user!.id}
-                                        onSelect={(calc) => setSelectedId(calc.id)}
-                                    />
-                                )}
-                                {currentPage === 'kb' && <MasterInventoryManager />}
-                                {currentPage === 'chat' && <GlobalChatHub />}
-                                {currentPage === 'kpi' && <ManagerKPIDashboard managerId={user!.id} />}
-                                {currentPage === 'profile' && <ClientProfile />}
-                            </>
-                        )}
-                    </div>
+                            {loading ? (
+                                <PageSkeleton />
+                            ) : (
+                                <>
+                                    {currentPage === 'overview' && (
+                                        <ManagerOverview
+                                            calculations={allCalculations}
+                                            onNavigate={setCurrentPage}
+                                            onSelect={setSelectedId}
+                                        />
+                                    )}
+                                    {currentPage === 'pipeline' && (
+                                        <ManagerCalculationsList
+                                            userId={user!.id}
+                                            onSelect={(calc) => setSelectedId(calc.id)}
+                                        />
+                                    )}
+                                    {currentPage === 'kb' && <MasterInventoryManager />}
+                                    {currentPage === 'chat' && <GlobalChatHub />}
+                                    {currentPage === 'kpi' && (
+                                        <ManagerKPIDashboard managerId={user!.id} />
+                                    )}
+                                    {currentPage === 'profile' && <ClientProfile />}
+                                </>
+                            )}
+                        </div>
+                    </ErrorBoundary>
                 </main>
             </div>
         </div>

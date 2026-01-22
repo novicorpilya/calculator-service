@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
+import { PresenceProvider } from '@/app/providers/PresenceProvider';
 import { ROUTES } from './routes.constants';
 
 interface ProtectedRouteProps {
@@ -24,5 +25,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
         return <Navigate to={ROUTES.ERRORS.FORBIDDEN} replace />;
     }
 
-    return <Outlet />;
+    return (
+        <PresenceProvider>
+            <Outlet />
+        </PresenceProvider>
+    );
 };
