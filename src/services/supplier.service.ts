@@ -153,13 +153,10 @@ export class SupplierService implements ISupplierService {
     async updateSupplier(id: string, updates: Partial<SupplierInput>): Promise<VoidResult> {
         try {
             // Remove readonly fields
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const {
-                id: _,
-                created_at,
-                updated_at,
-                ...updateData
-            } = updates as Record<string, unknown>;
+            const updateData = { ...updates } as Record<string, unknown>;
+            delete updateData.id;
+            delete updateData.created_at;
+            delete updateData.updated_at;
 
             const { error } = await this.supabase
                 .from('suppliers')

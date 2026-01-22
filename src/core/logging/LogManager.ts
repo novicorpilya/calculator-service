@@ -1,4 +1,4 @@
-import { supabase } from '@/services/supabase';
+import { supabase } from '../../services/supabase';
 
 export const LogLevel = {
     DEBUG: 0,
@@ -51,7 +51,10 @@ export class LogManager implements ILogger {
             case LogLevel.ERROR:
                 console.error(prefix, message, context, error);
                 if (error && typeof error === 'object') {
-                    console.log(`${prefix} [DETAILS]`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+                    console.log(
+                        `${prefix} [DETAILS]`,
+                        JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+                    );
                 }
                 break;
         }

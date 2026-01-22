@@ -11,7 +11,6 @@ export const ThemeToggle: React.FC = () => {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMounted(true);
     }, []);
 
@@ -20,7 +19,7 @@ export const ThemeToggle: React.FC = () => {
 
     const toggleTheme = (event: React.MouseEvent) => {
         const nextMode = theme.mode === 'dark' ? 'light' : 'dark';
-        
+
         // Проверка поддержки View Transitions API
         if (!document.startViewTransition) {
             setTheme({ ...theme, mode: nextMode });
@@ -29,10 +28,7 @@ export const ThemeToggle: React.FC = () => {
 
         const x = event.clientX;
         const y = event.clientY;
-        const endRadius = Math.hypot(
-            Math.max(x, innerWidth - x),
-            Math.max(y, innerHeight - y)
-        );
+        const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
 
         const transition = document.startViewTransition(() => {
             document.documentElement.classList.add('view-transitioning');
@@ -48,7 +44,7 @@ export const ThemeToggle: React.FC = () => {
                 `circle(0px at ${x}px ${y}px)`,
                 `circle(${endRadius}px at ${x}px ${y}px)`,
             ];
-            
+
             document.documentElement.animate(
                 {
                     clipPath: clipPath,
@@ -62,7 +58,9 @@ export const ThemeToggle: React.FC = () => {
         });
     };
 
-    const isDark = theme.mode === 'dark' || (theme.mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const isDark =
+        theme.mode === 'dark' ||
+        (theme.mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
     return (
         <button

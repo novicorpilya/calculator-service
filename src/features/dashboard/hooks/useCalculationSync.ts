@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/services/supabase';
+import { supabase } from '../../../services/supabase';
 import { useServices } from '@/app/di/ServiceContainer';
 import type { Calculation } from '../dashboard.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -121,7 +121,7 @@ export function useCalculationSync(userId: string | null) {
                     }
                 }
             )
-            .subscribe((status) => {
+            .subscribe((status: string) => {
                 if (status === 'SUBSCRIBED') {
                     logger.info('[RealtimeSync] Subscription active');
                 } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {

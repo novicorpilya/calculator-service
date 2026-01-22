@@ -1,4 +1,5 @@
-import { supabase } from '@/services/supabase/client';
+import { supabase } from './supabase/client';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { CalculatorConfig } from '@/features/calculator/calculator-config.types'; // Type-only import
 import { DEFAULT_CALCULATOR_CONFIG } from '@/features/calculator/calculator-config.types';
 
@@ -12,7 +13,9 @@ export const SettingsService = {
     async getCalculatorConfig(): Promise<CalculatorConfig> {
         try {
             // 1. Check if we have a session first to avoid 406/401 network errors
-            const { data: { session } } = await supabase.auth.getSession();
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
             if (!session) {
                 return DEFAULT_CALCULATOR_CONFIG;
             }
@@ -52,13 +55,14 @@ export const SettingsService = {
      * Save the new configuration to the server.
      */
     async saveCalculatorConfig(config: CalculatorConfig): Promise<void> {
-        const { error } = await supabase
-            .from('system_settings')
-            .upsert({ 
-                key: SETTINGS_KEY, 
+        const { error } = await supabase.from('system_settings').upsert(
+            {
+                key: SETTINGS_KEY,
                 value: config,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'key' });
+                updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'key' }
+        );
 
         if (error) throw error;
 
@@ -68,18 +72,20 @@ export const SettingsService = {
 
     async logConfigChange(newConfig: CalculatorConfig) {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
             if (!user) return;
 
             await supabase.from('audit_logs').insert({
                 action: 'CONFIG_UPDATE',
-                entity_type: 'calculator_config', 
+                entity_type: 'calculator_config',
                 entity_id: SETTINGS_KEY,
-                user_id: user.id,                 
+                user_id: user.id,
                 details: {
                     formula_mode: newConfig.formula.isAdvanced ? 'advanced' : 'visual',
-                    base_method: newConfig.formula.baseMethod
-                }
+                    base_method: newConfig.formula.baseMethod,
+                },
             });
         } catch (err) {
             console.error('Failed to write audit log', err);
@@ -89,11 +95,11 @@ export const SettingsService = {
     async getAuditLogs(limit = 50) {
         const { data, error } = await supabase
             .from('audit_logs')
-            .select('*, profiles:user_id (email)') 
-            .eq('entity_type', 'calculator_config') 
+            .select('*, profiles:user_id (email)')
+            .eq('entity_type', 'calculator_config')
             .order('created_at', { ascending: false })
             .limit(limit);
-        
+
         if (error) throw error;
         return data || [];
     },
@@ -110,15 +116,16 @@ export const SettingsService = {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'system_settings',
-                    filter: `key=eq.${SETTINGS_KEY}`
+                    filter: `key=eq.${SETTINGS_KEY}`,
                 },
-                (payload) => {
-                    if (payload.new && payload.new.value) {
-                         // Merge with default to ensure structural integrity
-                        callback({ ...DEFAULT_CALCULATOR_CONFIG, ...payload.new.value });
+                (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+                    const newRecord = payload.new as { value?: CalculatorConfig };
+                    if (newRecord && newRecord.value) {
+                        // Merge with default to ensure structural integrity
+                        callback({ ...DEFAULT_CALCULATOR_CONFIG, ...newRecord.value });
                     }
                 }
             )
             .subscribe();
-    }
+    },
 };
