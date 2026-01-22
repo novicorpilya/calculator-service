@@ -30,7 +30,10 @@ export interface IChatService {
     sendMessage(payload: MessageCreatePayload): Promise<ActionResult<Message>>;
     deleteMessage(messageId: string): Promise<VoidResult>;
     editMessage(messageId: string, content: string): Promise<VoidResult>;
-    sendMediaMessage(file: File | Blob, payload: MessageCreatePayload): Promise<ActionResult<Message>>;
+    sendMediaMessage(
+        file: File | Blob,
+        payload: MessageCreatePayload
+    ): Promise<ActionResult<Message>>;
     markDirectAsRead(senderId: string, receiverId: string): Promise<VoidResult>;
     markProjectAsRead(calculationId: string, userId: string): Promise<VoidResult>;
     markAllAsRead(userId: string): Promise<VoidResult>;
@@ -115,7 +118,17 @@ export class ChatService implements IChatService {
     }
 
     async sendMessage(payload: MessageCreatePayload): Promise<ActionResult<Message>> {
-        const { calculation_id, receiver_id, sender_id, content, image_url, voice_url, voice_duration, client_message_id, ...metadata } = payload;
+        const {
+            calculation_id,
+            receiver_id,
+            sender_id,
+            content,
+            image_url,
+            voice_url,
+            voice_duration,
+            client_message_id,
+            ...metadata
+        } = payload;
 
         if (!calculation_id && !receiver_id) {
             return {
@@ -140,12 +153,22 @@ export class ChatService implements IChatService {
             image_url: image_url || undefined,
             voice_url: voice_url || undefined,
             voice_duration: voice_duration || undefined,
-            client_message_id: client_message_id || undefined
+            client_message_id: client_message_id || undefined,
         };
 
         const res = calculation_id
-            ? await this.repository.sendProjectMessage(sender_id, calculation_id, content || '', options)
-            : await this.repository.sendDirectMessage(sender_id, receiver_id!, content || '', options);
+            ? await this.repository.sendProjectMessage(
+                  sender_id,
+                  calculation_id,
+                  content || '',
+                  options
+              )
+            : await this.repository.sendDirectMessage(
+                  sender_id,
+                  receiver_id!,
+                  content || '',
+                  options
+              );
 
         if (res.success && res.data) {
             await this.storage.saveMessages([res.data]);
@@ -162,13 +185,14 @@ export class ChatService implements IChatService {
                 type: 'DELETE_MESSAGE',
                 payload: { messageId },
                 createdAt: new Date().toISOString(),
-                status: 'pending'
+                status: 'pending',
             });
             return { success: true };
         }
 
         const messageRes = await this.repository.getMessageById(messageId);
-        if (!messageRes.success || !messageRes.data) return { success: false, error: messageRes.error };
+        if (!messageRes.success || !messageRes.data)
+            return { success: false, error: messageRes.error };
 
         const res = await this.repository.deleteMessage(messageId);
         if (res.success) {
@@ -183,7 +207,7 @@ export class ChatService implements IChatService {
                 type: 'EDIT_MESSAGE',
                 payload: { messageId, content },
                 createdAt: new Date().toISOString(),
-                status: 'pending'
+                status: 'pending',
             });
             // Optimistic local update
             await this.storage.updateMessage(messageId, { content, is_edited: true });
@@ -200,20 +224,24 @@ export class ChatService implements IChatService {
         return res;
     }
 
-    async sendMediaMessage(file: File | Blob, payload: MessageCreatePayload): Promise<ActionResult<Message>> {
+    async sendMediaMessage(
+        file: File | Blob,
+        payload: MessageCreatePayload
+    ): Promise<ActionResult<Message>> {
         if (!navigator.onLine) {
             await this.storage.addToOutbox({
                 type: 'UPLOAD_MEDIA',
                 payload: { file, messagePayload: payload },
                 createdAt: new Date().toISOString(),
-                status: 'pending'
+                status: 'pending',
             });
             return { success: false, error: { message: 'Offline: Media added to outbox' } };
         }
 
         const bucket = file instanceof File ? 'attachments' : 'voice-messages';
         const uploadRes = await this.repository.uploadFile(file, bucket);
-        if (!uploadRes.success || !uploadRes.data) return { success: false, error: uploadRes.error };
+        if (!uploadRes.success || !uploadRes.data)
+            return { success: false, error: uploadRes.error };
 
         const finalPayload = {
             ...payload,
@@ -248,16 +276,20 @@ export class ChatService implements IChatService {
             // Find who to notify about the read event (the other party)
             const calcRes = await this.repository.getCalculationMessages(calculationId);
             let otherUserId: string | undefined;
-            
+
             if (calcRes.success && calcRes.data && calcRes.data.length > 0) {
                 // Find someone who sent a message to us
-                const lastMsgFromOther = calcRes.data.find(m => m.sender_id !== userId);
+                const lastMsgFromOther = calcRes.data.find((m) => m.sender_id !== userId);
                 otherUserId = lastMsgFromOther?.sender_id || undefined;
             }
 
-            // If we couldn't find from messages, the repository already has logic to find users 
+            // If we couldn't find from messages, the repository already has logic to find users
             // but for speed we just broadcast to the room + the identified user.
-            await this.broadcast.broadcastMessagesRead(otherUserId || userId, calculationId, userId);
+            await this.broadcast.broadcastMessagesRead(
+                otherUserId || userId,
+                calculationId,
+                userId
+            );
         }
         return res || { success: false, error: { message: 'Failed to mark as read' } };
     }
@@ -379,34 +411,49 @@ export class ChatService implements IChatService {
     async processOutbox(): Promise<void> {
         if (!navigator.onLine || this.isProcessingOutbox) return;
         this.isProcessingOutbox = true;
-        
+
         const OUTBOX_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
         const now = Date.now();
-        
+
         try {
             const items = await this.storage.getOutbox();
             for (const rawItem of items) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const item = rawItem as { id: number; type: string; payload: any; createdAt: string; status: string };
+                const item = rawItem as {
+                    id: number;
+                    type: string;
+                    payload: unknown;
+                    createdAt: string;
+                    status: string;
+                };
                 // TTL check: discard stale items
                 const itemAge = now - new Date(item.createdAt).getTime();
                 if (itemAge > OUTBOX_TTL_MS) {
-                    logger.warn(`[Outbox] Discarding stale item (${Math.round(itemAge / 3600000)}h old)`, { type: item.type });
+                    logger.warn(
+                        `[Outbox] Discarding stale item (${Math.round(itemAge / 3600000)}h old)`,
+                        { type: item.type }
+                    );
                     await this.storage.removeFromOutbox(item.id);
                     continue;
                 }
-                
+
                 try {
                     if (item.type === 'SEND_MESSAGE') {
-                        await this.sendMessage(item.payload);
+                        await this.sendMessage(item.payload as MessageCreatePayload);
                     } else if (item.type === 'MARK_READ') {
-                        await this.markDirectAsRead(item.payload.senderId, item.payload.receiverId);
+                        const p = item.payload as { senderId: string; receiverId: string };
+                        await this.markDirectAsRead(p.senderId, p.receiverId);
                     } else if (item.type === 'DELETE_MESSAGE') {
-                        await this.deleteMessage(item.payload.messageId);
+                        const p = item.payload as { messageId: string };
+                        await this.deleteMessage(p.messageId);
                     } else if (item.type === 'EDIT_MESSAGE') {
-                        await this.editMessage(item.payload.messageId, item.payload.content);
+                        const p = item.payload as { messageId: string; content: string };
+                        await this.editMessage(p.messageId, p.content);
                     } else if (item.type === 'UPLOAD_MEDIA') {
-                        await this.sendMediaMessage(item.payload.file, item.payload.messagePayload);
+                        const p = item.payload as {
+                            file: File | Blob;
+                            messagePayload: MessageCreatePayload;
+                        };
+                        await this.sendMediaMessage(p.file, p.messagePayload);
                     }
                     await this.storage.removeFromOutbox(item.id);
                 } catch (e) {

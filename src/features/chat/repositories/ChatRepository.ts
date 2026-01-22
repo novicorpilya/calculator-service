@@ -6,10 +6,7 @@ import {
     type TombstonePayload,
 } from '../types';
 import { type ILogger } from '@/core/logging/LogManager';
-import {
-    type PaginationParams,
-    type PaginatedResult,
-} from '@/core/types/pagination';
+import { type PaginationParams, type PaginatedResult } from '@/core/types/pagination';
 import type { ActionResult, VoidResult } from '@/core/types/results';
 
 import { DirectChatRepository } from './DirectChatRepository';
@@ -60,13 +57,25 @@ export interface IChatRepository {
         senderId: string,
         receiverId: string,
         content: string,
-        options?: { metadata?: Record<string, unknown>, image_url?: string, voice_url?: string, voice_duration?: number, client_message_id?: string }
+        options?: {
+            metadata?: Record<string, unknown>;
+            image_url?: string;
+            voice_url?: string;
+            voice_duration?: number;
+            client_message_id?: string;
+        }
     ): Promise<ActionResult<Message>>;
     sendProjectMessage(
         senderId: string,
         projectId: string,
         content: string,
-        options?: { metadata?: Record<string, unknown>, image_url?: string, voice_url?: string, voice_duration?: number, client_message_id?: string }
+        options?: {
+            metadata?: Record<string, unknown>;
+            image_url?: string;
+            voice_url?: string;
+            voice_duration?: number;
+            client_message_id?: string;
+        }
     ): Promise<ActionResult<Message>>;
     deleteMessage(id: string): Promise<VoidResult>;
     markDirectAsRead(contactId: string, currentUserId: string): Promise<VoidResult>;
@@ -78,9 +87,18 @@ export interface IChatRepository {
     clearProjectHistory(calculationId: string): Promise<VoidResult>;
 }
 
+/** Options for sending messages */
+type MessageOptions = {
+    metadata?: Record<string, unknown>;
+    image_url?: string;
+    voice_url?: string;
+    voice_duration?: number;
+    client_message_id?: string;
+};
+
 /**
  * Facade for Chat Repositories.
- * Orchestrates specialized repositories to maintain a clean public API while 
+ * Orchestrates specialized repositories to maintain a clean public API while
  * segregating responsibilities.
  */
 export class ChatRepository implements IChatRepository {
@@ -100,23 +118,29 @@ export class ChatRepository implements IChatRepository {
 
     // Direct Messages
     getMessages = (u: string, c: string) => this.direct.getMessages(u, c);
-    getMessagesPaginated = (u: string, c: string, p?: PaginationParams) => this.direct.getMessagesPaginated(u, c, p);
+    getMessagesPaginated = (u: string, c: string, p?: PaginationParams) =>
+        this.direct.getMessagesPaginated(u, c, p);
     getMessagesDelta = (u: string, c: string, t: string) => this.direct.getMessagesDelta(u, c, t);
-    getMessagesDeltaBySeq = (u: string, c: string, s: number) => this.direct.getMessagesDeltaBySeq(u, c, s);
-    getDeletedMessagesDelta = (u: string, c: string, t: string) => this.direct.getDeletedMessagesDelta(u, c, t);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sendDirectMessage = (s: string, r: string, c: string, o?: any) => this.direct.sendDirectMessage(s, r, c, o);
+    getMessagesDeltaBySeq = (u: string, c: string, s: number) =>
+        this.direct.getMessagesDeltaBySeq(u, c, s);
+    getDeletedMessagesDelta = (u: string, c: string, t: string) =>
+        this.direct.getDeletedMessagesDelta(u, c, t);
+    sendDirectMessage = (s: string, r: string, c: string, o?: MessageOptions) =>
+        this.direct.sendDirectMessage(s, r, c, o);
     getUnreadCounts = (u: string) => this.direct.getUnreadCounts(u);
     markDirectAsRead = (c: string, u: string) => this.direct.markDirectAsRead(c, u);
     clearHistory = (u: string, c: string) => this.direct.clearHistory(u, c);
 
     // Project Messages
     getCalculationMessages = (id: string) => this.project.getCalculationMessages(id);
-    getCalculationMessagesPaginated = (id: string, p?: PaginationParams) => this.project.getCalculationMessagesPaginated(id, p);
-    getCalculationMessagesDelta = (id: string, t: string) => this.project.getCalculationMessagesDelta(id, t);
-    getCalculationMessagesDeltaBySeq = (id: string, s: number) => this.project.getCalculationMessagesDeltaBySeq(id, s);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sendProjectMessage = (s: string, p: string, c: string, o?: any) => this.project.sendProjectMessage(s, p, c, o);
+    getCalculationMessagesPaginated = (id: string, p?: PaginationParams) =>
+        this.project.getCalculationMessagesPaginated(id, p);
+    getCalculationMessagesDelta = (id: string, t: string) =>
+        this.project.getCalculationMessagesDelta(id, t);
+    getCalculationMessagesDeltaBySeq = (id: string, s: number) =>
+        this.project.getCalculationMessagesDeltaBySeq(id, s);
+    sendProjectMessage = (s: string, p: string, c: string, o?: MessageOptions) =>
+        this.project.sendProjectMessage(s, p, c, o);
     markProjectAsRead = (p: string, u: string) => this.project.markProjectAsRead(p, u);
     clearProjectHistory = (id: string) => this.project.clearProjectHistory(id);
 
