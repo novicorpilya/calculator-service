@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { supabase } from '@/services/supabase';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { authService } from '@/features/auth/auth.service';
 import { useProfileSync } from '@/features/auth/hooks/useProfileSync';
@@ -111,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
+        } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             if (session) {
                 setToken(session.access_token);
                 if (event === 'PASSWORD_RECOVERY') setIsRecoveryFlow(true);

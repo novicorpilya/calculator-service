@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/services/supabase';
-import { type RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { authService } from '../auth.service';
 import type { User } from '../auth.types';
 
@@ -45,7 +45,7 @@ export function useProfileSync({
                         table: 'profiles',
                         filter: `id=eq.${userId}`,
                     },
-                    (payload) => {
+                    (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
                         if (!isMounted) return;
 
                         // IF DELETED
