@@ -4,9 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 import { type VercelRequest, type VercelResponse } from '@vercel/node';
 
 // Runtime validation for required environment variables
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
 const MAIL_FROM = process.env.MAIL_FROM || 'HICS <onboarding@resend.dev>';
 
 // Simple interface instead of union type to simplify checks
