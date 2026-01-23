@@ -31,17 +31,19 @@ export default defineConfig({
             output: {
                 manualChunks(id) {
                     if (!id.includes('node_modules')) {
-                        // Split features into separate chunks
-                        if (id.includes('/features/chat/')) return 'feature-chat';
                         if (id.includes('/features/dashboard/')) return 'feature-dashboard';
                         if (id.includes('/features/auth/')) return 'feature-auth';
-                        return; // Let Rollup handle other app code
+                        return;
                     }
 
-                    // --- VENDOR SPLITTING (SAFE MODE) ---
+                    // --- VENDOR SPLITTING (AGGRESSIVE) ---
+                    if (id.includes('@supabase')) return 'vendor-supabase';
+                    if (id.includes('@tanstack')) return 'vendor-query';
+                    if (id.includes('recharts')) return 'vendor-charts';
                     if (id.includes('emoji-picker-react')) return 'vendor-emoji';
                     if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
                     if (id.includes('xlsx')) return 'vendor-excel';
+                    if (id.includes('lucide-react')) return 'vendor-ui';
 
                     return 'vendor';
                 },

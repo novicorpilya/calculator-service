@@ -5,8 +5,16 @@ import demoVideo from '@/assets/videos/calc-demo.webm';
 interface LandingHeroProps {
     onStart: () => void;
 }
-
 export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
+    const [isDesktop, setIsDesktop] = React.useState(false);
+
+    React.useEffect(() => {
+        const checkResolution = () => setIsDesktop(window.innerWidth >= 768);
+        checkResolution();
+        window.addEventListener('resize', checkResolution);
+        return () => window.removeEventListener('resize', checkResolution);
+    }, []);
+
     return (
         <section className="relative pt-32 sm:pt-48 pb-20 sm:pb-32 overflow-hidden">
             {/* Immersive Background */}
@@ -75,19 +83,28 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
 
                     <div className="glass-card !p-1.5 sm:!p-4 bg-card/60 border-primary/20 shadow-3xl max-w-6xl mx-auto transform-3d md:hover:transform-none transition-all duration-1000 ease-out cursor-default overflow-hidden rounded-[1.5rem] sm:rounded-[2.5rem]">
                         <div className="relative aspect-video rounded-[1rem] sm:rounded-[2rem] overflow-hidden border border-border-theme bg-background/50 backdrop-blur-sm group-hover:border-primary/30 transition-colors">
-                            {/* Video Player */}
-                            <video
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                poster="/og-preview.png"
-                                preload="metadata"
-                                className="w-full h-full object-cover"
-                            >
-                                <source src={demoVideo} type="video/webm" />
-                                Ваш браузер не поддерживает видео.
-                            </video>
+                            {/* Video Player - Only load on Desktop to save 2.5MB payload on Mobile */}
+                            {isDesktop ? (
+                                <video
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    poster="/og-preview.png"
+                                    preload="metadata"
+                                    className="w-full h-full object-cover"
+                                >
+                                    <source src={demoVideo} type="video/webm" />
+                                    Ваш браузер не поддерживает видео.
+                                </video>
+                            ) : (
+                                <img
+                                    src="/og-preview.png"
+                                    alt="Calc Demo"
+                                    className="w-full h-full object-cover opacity-50"
+                                    loading="lazy"
+                                />
+                            )}
 
                             {/* Optional Overlay/Badge if needed */}
                             <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-8 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full bg-black/50 sm:hover:bg-black/70 backdrop-blur-md border border-white/10 transition-colors pointer-events-none">

@@ -10,17 +10,30 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://hics-service.vercel.app/" />
 
-    <!-- Performance: Preconnect to critical origins -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://pwhmlyvjkyunvymykxur.supabase.co">
-    <!-- Change to match actual Supabase URL if different -->
+    <!-- Critical Background Style (Prevents White Flash) -->
+    <style>
+      body { background-color: #050506; margin: 0; }
+      #root { min-height: 100vh; }
+    </style>
 
-    <!-- Critical Typography -->
+    <!-- Performance: Preconnect to critical origins -->
+    <link rel="preconnect" href="https://vzfuavmgcectyschxenh.supabase.co">
+
+    <!-- Optimized Typography (Non-blocking) -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@800;900&display=swap"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@800;900&display=swap"
       rel="stylesheet"
-    >
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@800;900&display=swap" rel="stylesheet">
+    </noscript>
 
     <!-- SEO Primary -->
     <title>
