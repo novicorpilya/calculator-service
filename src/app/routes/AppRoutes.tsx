@@ -1,11 +1,12 @@
 import React, { Suspense } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '@/features/auth/index.ts';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicRoute } from './PublicRoute';
 import { ROUTES } from './routes.constants';
 import { GlobalLoader } from '@/components/common/GlobalLoader';
 import { SubtleLoader } from '@/components/common/SubtleLoader';
+import { CalculatorConfigProvider } from '@/features/calculator/CalculatorConfigContext';
 
 // ============================================================
 // LAZY LOADED COMPONENTS (Code Splitting)
@@ -129,86 +130,94 @@ export const AppRoutes: React.FC = () => {
                     />
                 </Route>
 
-                {/* Embed Calculator for Partners */}
+                {/* Routes that need Calculator Configuration */}
                 <Route
-                    path={ROUTES.PARTNER.CALCULATOR}
                     element={
-                        <Suspense fallback={<Loader />}>
-                            <EmbedCalculator />
-                        </Suspense>
+                        <CalculatorConfigProvider>
+                            <Outlet />
+                        </CalculatorConfigProvider>
                     }
-                />
-
-                {/* Password reset - special flow */}
-                <Route
-                    path={ROUTES.AUTH.RESET_PASSWORD}
-                    element={
-                        isRecoveryFlow || window.location.hash.includes('access_token') ? (
-                            <Suspense fallback={<Loader />}>
-                                <HicsAuth initialMode="reset-password" />
-                            </Suspense>
-                        ) : (
-                            <Navigate to={ROUTES.LANDING} replace />
-                        )
-                    }
-                />
-
-                {/* Protected routes */}
-                <Route element={<ProtectedRoute />}>
+                >
                     <Route
-                        path={ROUTES.DASHBOARD.ROOT}
+                        path={ROUTES.PARTNER.CALCULATOR}
                         element={
-                            user?.role === 'admin' ? (
-                                <Navigate to={ROUTES.DASHBOARD.ADMIN} replace />
-                            ) : user?.role === 'manager' ? (
-                                <Navigate to={ROUTES.DASHBOARD.MANAGER} replace />
+                            <Suspense fallback={<Loader />}>
+                                <EmbedCalculator />
+                            </Suspense>
+                        }
+                    />
+
+                    {/* Password reset - special flow */}
+                    <Route
+                        path={ROUTES.AUTH.RESET_PASSWORD}
+                        element={
+                            isRecoveryFlow || window.location.hash.includes('access_token') ? (
+                                <Suspense fallback={<Loader />}>
+                                    <HicsAuth initialMode="reset-password" />
+                                </Suspense>
                             ) : (
-                                <Navigate to={ROUTES.DASHBOARD.CLIENT} replace />
+                                <Navigate to={ROUTES.LANDING} replace />
                             )
                         }
                     />
 
-                    <Route element={<ProtectedRoute allowedRoles={['manager']} />}>
+                    {/* Protected routes */}
+                    <Route element={<ProtectedRoute />}>
                         <Route
-                            path={ROUTES.DASHBOARD.MANAGER}
+                            path={ROUTES.DASHBOARD.ROOT}
                             element={
-                                <Suspense fallback={<DashboardLoader />}>
-                                    <ManagerDashboard />
-                                </Suspense>
+                                user?.role === 'admin' ? (
+                                    <Navigate to={ROUTES.DASHBOARD.ADMIN} replace />
+                                ) : user?.role === 'manager' ? (
+                                    <Navigate to={ROUTES.DASHBOARD.MANAGER} replace />
+                                ) : (
+                                    <Navigate to={ROUTES.DASHBOARD.CLIENT} replace />
+                                )
                             }
                         />
-                    </Route>
 
-                    <Route element={<ProtectedRoute allowedRoles={['client']} />}>
-                        <Route element={<DashboardLayout role="client" />}>
+                        <Route element={<ProtectedRoute allowedRoles={['manager']} />}>
                             <Route
-                                path={ROUTES.DASHBOARD.CLIENT}
+                                path={ROUTES.DASHBOARD.MANAGER}
                                 element={
                                     <Suspense fallback={<DashboardLoader />}>
-                                        <ClientDashboard />
-                                    </Suspense>
-                                }
-                            />
-                            <Route
-                                path={ROUTES.DASHBOARD.BUDGET_PLANNER}
-                                element={
-                                    <Suspense fallback={<DashboardLoader />}>
-                                        <BudgetPlanner />
+                                        <ManagerDashboard />
                                     </Suspense>
                                 }
                             />
                         </Route>
-                    </Route>
 
-                    <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                        <Route
-                            path={ROUTES.DASHBOARD.ADMIN}
-                            element={
-                                <Suspense fallback={<DashboardLoader />}>
-                                    <AdminDashboard />
-                                </Suspense>
-                            }
-                        />
+                        <Route element={<ProtectedRoute allowedRoles={['client']} />}>
+                            <Route element={<DashboardLayout role="client" />}>
+                                <Route
+                                    path={ROUTES.DASHBOARD.CLIENT}
+                                    element={
+                                        <Suspense fallback={<DashboardLoader />}>
+                                            <ClientDashboard />
+                                        </Suspense>
+                                    }
+                                />
+                                <Route
+                                    path={ROUTES.DASHBOARD.BUDGET_PLANNER}
+                                    element={
+                                        <Suspense fallback={<DashboardLoader />}>
+                                            <BudgetPlanner />
+                                        </Suspense>
+                                    }
+                                />
+                            </Route>
+                        </Route>
+
+                        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                            <Route
+                                path={ROUTES.DASHBOARD.ADMIN}
+                                element={
+                                    <Suspense fallback={<DashboardLoader />}>
+                                        <AdminDashboard />
+                                    </Suspense>
+                                }
+                            />
+                        </Route>
                     </Route>
                 </Route>
 
