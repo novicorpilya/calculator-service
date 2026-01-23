@@ -192,10 +192,8 @@ export const Step2_Priorities: React.FC<Step2Props> = ({
                                                         }}
                                                         className={`bg-transparent border-none p-0 text-sm font-black w-14 sm:w-20 outline-none focus:ring-0 ${
                                                             isZoneInvalid
-                                                                ? 'text-red-500'
-                                                                : isEmbedMode
-                                                                  ? 'text-slate-900 placeholder:text-slate-300'
-                                                                  : 'text-white placeholder:text-white/10'
+                                                                  ? 'text-red-500'
+                                                                  : 'text-primary placeholder:text-primary/30'
                                                         }`}
                                                         placeholder="0"
                                                     />
@@ -315,8 +313,8 @@ export const Step2_Priorities: React.FC<Step2Props> = ({
                             className="w-full py-8 rounded-[2.5rem] bg-black text-white text-[14px] font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-primary transition-all duration-500 disabled:opacity-20 disabled:grayscale group relative overflow-hidden"
                         >
                             {hasInvalidArea ? (
-                                <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center backdrop-blur-[1px] text-red-500 z-10">
-                                    <span className="bg-white px-2 py-1 rounded text-[10px]">
+                                <div className="absolute inset-0 bg-slate-100 flex items-center justify-center z-20">
+                                    <span className="text-red-500 text-[10px] font-black uppercase tracking-widest">
                                         Заполните площади
                                     </span>
                                 </div>

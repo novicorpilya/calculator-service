@@ -157,11 +157,12 @@
     }
 
     .input-premium {
-        @apply w-full bg-foreground/[0.02] border border-border-theme font-bold
+        @apply w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 font-bold
             text-[13px] sm:text-[15px] outline-none transition-[background-color,border-color,box-shadow,box-shadow] duration-300
-            placeholder:text-foreground/20 placeholder:font-black
+            text-slate-900 dark:text-white
+            placeholder:text-slate-400 dark:placeholder:text-white/20 placeholder:font-black
             placeholder:uppercase placeholder:tracking-widest
-            placeholder:text-[9px] focus:bg-background focus:border-primary
+            placeholder:text-[9px] focus:bg-white dark:focus:bg-white/10 focus:border-primary
             focus:ring-4 focus:ring-primary/10;
         padding-top: clamp(0.875rem, 2vh, 1.125rem);
         padding-bottom: clamp(0.875rem, 2vh, 1.125rem);

@@ -24,7 +24,7 @@ export const ObjectBasicSpecs: React.FC<ObjectBasicSpecsProps> = ({ data, onChan
                         <select
                             value={data.type}
                             onChange={(e) => onChange({ type: e.target.value })}
-                            className="input-premium appearance-none cursor-pointer pr-10"
+                            className="input-premium appearance-none cursor-pointer pr-10 pl-4"
                         >
                             <option value="">Выберите тип...</option>
                             {OBJECT_TYPES.map((t) => (
@@ -59,8 +59,8 @@ export const ObjectBasicSpecs: React.FC<ObjectBasicSpecsProps> = ({ data, onChan
                             min="0"
                             value={data.totalArea}
                             onChange={(e) => onChange({ totalArea: e.target.value })}
-                            className="input-premium"
-                            placeholder="Например: 120"
+                            className="input-premium pl-4"
+                            placeholder="120"
                         />
                         <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-[9px] font-black text-foreground/20 uppercase tracking-widest">
                             M²
@@ -95,7 +95,7 @@ export const ObjectBasicSpecs: React.FC<ObjectBasicSpecsProps> = ({ data, onChan
                             min="0"
                             value={data.dailyVisitors}
                             onChange={(e) => onChange({ dailyVisitors: e.target.value })}
-                            className="input-premium"
+                            className="input-premium pl-4"
                             placeholder="100"
                         />
                     </div>

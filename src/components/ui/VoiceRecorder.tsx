@@ -104,13 +104,13 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
 
     return (
-        <div className="flex-1 flex items-center justify-between bg-card/60 backdrop-blur-xl border border-border-theme rounded-[2rem] p-1.5 animate-in slide-in-from-bottom-4 duration-500 shadow-xl shadow-black/5">
+        <div className="w-full flex items-center justify-between bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-2 shadow-sm animate-in zoom-in-95 duration-200">
             {/* Left side: Trash/Cancel Action */}
             <div className="flex items-center pl-2">
                 <button
                     type="button"
                     onClick={handleCancel}
-                    className="w-11 h-11 hover:bg-red-500/10 text-foreground/20 hover:text-red-500 transition-all rounded-full flex items-center justify-center group"
+                    className="w-10 h-10 hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all rounded-xl flex items-center justify-center group"
                     title="Удалить"
                 >
                     <Trash2 size={20} className="group-hover:scale-110 transition-transform duration-300" />
@@ -124,18 +124,18 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                     <span className="relative w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
                 </div>
                 <div className="flex items-baseline gap-1">
-                    <span className="text-[16px] font-bold font-mono text-foreground leading-none tabular-nums tracking-tight">
+                    <span className="text-[16px] font-bold font-mono text-primary leading-none tabular-nums tracking-tight">
                         {formatTime(elapsedTime)}
                     </span>
                 </div>
             </div>
 
             {/* Right side: Send Action */}
-            <div className="pr-1">
+            <div className="pr-0">
                 <button
                     type="button"
                     onClick={stopRecording}
-                    className="w-11 h-11 bg-primary text-white rounded-full shadow-lg shadow-primary/20 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group overflow-hidden relative"
+                    className="w-10 h-10 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group overflow-hidden relative"
                     title="Отправить"
                 >
                     <div className="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />

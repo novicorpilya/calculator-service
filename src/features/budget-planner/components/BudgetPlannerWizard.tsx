@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Check } from 'lucide-react';
 import { Step1_Envelope } from '../steps/Step1_Envelope';
 import { Step2_Priorities } from '../steps/Step2_Priorities';
 import { Step3_Allocation } from '../steps/Step3_Allocation';
@@ -24,6 +25,7 @@ export const BudgetPlannerWizard: React.FC<BudgetPlannerWizardProps> = ({
     const { create } = useCalculationActions();
     const [isSaving, setIsSaving] = useState(false);
     const [showLeadForm, setShowLeadForm] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const {
         step,
@@ -88,8 +90,10 @@ export const BudgetPlannerWizard: React.FC<BudgetPlannerWizardProps> = ({
             });
 
             await new Promise((resolve) => setTimeout(resolve, 1500)); // Имитация задержки сети
+            await new Promise((resolve) => setTimeout(resolve, 1500)); // Имитация задержки сети
             toast.success('Заявка отправлена (Mock)!');
             setIsSaving(false);
+            setIsSuccess(true);
             return;
         }
 
@@ -131,6 +135,7 @@ export const BudgetPlannerWizard: React.FC<BudgetPlannerWizardProps> = ({
             if (!response.ok) throw new Error('Failed to submit lead');
 
             toast.success('Заявка отправлена!');
+            setIsSuccess(true);
         } catch (error) {
             console.error(error);
             toast.error('Не удалось отправить заявку');
@@ -160,6 +165,39 @@ export const BudgetPlannerWizard: React.FC<BudgetPlannerWizardProps> = ({
     }, [isEmbedMode, showLeadForm, step]);
 
     if (showLeadForm) {
+        if (isSuccess) {
+            return (
+                <div
+                    ref={containerRef}
+                    className={`w-full max-w-2xl mx-auto py-16 px-10 text-center ${
+                        isEmbedMode
+                            ? 'bg-white/80 backdrop-blur-xl rounded-[48px] border border-slate-200 shadow-2xl text-slate-900'
+                            : 'bg-white/5 backdrop-blur-xl rounded-[48px] border border-white/10 shadow-2xl'
+                    }`}
+                >
+                    <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30 animate-in zoom-in duration-300">
+                        <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                    </div>
+                    <h2 className="text-3xl font-black uppercase tracking-tight mb-4">
+                        Заявка принята!
+                    </h2>
+                    <p className="text-lg opacity-60 mb-8 max-w-md mx-auto leading-relaxed">
+                        Мы получили ваш расчет и свяжемся с вами в ближайшее время для обсуждения деталей проекта.
+                    </p>
+                    <button
+                        onClick={() => {
+                            setIsSuccess(false);
+                            setShowLeadForm(false);
+                            setStep(0);
+                        }}
+                        className="btn-premium px-8 py-3 text-xs"
+                    >
+                        Вернуться в начало
+                    </button>
+                </div>
+            );
+        }
+
         return (
             <div
                 ref={containerRef}

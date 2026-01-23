@@ -74,7 +74,7 @@ export const Step4_Results: React.FC<Step4Props> = ({
 
             <div className="space-y-4">
                 <h3
-                    className={`text-3xl sm:text-5xl font-black tracking-tighter ${isEmbedMode ? 'text-slate-900' : 'text-white'}`}
+                    className="text-3xl sm:text-5xl font-black tracking-tighter text-foreground"
                 >
                     Детальный <span className="text-primary italic">состав</span>
                 </h3>
@@ -107,7 +107,7 @@ export const Step4_Results: React.FC<Step4Props> = ({
                                 </div>
                                 <div className="space-y-1">
                                     <h4
-                                        className={`font-black text-xl sm:text-2xl uppercase tracking-tighter ${isEmbedMode ? 'text-slate-900' : 'text-white'}`}
+                                        className="font-black text-xl sm:text-2xl uppercase tracking-tighter text-foreground"
                                     >
                                         {allocation.zoneName}
                                     </h4>
@@ -161,11 +161,11 @@ export const Step4_Results: React.FC<Step4Props> = ({
                                                 <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500/50 -translate-x-full group-hover:translate-x-0 transition-transform"></div>
                                                 <div className="space-y-1">
                                                     <p
-                                                        className={`text-sm font-black tracking-tight ${isEmbedMode ? 'text-slate-900' : 'text-white'}`}
+                                                        className="text-sm font-black tracking-tight text-foreground"
                                                     >
                                                         {item.inventory}
                                                     </p>
-                                                    <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest">
+                                                    <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest text-foreground/60">
                                                         {item.category} • {item.quantity} шт.
                                                     </p>
                                                 </div>
@@ -193,24 +193,24 @@ export const Step4_Results: React.FC<Step4Props> = ({
                                         {allocation.droppedItems.map((item, idx) => (
                                             <div
                                                 key={idx}
-                                                className={`glass-card p-5 flex items-center justify-between grayscale opacity-30 ${
+                                                className={`glass-card p-5 flex items-center justify-between grayscale opacity-60 ${
                                                     isEmbedMode
                                                         ? 'bg-slate-50 border border-slate-100'
-                                                        : '!bg-white/[0.01] border-white/5'
+                                                        : 'bg-slate-50/50 dark:bg-white/[0.01] border-slate-200 dark:border-white/5'
                                                 }`}
                                             >
                                                 <div className="space-y-1">
                                                     <p
-                                                        className={`text-sm font-black tracking-tight ${isEmbedMode ? 'text-slate-900' : 'text-white'}`}
+                                                        className="text-sm font-black tracking-tight text-foreground"
                                                     >
                                                         {item.inventory}
                                                     </p>
-                                                    <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest">
+                                                    <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest text-foreground/60">
                                                         {item.category}
                                                     </p>
                                                 </div>
                                                 <p
-                                                    className={`text-sm font-black line-through ${isEmbedMode ? 'text-slate-400' : 'text-foreground/20'}`}
+                                                    className="text-sm font-black line-through text-foreground/40"
                                                 >
                                                     {item.total.toLocaleString()} ₽
                                                 </p>

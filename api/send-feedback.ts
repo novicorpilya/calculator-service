@@ -3,10 +3,10 @@ import { type VercelRequest, type VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const MAIL_FROM = process.env.MAIL_FROM || 'HORECA Contact Form <onboarding@resend.dev>';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM || process.env.VITE_MAIL_FROM || 'HORECA Contact Form <onboarding@resend.dev>';
 // Defaults to a safe testing email if not provided in production
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'onboarding@resend.dev';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'onboarding@resend.dev';
 
 // Validation Schema matches frontend requirements
 const bodySchema = z.object({

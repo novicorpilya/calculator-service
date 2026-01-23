@@ -20,6 +20,7 @@ import { ROUTES } from '@/app/routes/routes.constants';
 import { setRememberMePreference } from '@/services/supabase-storage.service';
 import { authService } from '@/features/auth/auth.service';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { logger } from '@/core/logging/index.ts';
 
 interface HicsAuthProps {
@@ -45,6 +46,7 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
         email: string;
         role: 'client' | 'manager' | 'admin';
     } | null>(null);
+    const [isCheckingInvite, setIsCheckingInvite] = React.useState(false);
 
     React.useEffect(() => {
         setMode(initialMode);
@@ -62,6 +64,7 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
             const token = params.get('invite');
 
             if (token && mode === 'register') {
+                setIsCheckingInvite(true);
                 try {
                     const result = await authService.getInvitationByToken(token);
                     if (result.success && result.data) {
@@ -74,6 +77,8 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
                     }
                 } catch (e) {
                     logger.error('Invite check failed', { error: e });
+                } finally {
+                    setIsCheckingInvite(false);
                 }
             }
         };
@@ -148,6 +153,17 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
     const renderForm = () => {
         switch (mode) {
             case 'register':
+                if (isCheckingInvite) {
+                    return (
+                        <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
+                            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+                            <p className="text-sm font-black uppercase tracking-widest text-foreground/40">
+                                Проверяем приглашение...
+                            </p>
+                        </div>
+                    );
+                }
+
                 return (
                     <RegisterForm
                         initialData={invitationData ? { email: invitationData.email } : undefined}

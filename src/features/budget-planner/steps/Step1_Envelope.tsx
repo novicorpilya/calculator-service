@@ -63,7 +63,7 @@ export const Step1_Envelope: React.FC<Step1Props> = ({
                 className={`glass-card p-6 sm:p-12 space-y-8 sm:space-y-12 max-w-2xl mx-auto rounded-[40px] shadow-2xl transition-all ${
                     isEmbedMode
                         ? '!bg-white !border-slate-100 shadow-xl/10'
-                        : '!bg-white/[0.03] backdrop-blur-2xl border-white/10'
+                        : 'bg-white shadow-xl dark:bg-white/[0.03] dark:backdrop-blur-2xl dark:border-white/10 dark:shadow-2xl'
                 }`}
             >
                 <div className="space-y-6">
@@ -87,7 +87,7 @@ export const Step1_Envelope: React.FC<Step1Props> = ({
                             className={`w-full rounded-3xl pl-8 pr-24 py-5 sm:py-7 text-xl sm:text-3xl font-black outline-none transition-all duration-500 shadow-inner ${
                                 isEmbedMode
                                     ? 'bg-slate-50 border-2 border-slate-100 text-slate-900 focus:border-primary placeholder:text-slate-300'
-                                    : 'bg-white/5 border-2 border-white/10 focus:border-primary placeholder:text-foreground/5'
+                                    : 'bg-slate-50 border-2 border-slate-100 text-slate-900 focus:border-primary placeholder:text-slate-300 dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder:text-foreground/5'
                             }`}
                         />
                         <div className="absolute right-8 top-1/2 -translate-y-1/2 text-primary font-black italic text-sm sm:text-lg tracking-tighter">
@@ -98,9 +98,7 @@ export const Step1_Envelope: React.FC<Step1Props> = ({
 
                 {!isEmbedMode && (
                     <div className="space-y-4">
-                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 ml-2">
-                            Быстрый старт
-                        </label>
+
                         <VenueSelector
                             venues={venues}
                             selectedVenueId={objectData.selectedVenueId}
@@ -110,9 +108,7 @@ export const Step1_Envelope: React.FC<Step1Props> = ({
                 )}
 
                 <div className="space-y-4">
-                    <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 ml-2">
-                        Параметры объекта
-                    </label>
+
                     <ObjectBasicSpecs
                         data={{
                             type: objectData.type,

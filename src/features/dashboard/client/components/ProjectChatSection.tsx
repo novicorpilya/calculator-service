@@ -3,7 +3,6 @@ import {
     Loader2,
     MessageCircle,
     Paperclip,
-    Smile,
     ArrowRight,
     Check,
     CheckCheck,
@@ -13,7 +12,6 @@ import {
     Mic,
     Truck,
 } from 'lucide-react';
-import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
 import { VoicePlayer } from '@/components/ui/VoicePlayer';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
@@ -329,7 +327,6 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
         const [pendingAttachments, setPendingAttachments] = useState<
             { file: File; preview: string }[]
         >([]);
-        const [showEmojiPicker, setShowEmojiPicker] = useState(false);
         const [isRecordingVoice, setIsRecordingVoice] = useState(false);
         const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -358,10 +355,7 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
             if (fileInputRef.current) fileInputRef.current.value = '';
         }, []);
 
-        const handleEmojiClick = React.useCallback((emojiData: EmojiClickData) => {
-            setNewComment((prev) => prev + emojiData.emoji);
-            setShowEmojiPicker(false);
-        }, []);
+
 
         const handleSubmit = React.useCallback(
             (e: React.FormEvent) => {
@@ -399,7 +393,7 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
         const handleCancelVoice = React.useCallback(() => setIsRecordingVoice(false), []);
         const handleStartVoice = React.useCallback(() => setIsRecordingVoice(true), []);
         const handleImagePreviewClose = React.useCallback(() => setPreviewImage(null), []);
-        const handleEmojiToggle = React.useCallback(() => setShowEmojiPicker((prev) => !prev), []);
+
 
         const handleRemoveAttachment = React.useCallback((idx: number, preview: string) => {
             URL.revokeObjectURL(preview);
@@ -460,10 +454,10 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
 
                 <form
                     onSubmit={handleSubmit}
-                    className="pt-6 border-t border-border-theme space-y-4 relative"
+                    className="pt-6 border-t border-border-theme flex flex-col gap-4 relative"
                 >
                     {isRecordingVoice && (
-                        <div className="absolute inset-0 bg-background z-50 flex items-center pt-6">
+                        <div className="absolute inset-0 z-50 flex items-end pb-0 w-full animate-in fade-in duration-200">
                             <VoiceRecorder
                                 onRecordingComplete={handleVoiceComplete}
                                 onCancel={handleCancelVoice}
@@ -505,14 +499,6 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                             >
                                 <Paperclip size={20} />
                             </button>
-                            <button
-                                type="button"
-                                onClick={handleEmojiToggle}
-                                className="hidden sm:flex p-4 bg-card border border-border-theme rounded-2xl text-foreground/40 hover:text-primary transition-all shrink-0"
-                                aria-label="Эмодзи"
-                            >
-                                <Smile size={20} />
-                            </button>
                         </div>
 
                         <input
@@ -529,24 +515,11 @@ export const ProjectChatSection = React.memo<ProjectChatSectionProps>(
                                 type="text"
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                className="input-premium !py-3 sm:!py-4 !pr-12 sm:!pr-14 text-sm sm:text-base"
+                                className="input-premium !py-3 sm:!py-4 !pl-4 !pr-12 sm:!pr-14 text-sm sm:text-base"
                                 placeholder="Сообщение..."
                             />
 
-                            <button
-                                type="button"
-                                onClick={handleEmojiToggle}
-                                className="sm:hidden absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 text-foreground/40"
-                            >
-                                <Smile size={18} />
-                            </button>
 
-                            {/* Emoji Picker Popup */}
-                            {showEmojiPicker && (
-                                <div className="absolute bottom-full right-0 mb-2 z-50">
-                                    <EmojiPicker onEmojiClick={handleEmojiClick} />
-                                </div>
-                            )}
                         </div>
 
                         {newComment.trim() || pendingAttachments.length > 0 ? (
