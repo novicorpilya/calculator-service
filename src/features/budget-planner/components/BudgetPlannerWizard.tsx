@@ -97,8 +97,10 @@ export const BudgetPlannerWizard: React.FC<BudgetPlannerWizardProps> = ({
             const params = new URLSearchParams(window.location.search);
             const partnerId = params.get('partner') || 'default_public';
 
+            // Use the proxy API to avoid CORS issues with Supabase Edge Functions
+            const apiUrl = import.meta.env.VITE_API_URL || ''; // Fallback to relative path
             const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-quote`,
+                `${apiUrl}/api/calculate-quote`,
                 {
                     method: 'POST',
                     headers: {

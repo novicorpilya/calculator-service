@@ -93,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    const { email, role, inviteLink } = validation.data;
+    const { email, inviteLink } = validation.data;
 
     try {
         const data = await resend.emails.send({

@@ -117,7 +117,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const safeName = escapeHtml(name);
         const safeEmail = escapeHtml(email);
         const safeMessage = escapeHtml(message);
-        const formattedMessage = safeMessage.replace(/\n/g, '<br/>');
 
         const resend = new Resend(RESEND_API_KEY);
 
@@ -125,28 +124,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const data = await resend.emails.send({
             from: MAIL_FROM,
             to: [ADMIN_EMAIL],
-            replyTo: email, // Use raw email for reply-to as it expects a valid email format
+            replyTo: email,
             subject: `🔔 Новое сообщение от ${safeName}`,
+            text: `Имя: ${safeName}\nEmail: ${safeEmail}\n\nСообщение:\n${safeMessage}`,
             html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-                    <h2 style="border-bottom: 2px solid #eaeaea; padding-bottom: 10px;">Новое обращение с сайта</h2>
-                    
-                    <div style="margin: 20px 0; background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
-                        <p style="margin: 0 0 10px 0;"><strong>Имя:</strong> ${safeName}</p>
-                        <p style="margin: 0;"><strong>Email:</strong> <a href="mailto:${safeEmail}" style="color: #0070f3;">${safeEmail}</a></p>
-                    </div>
-
-                    <div style="margin: 20px 0;">
-                        <h3 style="font-size: 16px; color: #666;">Сообщение:</h3>
-                        <div style="padding: 15px; border-left: 4px solid #0070f3; background-color: #f0f7ff; border-radius: 4px; line-height: 1.6;">
-                            ${formattedMessage || '<em>(Без сообщения)</em>'}
-                        </div>
-                    </div>
-                    
-                    <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #eaeaea; padding-top: 10px;">
-                        Это письмо отправлено автоматически с формы обратной связи.
-                    </p>
-                </div>
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              </head>
+              <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f3f4f6; padding: 40px 20px;">
+                  <tr>
+                    <td align="center">
+                      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb;">
+                        <!-- Header -->
+                        <tr>
+                          <td style="padding: 32px 32px 0 32px; border-bottom: 1px solid #f3f4f6;">
+                             <h2 style="margin: 0 0 24px 0; font-size: 20px; font-weight: 700; color: #111827;">Новое сообщение с сайта</h2>
+                          </td>
+                        </tr>
+                        <!-- Content -->
+                        <tr>
+                          <td style="padding: 32px;">
+                            <div style="margin-bottom: 24px;">
+                                <p style="margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 600;">От кого</p>
+                                <p style="margin: 0; font-size: 16px; color: #111827; font-weight: 500;">${safeName}</p>
+                                <a href="mailto:${safeEmail}" style="display: block; margin-top: 4px; font-size: 14px; color: #4f46e5; text-decoration: none;">${safeEmail}</a>
+                            </div>
+                            
+                            <div style="margin-bottom: 0;">
+                                <p style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 600;">Сообщение</p>
+                                <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 15px; line-height: 1.6; color: #374151; white-space: pre-wrap;">${safeMessage || '<em style="color: #9ca3af;">(Без сообщения)</em>'}</div>
+                            </div>
+                          </td>
+                        </tr>
+                        <!-- Footer -->
+                        <tr>
+                          <td style="background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb;">
+                             <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                                Это автоматическое уведомление. Ответьте на это письмо, чтобы связаться с отправителем.
+                             </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </body>
+            </html>
             `,
         });
 
