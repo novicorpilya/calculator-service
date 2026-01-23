@@ -99,19 +99,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const data = await resend.emails.send({
             from: MAIL_FROM,
             to: [email],
-            subject: 'Ваше приглашение в HICS',
+            subject: 'Приглашение к настройке HICS',
+            text: `Вас пригласили настроить аккаунт HICS. Перейдите по ссылке: ${inviteLink}`,
             html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #171717;">
-            <h1 style="font-size: 24px; font-weight: 800; text-transform: uppercase;">HICS</h1>
-            <p style="font-size: 16px; line-height: 1.6;">Вы приглашены как <strong>${role}</strong>.</p>
-            <div style="margin: 30px 0;">
-                <a href="${inviteLink}" style="background-color: #171717; color: #ffffff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">
-                    ПРИНЯТЬ ПРИГЛАШЕНИЕ
-                </a>
-            </div>
-            <p style="font-size: 12px; color: #a3a3a3;">Ссылка: ${inviteLink}</p>
-        </div>
-      `,
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              </head>
+              <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f3f4f6; padding: 40px 20px;">
+                  <tr>
+                    <td align="center">
+                      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 480px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb;">
+                        <!-- Header -->
+                        <tr>
+                          <td style="padding: 32px 32px 0 32px; text-align: center;">
+                             <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.025em;">HICS</h1>
+                          </td>
+                        </tr>
+                        <!-- Content -->
+                        <tr>
+                          <td style="padding: 24px 32px 32px 32px; text-align: center;">
+                            <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.5; color: #4b5563;">
+                              Администратор пригласил вас настроить аккаунт. Доступ уже открыт.
+                            </p>
+                            <a href="${inviteLink}" style="display: inline-block; background-color: #000000; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 8px; transition: opacity 0.2s;">
+                              Настроить аккаунт
+                            </a>
+                            <p style="margin: 24px 0 0 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">
+                              Если кнопка не работает, откройте ссылку в браузере:<br/>
+                              <a href="${inviteLink}" style="color: #6b7280; text-decoration: underline; word-break: break-all;">${inviteLink}</a>
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+                        © ${new Date().getFullYear()} HICS Inc. Все права защищены.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </body>
+            </html>
+            `,
         });
 
         return res.status(200).json(data);

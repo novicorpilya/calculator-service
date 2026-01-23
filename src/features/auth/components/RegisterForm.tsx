@@ -12,6 +12,7 @@ import {
     ArrowRight,
     User as UserIcon,
     FileText,
+    Briefcase,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/app/routes/routes.constants';
@@ -69,7 +70,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     };
 
     const handleNameChange =
-        (name: 'firstName' | 'lastName') => (e: React.ChangeEvent<HTMLInputElement>) => {
+        (name: 'firstName' | 'lastName' | 'jobTitle') => (e: React.ChangeEvent<HTMLInputElement>) => {
             const value = e.target.value.replace(/[0-9]/g, '');
             setValue(name, value, { shouldValidate: true });
         };
@@ -154,6 +155,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                                 icon={<UserIcon />}
                                 error={errors.lastName?.message}
                                 onChange={handleNameChange('lastName')}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] ml-1">
+                                Должность
+                            </label>
+                            <IconInput
+                                {...register('jobTitle')}
+                                placeholder="Менеджер"
+                                icon={<Briefcase />}
+                                error={errors.jobTitle?.message}
+                                onChange={handleNameChange('jobTitle')}
                             />
                         </div>
                     </>

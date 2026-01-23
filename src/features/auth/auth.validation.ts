@@ -8,7 +8,7 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
     .object({
-        organizationName: z.string().min(1, 'Название организации обязательно'),
+        organizationName: z.string().optional(),
         firstName: z
             .string()
             .regex(/^[^0-9]*$/, 'Цифры запрещены')
@@ -17,7 +17,11 @@ export const registerSchema = z
             .string()
             .regex(/^[^0-9]*$/, 'Цифры запрещены')
             .optional(),
-        address: z.string().min(1, 'Адрес обязателен'),
+        jobTitle: z
+            .string()
+            .regex(/^[^0-9]*$/, 'Цифры запрещены')
+            .optional(),
+        address: z.string().optional(),
         inn: z
             .string()
             .regex(/^\d*$/, 'Только цифры')
