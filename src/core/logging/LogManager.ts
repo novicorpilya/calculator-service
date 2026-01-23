@@ -1,4 +1,4 @@
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/services/supabase';
 
 export const LogLevel = {
     DEBUG: 0,

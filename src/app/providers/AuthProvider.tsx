@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/services/supabase';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { authService } from '@/features/auth/auth.service';

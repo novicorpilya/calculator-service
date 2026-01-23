@@ -1,5 +1,5 @@
-import { supabase } from '../../services/supabase';
-import { authStorage } from '../../services/supabase/storage';
+import { supabase } from '@/services/supabase';
+import { authStorage } from '@/services/supabase/storage';
 import { logger } from '@/core/logging';
 import type {
     AuthResponse,

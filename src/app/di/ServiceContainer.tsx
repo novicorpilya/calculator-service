@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useMemo } from 'react';
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/services/supabase';
 import { logger, type ILogger } from '@/core/logging';
 
 // Repositories

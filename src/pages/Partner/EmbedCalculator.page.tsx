@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { BudgetPlannerWizard } from '@/features/budget-planner/components/BudgetPlannerWizard';
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/services/supabase';
 import { ShieldX, Loader2, Building2 } from 'lucide-react';
 
 interface PartnerValidationResult {
