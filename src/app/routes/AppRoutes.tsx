@@ -13,9 +13,7 @@ import { SubtleLoader } from '@/components/common/SubtleLoader';
 // ============================================================
 
 // Public pages
-const Landing = React.lazy(() =>
-    import('@/pages/Landing/Landing.page').then((m) => ({ default: m.Landing }))
-);
+import { Landing } from '@/pages/Landing/Landing.page';
 const HicsAuth = React.lazy(() => import('@/features/auth').then((m) => ({ default: m.HicsAuth })));
 
 // Dashboard pages (heavy components)
@@ -76,8 +74,15 @@ export const AppRoutes: React.FC = () => {
         }
     }, [location.pathname, isRecoveryFlow, setIsRecoveryFlow]);
 
-    // Global initialization loader
-    if (isInitializing) {
+    // Global initialization loader - only block for non-public routes
+    const isPublicPath = ([ROUTES.LANDING, ROUTES.PARTNER.CALCULATOR] as string[]).includes(
+        location.pathname
+    );
+
+    // We also check for Auth pages since they have their own internal loading states or don't need the global blocker
+    const isAuthPath = location.pathname.startsWith('/auth');
+
+    if (isInitializing && !isPublicPath && !isAuthPath) {
         return <Loader />;
     }
 
@@ -93,11 +98,7 @@ export const AppRoutes: React.FC = () => {
                 {/* Public routes */}
                 <Route
                     path={ROUTES.LANDING}
-                    element={
-                        <Suspense fallback={<Loader />}>
-                            <Landing onStart={() => navigate(ROUTES.AUTH.LOGIN)} />
-                        </Suspense>
-                    }
+                    element={<Landing onStart={() => navigate(ROUTES.AUTH.LOGIN)} />}
                 />
 
                 {/* Auth routes (unauthenticated only) */}

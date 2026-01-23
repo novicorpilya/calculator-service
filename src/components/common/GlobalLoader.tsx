@@ -15,7 +15,7 @@ export const GlobalLoader: React.FC = () => {
             <div className="absolute inset-0 z-0">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] bg-primary/10 rounded-full blur-[160px] animate-pulse duration-[4000ms]" />
             </div>
-            
+
             <div className="relative z-10 flex flex-col items-center">
                 {/* Логотип HICS */}
                 <div className="mb-12 relative group animate-in fade-in zoom-in duration-1000">
@@ -32,7 +32,7 @@ export const GlobalLoader: React.FC = () => {
                             <span>HICS</span>
                         </h1>
                     </div>
-                    
+
                     <div className="flex items-center gap-4 w-full px-4 opacity-0 animate-fade-in delay-700 fill-mode-forwards">
                         <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                         <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.8em] whitespace-nowrap">
@@ -46,7 +46,7 @@ export const GlobalLoader: React.FC = () => {
                 <div className="relative w-72 h-[4px] bg-white/5 rounded-full overflow-hidden shadow-2xl border border-white/5">
                     <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary/40 via-primary to-primary/40 w-full animate-high-end-loader shadow-[0_0_20px_rgba(99,102,241,0.6)]" />
                 </div>
-                
+
                 {/* Состояние системы на русском */}
                 <div className="mt-8 flex items-center gap-3 opacity-0 animate-fade-in delay-1000 fill-mode-forwards">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
@@ -66,12 +66,12 @@ export const GlobalLoader: React.FC = () => {
 
             <style>{`
                 @keyframes brand-reveal {
-                    0% { transform: translateY(100%); opacity: 0; filter: blur(15px); }
-                    100% { transform: translateY(0); opacity: 1; filter: blur(0); }
+                    0% { transform: translateY(10px); opacity: 0; }
+                    100% { transform: translateY(0); opacity: 1; }
                 }
                 @keyframes fade-in {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
+                    from { opacity: 0; }
+                    to { opacity: 1; }
                 }
                 @keyframes high-end-loader {
                     0% { transform: translateX(-100%) scaleX(0.2); }
@@ -80,16 +80,16 @@ export const GlobalLoader: React.FC = () => {
                     100% { transform: translateX(100%) scaleX(0.2); }
                 }
                 .animate-brand-reveal {
-                    animation: brand-reveal 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+                    animation: brand-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
                 }
                 .animate-fade-in {
-                    animation: fade-in 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+                    animation: fade-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
                 }
                 .animate-high-end-loader {
                     animation: high-end-loader 2.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
                 }
-                .delay-700 { animation-delay: 700ms; }
-                .delay-1000 { animation-delay: 1000ms; }
+                .delay-700 { animation-delay: 100ms; }
+                .delay-1000 { animation-delay: 200ms; }
                 .fill-mode-forwards { animation-fill-mode: forwards; }
             `}</style>
         </div>

@@ -3,22 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
+    />
     <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://hics.ru/" />
+    <link rel="canonical" href="https://hics-service.vercel.app/" />
+
+    <!-- Performance: Preconnect to critical origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://pwhmlyvjkyunvymykxur.supabase.co">
+    <!-- Change to match actual Supabase URL if different -->
+
+    <!-- Critical Typography -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@800;900&display=swap"
+      rel="stylesheet"
+    >
 
     <!-- SEO Primary -->
-    <title>Калькулятор оснащения ресторана онлайн | Расчет инвентаря HoReCa — HICS</title>
+    <title>
+      Калькулятор оснащения ресторана онлайн | Расчет инвентаря HoReCa — HICS
+    </title>
     <meta
       name="description"
       content="Профессиональный онлайн калькулятор для расчета оснащения ресторана, кафе и столовых. Автоматический расчет инвентаря по нормам HACCP и ГОСТ. Оптимизируйте бюджет закупок HoReCa до 30%."
     />
-    <meta name="keywords" content="калькулятор оснащения ресторана, расчет инвентаря horeca, нормы расхода посуды, оснащение кафе под ключ, калькулятор посуды для ресторана, автоматизация закупок общепита" />
+    <meta
+      name="keywords"
+      content="калькулятор оснащения ресторана, расчет инвентаря horeca, нормы расхода посуды, оснащение кафе под ключ, калькулятор посуды для ресторана, автоматизация закупок общепита"
+    />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://hics.ru/" />
-    <meta property="og:title" content="Калькулятор оснащения ресторана и расчет инвентаря HoReCa — HICS" />
+    <meta
+      property="og:title"
+      content="Калькулятор оснащения ресторана и расчет инвентаря HoReCa — HICS"
+    />
     <meta
       property="og:description"
       content="Бесплатный расчет инвентаря для ресторанов и отелей. Точные нормы, экспертный аудит и управление закупками в одной системе."
@@ -27,7 +50,10 @@
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content="HICS | Калькулятор оснащения ресторана онлайн" />
+    <meta
+      property="twitter:title"
+      content="HICS | Калькулятор оснащения ресторана онлайн"
+    />
     <meta
       property="twitter:description"
       content="Профессиональный расчет норм расхода и управление сметами закупок для HoReCa."
@@ -36,84 +62,94 @@
 
     <!-- Schema.org Microdata -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "HICS Service",
-      "operatingSystem": "Web",
-      "applicationCategory": "BusinessApplication",
-      "description": "Интеллектуальный калькулятор для расчета инвентаря и оснащения объектов HoReCa.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "RUB"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.9",
-        "ratingCount": "128"
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "HICS Service",
+        "operatingSystem": "Web",
+        "applicationCategory": "BusinessApplication",
+        "description": "Интеллектуальный калькулятор для расчета инвентаря и оснащения объектов HoReCa.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "RUB"
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.9",
+          "ratingCount": "128"
+        }
       }
-    }
     </script>
 
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [{
-        "@type": "Question",
-        "name": "Как рассчитать количество посуды для ресторана?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Для расчета необходимо учитывать площадь заведения, количество посадочных мест и интенсивность потока посетителей. Калькулятор HICS автоматически применяет нормы износа и стандарты HACCP для получения точной сметы."
-        }
-      }, {
-        "@type": "Question",
-        "name": "Можно ли экспортировать расчет в PDF или Excel?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Да, после завершения расчета в системе HICS вы можете сохранить его как проект, обсудить с экспертом в чате и выгрузить готовую спецификацию для закупки."
-        }
-      }]
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [{
+          "@type": "Question",
+          "name": "Как рассчитать количество посуды для ресторана?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Для расчета необходимо учитывать площадь заведения, количество посадочных мест и интенсивность потока посетителей. Калькулятор HICS автоматически применяет нормы износа и стандарты HACCP для получения точной сметы."
+          }
+        }, {
+          "@type": "Question",
+          "name": "Можно ли экспортировать расчет в PDF или Excel?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Да, после завершения расчета в системе HICS вы можете сохранить его как проект, обсудить с экспертом в чате и выгрузить готовую спецификацию для закупки."
+          }
+        }]
+      }
     </script>
   </head>
-  <body style="background-color: #050506; margin: 0; font-family: sans-serif;">
+  <body style="background-color: #050506; margin: 0; font-family: sans-serif">
     <div id="root">
       <!-- SEO Semantics (Visible to bots, replaced by React on Hydration) -->
-      <section style="display: none; visibility: hidden;">
+      <section style="display: none; visibility: hidden">
         <h1>Калькулятор оснащения ресторана онлайн</h1>
-        <p>Добро пожаловать в HICS — передовую систему <strong>расчета инвентаря HoReCa</strong>. Наш сервис помогает владельцам бизнеса и управляющим точно определить потребности в профессиональной посуде, кухонном оборудовании и расходных материалах.</p>
-        
+        <p>
+          Добро пожаловать в HICS — передовую систему <strong>расчета инвентаря
+            HoReCa</strong>. Наш сервис помогает владельцам бизнеса и
+          управляющим точно определить потребности в профессиональной посуде,
+          кухонном оборудовании и расходных материалах.
+        </p>
+
         <h2>Преимущества расчета в системе HICS</h2>
         <ul>
-            <li>Автоматический расчет по нормам HACCP и ГОСТ.</li>
-            <li>Учет интенсивности эксплуатации и коэффициентов износа.</li>
-            <li>Прямая консультация с экспертом через встроенный чат.</li>
-            <li>Оптимизация бюджета на закупки до 30%.</li>
+          <li>Автоматический расчет по нормам HACCP и ГОСТ.</li>
+          <li>Учет интенсивности эксплуатации и коэффициентов износа.</li>
+          <li>Прямая консультация с экспертом через встроенный чат.</li>
+          <li>Оптимизация бюджета на закупки до 30%.</li>
         </ul>
 
         <h2>Как работает расчет инвентаря</h2>
-        <p>Введите параметры вашего объекта: общую площадь, тип заведения (кафе, ресторан, отель) и количество персонала. Система мгновенно сформирует предварительный список необходимого оснащения с учетом всех зон — от кухни до зала обслуживания.</p>
-        
+        <p>
+          Введите параметры вашего объекта: общую площадь, тип заведения (кафе,
+          ресторан, отель) и количество персонала. Система мгновенно сформирует
+          предварительный список необходимого оснащения с учетом всех зон — от
+          кухни до зала обслуживания.
+        </p>
+
         <a href="/auth/register">Начать бесплатный расчет</a>
       </section>
 
       <!-- Pre-mount Loader (Static CSS) -->
-      <div id="pre-loader" style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; background: #050506; position: relative;">
+      <div id="pre-loader" style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; background: #050506; position: relative; font-family: 'Inter', sans-serif;">
         <!-- Ambient Background Glow (Static) -->
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; filter: blur(80px);"></div>
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; background: rgba(37, 99, 235, 0.08); border-radius: 50%; filter: blur(100px);"></div>
         
         <div style="position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center;">
-          <div style="width: 80px; height: 80px; background: white; border-radius: 24px; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+          <div style="width: 80px; height: 80px; background: white; border-radius: 28px; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#050506" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
           </div>
           
-          <div style="font-weight: 900; color: white; font-size: 42px; letter-spacing: -0.05em; margin-bottom: 8px;">HICS</div>
-          <p style="color: rgba(255,255,255,0.4); font-size: 14px; margin-bottom: 40px; text-align: center;">Загрузка экспертной системы расчетов...</p>
+          <div style="font-weight: 900; color: white; font-size: 48px; letter-spacing: -0.05em; margin-bottom: 8px; font-family: 'Outfit', sans-serif;">HICS</div>
+          <p style="color: rgba(255,255,255,0.3); font-size: 11px; margin-bottom: 40px; text-align: center; text-transform: uppercase; font-weight: 900; letter-spacing: 0.4em;">Инициализация системы</p>
           
-          <div style="width: 200px; height: 3px; background: rgba(255,255,255,0.05); position: relative; overflow: hidden; border-radius: 10px;">
-            <div style="position: absolute; top: 0; left: 0; height: 100%; background: #6366f1; width: 40%; animation: initial-load 2.5s infinite cubic-bezier(0.65, 0, 0.35, 1);"></div>
+          <div style="width: 240px; height: 4px; background: rgba(255,255,255,0.05); position: relative; overflow: hidden; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+            <div style="position: absolute; top: 0; left: 0; height: 100%; background: #2563eb; width: 40%; animation: initial-load 2s infinite cubic-bezier(0.65, 0, 0.35, 1); box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);"></div>
           </div>
         </div>
       </div>

@@ -37,11 +37,22 @@
 @layer base {
     * {
         border-color: var(--border-theme);
+    }
+
+    /* Target specific interactive elements for smooth transitions instead of global '*' */
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    .transition-theme {
         transition:
-            background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-            border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-            color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-            box-shadow 0.3s ease;
+            background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            box-shadow 0.3s ease,
+            transform 0.3s ease,
+            opacity 0.3s ease;
     }
 
     body {
@@ -109,7 +120,8 @@
     }
 
     .glass-card {
-        @apply bg-card border border-border-theme rounded-[2rem] sm:rounded-[3rem] shadow-xl;
+        @apply bg-card border border-border-theme rounded-[2rem]
+            sm:rounded-[3rem] shadow-xl;
         box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
         padding: clamp(1.25rem, 6vw, 5rem);
     }
@@ -120,7 +132,11 @@
     }
 
     .btn-premium {
-        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5 rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-3 bg-primary text-white border-none cursor-pointer;
+        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5
+            rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px]
+            sm:text-[10px] uppercase tracking-[0.2em] transition-all
+            active:scale-95 flex items-center justify-center gap-3 bg-primary
+            text-white border-none cursor-pointer;
         box-shadow: 0 12px 24px -10px rgba(37, 99, 235, 0.4);
         background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
     }
@@ -132,11 +148,21 @@
     }
 
     .btn-premium-secondary {
-        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5 rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-3 bg-card border border-border-theme text-foreground/60 hover:text-primary hover:border-primary cursor-pointer;
+        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5
+            rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px]
+            sm:text-[10px] uppercase tracking-[0.2em] transition-all
+            active:scale-95 flex items-center justify-center gap-3 bg-card
+            border border-border-theme text-foreground/60 hover:text-primary
+            hover:border-primary cursor-pointer;
     }
 
     .input-premium {
-        @apply w-full bg-foreground/[0.02] border border-border-theme font-bold text-[13px] sm:text-[15px] outline-none transition-all duration-300 placeholder:text-foreground/20 placeholder:font-black placeholder:uppercase placeholder:tracking-widest placeholder:text-[9px] focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10;
+        @apply w-full bg-foreground/[0.02] border border-border-theme font-bold
+            text-[13px] sm:text-[15px] outline-none transition-all duration-300
+            placeholder:text-foreground/20 placeholder:font-black
+            placeholder:uppercase placeholder:tracking-widest
+            placeholder:text-[9px] focus:bg-background focus:border-primary
+            focus:ring-4 focus:ring-primary/10;
         padding-top: clamp(0.875rem, 2vh, 1.125rem);
         padding-bottom: clamp(0.875rem, 2vh, 1.125rem);
     }
@@ -214,7 +240,8 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-foreground/20 rounded-full hover:bg-foreground/30 transition-colors;
+    @apply bg-foreground/20 rounded-full hover:bg-foreground/30
+        transition-colors;
 }
 
 @keyframes bounce-subtle {

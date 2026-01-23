@@ -27,11 +27,11 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
 
                     {/* Headline */}
                     <div className="space-y-6 sm:space-y-8">
-                        <h1 className="text-[clamp(2.5rem,10vw,7.5rem)] font-[1000] leading-[0.9] tracking-[-0.06em] italic animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200 uppercase">
+                        <h1 className="text-[clamp(2.5rem,10vw,7.5rem)] font-[1000] leading-[0.9] tracking-[-0.06em] italic animate-in fade-in duration-700 uppercase">
                             Калькулятор <br />
                             <span className="text-primary not-italic">оснащения ресторана.</span>
                         </h1>
-                        <p className="text-[clamp(1rem,2.5vw,1.6rem)] text-foreground/50 max-w-3xl mx-auto font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-400 px-4 sm:px-0">
+                        <p className="text-[clamp(1rem,2.5vw,1.6rem)] text-foreground/50 max-w-3xl mx-auto font-medium leading-relaxed animate-in fade-in duration-700 delay-150 px-4 sm:px-0">
                             HICS — это интеллект вашего заведения. Автоматизированный расчет
                             оснащения на базе экспертной методологии и живой экспертизы лидеров
                             HoReCa.
@@ -81,6 +81,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
                                 loop
                                 muted
                                 playsInline
+                                poster="/og-preview.png"
+                                preload="metadata"
                                 className="w-full h-full object-cover"
                             >
                                 <source src={demoVideo} type="video/webm" />
