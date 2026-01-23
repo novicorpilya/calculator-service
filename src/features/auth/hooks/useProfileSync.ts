@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@/services/supabase/client.ts';
+import { supabase } from '@/services/supabase.service';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { authService } from '../auth.service';
 import type { User } from '../auth.types';

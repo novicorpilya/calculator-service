@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/services/supabase/client.ts';
+import { supabase } from '@/services/supabase.service';
 import { useServices } from '@/app/di/ServiceContainer';
 import type { Calculation } from '../dashboard.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';

@@ -17,7 +17,7 @@ import type {
 import { translateAuthError } from '@/utils/errorTranslations';
 import { clearAuthHash } from '@/features/auth/utils/authPathUtils';
 import { ROUTES } from '@/app/routes/routes.constants';
-import { setRememberMePreference } from '@/services/supabase/storage.ts';
+import { setRememberMePreference } from '@/services/supabase-storage.service';
 import { authService } from '@/features/auth/auth.service';
 import { toast } from 'sonner';
 import { logger } from '@/core/logging/index.ts';
