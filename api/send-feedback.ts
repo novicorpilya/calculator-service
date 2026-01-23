@@ -3,10 +3,13 @@ import { type VercelRequest, type VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+
+// Robust env var access
+const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
 const MAIL_FROM = process.env.MAIL_FROM || 'HORECA Contact Form <onboarding@resend.dev>';
-// Defaults to a safe testing email if not provided in production
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'onboarding@resend.dev';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Validation Schema matches frontend requirements
 const bodySchema = z.object({
@@ -27,16 +30,9 @@ const escapeHtml = (unsafe: string) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    // ... (CORS code remains same) ...
     // SECURITY: Enterprise-grade CORS handling
-    // We must echo the specific origin when using allow-credentials: true.
-    // Wildcard '*' cannot be used with credentials.
     const origin = req.headers.origin || '';
-    
-    // In a real enterprise scenario, you would whitelist specific domains:
-    // const allowedOrigins = [process.env.VITE_APP_URL, 'https://landing.com'];
-    // if (allowedOrigins.includes(origin)) { ... }
-    
-    // For now, we allow logical origins to ensure the form works from the landing page
     if (origin) {
         res.setHeader('Access-Control-Allow-Origin', origin);
     } else {
@@ -50,12 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
     );
 
-    // Handle preflight request (OPTIONS)
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    // 1. Method check
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -63,11 +57,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Env validation
     if (!RESEND_API_KEY) {
         console.error('[send-feedback] Server Error: Missing RESEND_API_KEY');
-        return res.status(500).json({ error: 'Internal Server Error: Configuration' });
+        return res.status(500).json({ error: 'Configuration Error: Missing Email Key' });
+    }
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        console.error('[send-feedback] Server Error: Missing Supabase Config');
+         return res.status(500).json({ error: 'Configuration Error: Missing Database Config' });
     }
 
     try {
-        // 3. Payload validation
         const result = bodySchema.safeParse(req.body);
 
         if (!result.success) {
@@ -77,18 +75,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { name, email, message, _honey } = result.data;
 
-        // SECURITY: Honeypot Check
-        // If _honey is set, it's a bot. Return success to fool them, but do nothing.
         if (_honey) {
             console.warn(`[send-feedback] Bot detected (honeypot): ${email}`);
             return res.status(200).json({ success: true, id: 'bot-filtered' });
         }
 
         // SECURITY: Rate Limiting via Supabase
-        const supabaseAdmin = createClient(
-            process.env.VITE_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         const ip =
             (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
 
