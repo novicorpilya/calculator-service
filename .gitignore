@@ -142,9 +142,6 @@ playwright-report/
 test-results/
 lint_output.txt
 
-# Internal Agent/IDE files
-.gemini/
-.agent/
-.antigravityignore
+#IDE files
 .vercel
 .env*.local

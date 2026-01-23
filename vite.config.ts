@@ -43,7 +43,9 @@ export default defineConfig({
                     if (id.includes('emoji-picker-react')) return 'vendor-emoji';
                     if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
                     if (id.includes('xlsx')) return 'vendor-excel';
-                    if (id.includes('lucide-react')) return 'vendor-ui';
+                    if (id.includes('react-hook-form') || id.includes('zod')) return 'vendor-forms';
+                    if (id.includes('expr-eval')) return 'vendor-calc';
+                    if (id.includes('sonner')) return 'vendor-notifications';
 
                     return 'vendor';
                 },

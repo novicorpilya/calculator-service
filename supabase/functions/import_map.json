@@ -1,8 +1,0 @@
-{
-    "imports": {
-        "std/http/server": "https://deno.land/std@0.168.0/http/server.ts",
-        "supabase": "https://esm.sh/@supabase/supabase-js@2.39.7",
-        "zod": "https://deno.land/x/zod@v3.22.4/mod.ts",
-        "expr-eval": "npm:expr-eval@2.0.2"
-    }
-}

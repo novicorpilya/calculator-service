@@ -1,2 +1,0 @@
--- Seed file (empty - no test data needed)
--- Users will register through the app

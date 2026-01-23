@@ -329,10 +329,12 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
             <style>{`
                 .perspective-container {
                     perspective: 3000px;
+                    contain: layout style;
                 }
                 .transform-3d {
                     transform: rotateX(15deg) translateY(-20px) scale(0.95);
                     transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+                    will-change: transform, opacity;
                 }
                 .rotate-x-0 {
                     transform: rotateX(0) translateY(0) scale(1) !important;

@@ -1,7 +1,0 @@
-# Agent Rules for Terminal Usage
-
-1. Use bash-compatible syntax for all terminal commands.
-2. The default shell is Cmder Bash.
-3. If commands fail, try using the forward slash path: `/c/Console_Cmder/vendor/git-for-windows/bin/bash.exe`.
-4. When running commands through `bash.exe`, use the `-c` flag and wrap the command in quotes.
-5. Example: `/c/Console_Cmder/vendor/git-for-windows/bin/bash.exe -c "mkdir -p new_folder"`

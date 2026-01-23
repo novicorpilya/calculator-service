@@ -1,112 +1,109 @@
-# HICS: Enterprise HoReCa Intelligence System
+# HICS: Интеллектуальная Система HoReCa
 
-![Status](https://img.shields.io/badge/Production-Ready-success?style=for-the-badge)
-![Security](https://img.shields.io/badge/Security-Enterprise%20Grade-blue?style=for-the-badge)
-![Coverage](https://img.shields.io/badge/Coverage-85%25-green?style=for-the-badge)
-![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Supabase%20%7C%20DDD-orange?style=for-the-badge)
+![Статус](https://img.shields.io/badge/Статус-Production--Ready-success?style=for-the-badge)
+![Безопасность](https://img.shields.io/badge/Безопасность-Enterprise%20Grade-blue?style=for-the-badge)
+![Покрытие](https://img.shields.io/badge/Покрытие-85%25-green?style=for-the-badge)
+![Стек](https://img.shields.io/badge/Стек-React%20%7C%20Supabase%20%7C%20DDD-orange?style=for-the-badge)
 
-> **High-Load SaaS Platform for Restaurant Inventory Management & Audit.**
+> **Профессиональная SaaS-платформа для управления инвентарем и аудита в
+> ресторанном бизнесе.**
 >
-> Designed and engineered with a focus on **Security First**, **Domain-Driven Design (DDD)**, and **Scalability**. This project serves as a comprehensive demonstration of Senior/Lead level architectural patterns and full-cycle product development.
+> Проект спроектирован и разработан **Ильей Новиковым** с упором на архитектуру
+> **Domain-Driven Design (DDD)**, безопасность уровня Enterprise и высокую
+> масштабируемость.
 
 ---
 
-## 🏗️ Architectural Highlights
+## 🏗️ Архитектурные особенности
 
-This repository demonstrates the ability to build complex, resilient systems without over-engineering.
+Этот проект является демонстрацией того, как строить сложные и отказоустойчивые
+системы на современном стеке технологий.
 
-### 1. Domain-Driven Design (DDD) Core
+### 1. Domain-Driven Design (DDD)
 
-The business logic is strictly decoupled from the UI framework.
+Бизнес-логика строго отделена от UI-фреймворка.
 
-- **Rich Domain Models:** `CalculationEntity` encapsulates all inventory rules (HACCP norms, depreciation cycles).
-- **Application Layer:** Orchestrates data flow via pure services, ensuring the UI remains thin and presentational.
-- **Repository Pattern:** Abstracts the data source (Supabase), allowing for easy substitution (e.g., for testing or future migration).
+- **Богатые доменные модели:** `CalculationEntity` инкапсулирует все правила
+  расчетов (нормы HACCP, циклы амортизации).
+- **Слой приложений:** Оркестрация потоков данных через чистые сервисы, что
+  делает UI легким и презентационным.
+- **Паттерн Репозиторий:** Абстрагирование источника данных (Supabase), что
+  позволяет легко менять БД или писать тесты.
 
-### 2. Enterprise Security Architecture (Zero Trust)
+### 2. Безопасность (Zero Trust)
 
-Security is not an afterthought; it is baked into the database schema.
+Безопасность интегрирована на уровне базы данных, а не только на клиенте.
 
-- **Row Level Security (RLS):** Strict policies ensure users can _only_ access their tenant's data. Even a compromised backend client cannot bypass DB-level constraints.
-- **Role-Based Access Control (RBAC):** Custom PostgreSQL Claims & Triggers manage high-privilege roles (Admin/Auditor) securely.
-- **RPC Hardening:** Critical operations (like quoting) are executed via atomic database functions, preventing client-side price tampering.
+- **Row Level Security (RLS):** Строгие политики гарантируют, что пользователь
+  видит только данные своей организации.
+- **Role-Based Access Control (RBAC):** Управление ролями (Админ/Аудитор) через
+  PostgreSQL Claims и триггеры.
+- **Защита RPC:** Критические операции (например, расчет смет) выполняются
+  атомарно на стороне БД, исключая манипуляции с ценами на клиенте.
 
-### 3. Performance & Resilience
+### 3. Производительность и Оптимизация
 
-- **Optimistic UI:** State updates immediately for 60fps perceived performance, synching in background via TanStack Query.
-- **Edge Computing:** Heavy computations are offloaded to Supabase Edge Functions to keep the client bundle lightweight.
-- **Reliability:** Comprehensive Error Boundaries and a custom `LogManager` ensure the app fails gracefully and reports telemetry.
-
----
-
-## 🛠️ Technology Stack (Selection Rationale)
-
-| Layer        | Tech Choice           | Rationale                                                                                     |
-| :----------- | :-------------------- | :-------------------------------------------------------------------------------------------- |
-| **Frontend** | React 18 / TypeScript | Strict strict-mode compliance for type safety on large-scale refactors.                       |
-| **State**    | TanStack Query (v5)   | Eliminates boilerplate, handles caching/invalidation, and serves as our Server State Manager. |
-| **Backend**  | Supabase (PostgreSQL) | Chosen for its robust RLS capabilities and built-in Realtime Engine (WebSockets).             |
-| **Data**     | Zod                   | Runtime validation for all external inputs (API responses, forms) to ensure data integrity.   |
-| **Styling**  | Tailwind CSS (v4)     | Atomic CSS for consistent Design System tokens and zero-runtime overhead.                     |
-| **Testing**  | Playwright & Vitest   | Confidence via E2E workflows rather than brittle snapshot tests.                              |
+- **Optimistic UI:** Мгновенное обновление состояния для комфортной работы
+  пользователя (60fps), синхронизация с сервером идет в фоне через TanStack
+  Query.
+- **Lighthouse 100/100:** Проведена глубокая оптимизация ресурсов, ленивая
+  загрузка компонентов и минимизация сетевых цепочек.
+- **Отказоустойчивость:** Глобальные Error Boundaries и кастомный `LogManager`
+  для телеметрии и мягкой обработки ошибок.
 
 ---
 
-## 📂 Project Structure (Feature-Sliced Design Spirit)
+## 🛠️ Технологический стек
+
+| Слой          | Технология            | Обоснование                                                             |
+| :------------ | :-------------------- | :---------------------------------------------------------------------- |
+| **Frontend**  | React 19 / TypeScript | Максимальная типизация и современная конкурентная отрисовка.            |
+| **State**     | TanStack Query (v5)   | Управление серверным состоянием, кэширование и умная инвалидация.       |
+| **Backend**   | Supabase (PostgreSQL) | Мощный движок RLS и Realtime-уведомления через WebSockets.              |
+| **Валидация** | Zod                   | Гарантия целостности данных на входе в систему и в формах.              |
+| **Styling**   | Tailwind CSS (v4)     | Атомарный CSS для консистентного дизайна и отсутствия лишнего рантайма. |
+| **Testing**   | Playwright & Vitest   | Уверенность в коде через E2E и юнит-тестирование.                       |
+
+---
+
+## 📂 Структура проекта
 
 ```text
 src/
-├── core/                   # Kernel: logging, configs, error handling (Framework Agnostic)
-├── features/               # Vertical Slices (Auth, Budget, Chat, Dashboard)
-│   ├── auth/
-│   │   ├── domain/         # Business Rules & Entities
-│   │   ├── components/     # UI Implementation
-│   │   └── hooks/          # React Adapters
-├── services/               # Infrastructure Layer (API Clients, 3rd Party Adapters)
-└── app/                    # Composition Layer (Providers, Routing, DI Container)
+├── core/                   # Ядро: логирование, конфиги, обработка ошибок (Framework Agnostic)
+├── features/               # Вертикальные фичи (Авторизация, Расчеты, Чат, Дашборд)
+│   ├── dashboard/
+│   │   ├── domain/         # Бизнес-правила и сущности
+│   │   ├── components/     # UI реализация
+│   │   └── hooks/          # Реактивные адаптеры
+├── services/               # Инфраструктурный слой (API клиенты)
+└── app/                    # Слой композиции (Роутинг, Провайдеры)
 ```
 
 ---
 
-## 🔒 Security Audit & Hardening
-
-This project has undergone a self-conducted security hardening phase:
-
-1.  **Immutability:** Audit logs are append-only.
-2.  **Input Sanitization:** All user inputs are validated via Zod schemas before processing.
-3.  **Dependency Isolation:** `npm audit` checks in CI pipeline; secrets managed via env vars (not committed).
-
----
-
-## 🚀 Deployment & CI/CD workflow
-
-The system is designed for **Atomic Deployments** via Vercel:
-
-1.  **Code Commit:** Triggers Lint & Type Check.
-2.  **Preview Env:** Deploys a unique URL for regression testing.
-3.  **Production:** Only healthy builds are promoted.
-
-### Quick Start (Local Dev)
+## 🚀 Быстрый старт
 
 ```bash
-# 1. Install dependencies (Legacy Peer Deps ensures stability)
+# 1. Установка зависимостей
 npm install --legacy-peer-deps
 
-# 2. Setup Env
+# 2. Настройка окружения
 cp .env.example .env
 
-# 3. Apply DB Schema (RLS & Functions)
+# 3. Сброс и применение миграций БД
 supabase db reset
 
-# 4. Launch
+# 4. Запуск локально
 npm run dev
 ```
 
 ---
 
-## 👨‍💻 About the Author
+## 👨‍💻 Автор проекта
 
-**Ilya Novikov** — Senior Fullstack Engineer & Team Lead.
-Specializing in building maintainable, high-impact systems at scale. Focused on Engineering Excellence, Developer Experience (DX), and delivering business value.
+**Илья Новиков** — Senior Fullstack Engineer. Специализируюсь на создании
+поддерживаемых, высоконагруженных систем. Весь код, архитектура и визуальные
+решения в данном репозитории реализованы мной с нуля.
 
-> _"Code is a liability. Functionality is an asset."_
+> _"Код — это ответственность. Функциональность — это актив."_
