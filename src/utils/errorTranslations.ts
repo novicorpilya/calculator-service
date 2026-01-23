@@ -58,5 +58,14 @@ export const translateAuthError = (error: unknown): string => {
         return 'Срок действия ссылки истек. Пожалуйста, запросите восстановление заново.';
     }
 
+    if (lowerMessage.includes('таймаут') || lowerMessage.includes('timeout')) {
+        return 'Превышено время ожидания создания профиля. Пожалуйста, попробуйте войти в систему.';
+    }
+
+    // Pass through already translated messages (containing Cyrillic)
+    if (/[а-яА-ЯёЁ]/.test(message)) {
+        return message;
+    }
+
     return 'Ошибка аутентификации. Попробуйте обновить страницу.';
 };

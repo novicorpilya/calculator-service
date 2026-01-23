@@ -251,7 +251,7 @@ export const authService = {
 
     getUserProfileWithRetry: async (
         id: string,
-        retries = 3
+        retries = 10
     ): Promise<ActionResult<User | null>> => {
         for (let i = 0; i < retries; i++) {
             const res = await authService.getUserProfile(id);
