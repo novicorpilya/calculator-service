@@ -153,12 +153,28 @@ export class CalculationService implements ICalculationService {
                 );
             }
 
-            // 4. Status Action Mapping
+            // 4. Special Handling for Assignment
+            // If the project is unassigned and we are setting a manager, 
+            // we MUST use the 'assign' action to bypass RLS restrictions on direct UPDATE.
+            const isFirstAssignment = finalUpdates.manager_id && !entity.managerId;
+            if (isFirstAssignment) {
+                await this.repository.executeAction(id, 'assign', undefined, {
+                    manager_id: finalUpdates.manager_id,
+                });
+                // After assignment, update the local entity state so we don't try to re-assign or fail status check
+                const refreshed = await this.repository.getById(id);
+                if (!refreshed.success || !refreshed.data) return refreshed;
+            }
+
+            // 5. Status Action Mapping
             if (updates.status && updates.status !== entity.status) {
                 const action = this.mapStatusToAction(updates.status, entity.status);
 
                 const contentOnly = { ...finalUpdates };
                 delete contentOnly.status;
+                // If it was first assignment, we already did it via action, so remote it from content update
+                if (isFirstAssignment) delete contentOnly.manager_id;
+
                 if (Object.keys(contentOnly).length > 0) {
                     await this.repository.updateContent(id, contentOnly);
                 }
@@ -168,7 +184,16 @@ export class CalculationService implements ICalculationService {
                 });
             }
 
-            return this.repository.updateContent(id, finalUpdates);
+            // 6. Content Only Update
+            const contentOnly = { ...finalUpdates };
+            if (isFirstAssignment) delete contentOnly.manager_id;
+            
+            if (Object.keys(contentOnly).length > 0) {
+                return this.repository.updateContent(id, contentOnly);
+            }
+
+            // If only manager was updated (via action), return refreshed project
+            return this.repository.getById(id);
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }

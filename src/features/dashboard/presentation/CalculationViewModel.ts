@@ -10,6 +10,13 @@ export class CalculationViewModel {
     get id() {
         return this.entity.id;
     }
+    get projectNumber(): number {
+        return this.entity.rawData.project_number || 0;
+    }
+    get projectNumberDisplay(): string {
+        const num = this.projectNumber;
+        return num > 0 ? String(num).padStart(3, '0') : '---';
+    }
     get rawData() {
         return this.entity.rawData;
     }

@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/app/di/ServiceContainer';
 import { logger } from '@/core/logging/index.ts';
+import { supabase } from '@/services/supabase.service';
 import type { ChatRecipient, Message, UnreadCounts } from '../types';
 
 interface UseRecipientsOptions {
@@ -19,6 +20,27 @@ function sortByLastMessage(recipients: ChatRecipient[]): ChatRecipient[] {
 export function useRecipients({ currentUserId }: UseRecipientsOptions) {
     const { chatService } = useServices();
     const queryClient = useQueryClient();
+
+    // 0. Real-time Profile Updates (Avatars, Names)
+    useEffect(() => {
+        if (!currentUserId || currentUserId === 'undefined') return;
+
+        const profileChannel = supabase
+            .channel(`chat_profiles_sync_${currentUserId}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles' },
+                () => {
+                    // When any profile updates, we refresh recipients to get fresh avatars/names
+                    queryClient.invalidateQueries({ queryKey: ['recipients', currentUserId] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(profileChannel);
+        };
+    }, [currentUserId, queryClient]);
 
     const RECIPIENTS_CACHE_KEY = `hrc_chat_recipients_v6_${currentUserId}`;
     const UNREAD_CACHE_KEY = `hrc_unread_counts_v6_${currentUserId}`;

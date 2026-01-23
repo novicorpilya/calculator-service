@@ -69,21 +69,6 @@ const MessageBubble = React.memo<MessageBubbleProps>(
 
         const isTemp = msg.id.startsWith('temp-');
 
-        // Restore logic: Hide message until image is fully loaded to prevent empty blocks/loaders
-        const mustLoad = msg.image_url && !msg.image_url.startsWith('blob:') && !isTemp;
-        const [imageLoaded, setImageLoaded] = React.useState(!mustLoad);
-
-        // DEBUG LOGS removed by request
-
-        if (mustLoad && !imageLoaded) {
-            // Return invisible container so flex gap handles it correctly (no gap)
-            return (
-                <div style={{ display: 'none' }}>
-                    <ChatImage src={msg.image_url!} onReady={() => setImageLoaded(true)} />
-                </div>
-            );
-        }
-
         return (
             <div
                 ref={innerRef}

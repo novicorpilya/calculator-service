@@ -292,16 +292,16 @@ export class CalculationRepository implements ICalculationRepository {
                 dbUpdates.calculator_config_snapshot = updates.calculator_config_snapshot;
             if (updates.venue_id !== undefined) dbUpdates.venue_id = updates.venue_id;
 
-            // Step 1: Execute UPDATE without expecting return (avoids 406 RLS issues)
-            const { error: updateError } = await this.client
+            // Atomic Update & Fetch to prevent race conditions
+            const { data, error: updateError } = await this.client
                 .from('calculations')
                 .update(dbUpdates)
-                .eq('id', id);
+                .eq('id', id)
+                .select(this.PROJECT_SELECT)
+                .single();
 
             if (updateError) return { success: false, error: this.wrapError(updateError) };
-
-            // Step 2: Fetch the updated row separately
-            return this.getById(id);
+            return { success: true, data: CalculationMapper.mapToEntity(data) };
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -327,18 +327,18 @@ export class CalculationRepository implements ICalculationRepository {
         this.logger.info('Executing business action', { id, action });
 
         return this.withRetry(async () => {
-            const { data, error } = await this.client.rpc('perform_calculation_action', {
-                p_calculation_id: id,
-                p_action_type: action,
-                p_message: message || '',
-                p_payload: payload || {},
-            });
+            const { data, error } = await this.client
+                .rpc('perform_calculation_action', {
+                    p_calculation_id: id,
+                    p_action_type: action,
+                    p_message: message || '',
+                    p_payload: payload || {},
+                })
+                .select(this.PROJECT_SELECT)
+                .single();
 
             if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0)
-                return { success: false, error: { message: 'No data returned from action' } };
-
-            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
+            return { success: true, data: CalculationMapper.mapToEntity(data) };
         });
     }
 
@@ -350,31 +350,29 @@ export class CalculationRepository implements ICalculationRepository {
     ): Promise<ActionResult<Calculation>> {
         this.logger.info('Adjusting calculation expert', { id, version });
 
-        const { data, error } = await this.client.rpc('adjust_calculation_expert', {
-            p_calculation_id: id,
-            p_results: results,
-            p_adjustments: adjustments,
-            p_current_version: version,
-        });
+        const { data, error } = await this.client
+            .rpc('adjust_calculation_expert', {
+                p_calculation_id: id,
+                p_results: results,
+                p_adjustments: adjustments,
+                p_current_version: version,
+            })
+            .select(this.PROJECT_SELECT)
+            .single();
 
         if (error) return { success: false, error: this.wrapError(error) };
-        if (!data)
-            return { success: false, error: { message: 'Failed to adjust: No data returned' } };
-
-        // For single record return from RPC, data is the object, not an array
         return { success: true, data: CalculationMapper.mapToEntity(data) };
     }
 
     async acquireLock(id: string | number): Promise<ActionResult<Calculation>> {
         try {
-            const { data, error } = await this.client.rpc('acquire_calculation_lock', {
+            const { error } = await this.client.rpc('acquire_calculation_lock', {
                 p_calculation_id: id,
             });
             if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0)
-                return { success: false, error: { message: 'Failed to acquire lock' } };
-
-            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
+            
+            // Critical Fix: RPC returns raw data without joins.
+            return this.getById(id);
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }
@@ -382,14 +380,13 @@ export class CalculationRepository implements ICalculationRepository {
 
     async releaseLock(id: string | number): Promise<ActionResult<Calculation>> {
         try {
-            const { data, error } = await this.client.rpc('release_calculation_lock', {
+            const { error } = await this.client.rpc('release_calculation_lock', {
                 p_calculation_id: id,
             });
             if (error) return { success: false, error: this.wrapError(error) };
-            if (!data || data.length === 0)
-                return { success: false, error: { message: 'Failed to release lock' } };
 
-            return { success: true, data: CalculationMapper.mapToEntity(data[0]) };
+            // Critical Fix: RPC returns raw data without joins.
+            return this.getById(id);
         } catch (error) {
             return { success: false, error: this.wrapError(error) };
         }

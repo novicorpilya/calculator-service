@@ -74,6 +74,11 @@ export const HicsAuth: React.FC<HicsAuthProps> = ({ initialMode = 'login' }) => 
                         toast.success(`Приглашение подтверждено`, {
                             description: `Вы регистрируетесь как ${result.data.role === 'admin' ? 'Администратор' : result.data.role === 'manager' ? 'Менеджер' : 'Клиент'}`,
                         });
+                    } else {
+                        logger.warn('Invite token invalid or not found', { token, result });
+                        toast.error('Ошибка приглашения', {
+                            description: 'Ссылка недействительна или срок действия истёк. Вы будете перенаправлены на обычную регистрацию.',
+                        });
                     }
                 } catch (e) {
                     logger.error('Invite check failed', { error: e });

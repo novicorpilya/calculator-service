@@ -11,6 +11,12 @@ interface VoicePlayerProps {
     isTemp?: boolean;
 }
 
+const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     voiceUrl,
     duration,
@@ -25,6 +31,8 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     const [isLoading, setIsLoading] = useState(showLoading);
     const [hasError, setHasError] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const progressBarRef = useRef<HTMLDivElement | null>(null);
+    const currentTimeTextRef = useRef<HTMLSpanElement | null>(null);
 
     useEffect(() => {
         const audio = new Audio();
@@ -74,7 +82,17 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
 
         const animate = () => {
             if (audioRef.current && !audioRef.current.paused) {
-                setCurrentTime(audioRef.current.currentTime);
+                const time = audioRef.current.currentTime;
+                
+                // Direct DOM update for 60fps smoothness without React re-renders
+                if (progressBarRef.current) {
+                    const p = duration ? (time / duration) * 100 : 0;
+                    progressBarRef.current.style.width = `${p}%`;
+                }
+                if (currentTimeTextRef.current) {
+                    currentTimeTextRef.current.innerText = formatTime(time);
+                }
+
                 frameId = requestAnimationFrame(animate);
             }
         };
@@ -86,7 +104,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
         return () => {
             if (frameId) cancelAnimationFrame(frameId);
         };
-    }, [isPlaying]);
+    }, [isPlaying, duration]);
 
     const togglePlay = () => {
         if (!audioRef.current || hasError) return;
@@ -97,12 +115,6 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
             audioRef.current.play().catch(() => setHasError(true));
         }
         setIsPlaying(!isPlaying);
-    };
-
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
     const progress = duration ? (currentTime / duration) * 100 : 0;
@@ -130,13 +142,14 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
             <div className="flex-1 pr-1">
                 <div className="h-1 bg-white/20 rounded-full overflow-hidden relative mb-2">
                     <div
-                        className="absolute inset-y-0 left-0 bg-white rounded-full transition-all duration-75 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                        ref={progressBarRef}
+                        className="absolute inset-y-0 left-0 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)]"
                         style={{ width: `${progress}%` }}
                     />
                 </div>
                 <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-white">
                     <div className="flex items-center gap-2">
-                        <span>{formatTime(currentTime)}</span>
+                        <span ref={currentTimeTextRef}>{formatTime(currentTime)}</span>
                         {isOwn && (
                             <div className="flex items-center opacity-70">
                                 {isTemp ? (

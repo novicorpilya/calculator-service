@@ -68,6 +68,20 @@ export const ManagerDashboard: React.FC = () => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
+    // AUTO-SELECT project from URL (Deep Linking for Notifications)
+    useEffect(() => {
+        const projectId = searchParams.get('project') || searchParams.get('calculation');
+        if (projectId) {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('id', projectId);
+                next.delete('project');
+                next.delete('calculation');
+                return next;
+            });
+        }
+    }, [searchParams, setSearchParams]);
+
     // Data Fetching Hooks
     const {
         data: myProjects = [],

@@ -89,7 +89,37 @@ export const NotificationCenter: React.FC = () => {
         }
 
         if (n.link) {
-            navigate(n.link);
+            let finalLink = n.link;
+
+            // Deep-link normalization for Chat notifications
+            // If the link is a generic chat link, we route it to the correct dashboard based on role
+            if (n.link.startsWith('/dashboard/chat')) {
+                const params = new URLSearchParams(n.link.split('?')[1]);
+                const contactId = params.get('contact');
+                const projectId = params.get('project');
+
+                const baseUrl =
+                    user?.role === 'manager'
+                        ? '/dashboard/manager'
+                        : user?.role === 'admin'
+                          ? '/dashboard/admin'
+                          : '/dashboard/client';
+
+                const query = new URLSearchParams();
+                
+                if (projectId) {
+                    // Route to Project Details via deep-linking parameter
+                    query.set('project', projectId);
+                } else {
+                    // Route to Direct Chat Hub
+                    query.set('page', 'chat');
+                    if (contactId) query.set('contact', contactId);
+                }
+
+                finalLink = `${baseUrl}?${query.toString()}`;
+            }
+
+            navigate(finalLink);
             setIsOpen(false);
         }
     };

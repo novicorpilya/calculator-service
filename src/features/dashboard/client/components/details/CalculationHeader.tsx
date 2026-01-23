@@ -1,6 +1,7 @@
 import React from 'react';
-import { ChevronLeft, Send, FileText, Briefcase, Calendar, Trash2 } from 'lucide-react';
+import { ChevronLeft, Send, FileText, Briefcase, Calendar, Trash2, MessageCircle } from 'lucide-react';
 import { ModernStatusBadge } from '@/features/dashboard/components/ModernStatusBadge';
+import { useNavigate } from 'react-router-dom';
 import type { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
 import type { User } from '@/features/auth/index.ts';
 import type { Calculation, CalculationStatus } from '@/features/dashboard/dashboard.types';
@@ -40,6 +41,13 @@ export const CalculationHeader: React.FC<CalculationHeaderProps> = ({
     onUpdateStatus,
     setShowDeleteConfirm,
 }) => {
+    const navigate = useNavigate();
+
+    const handleDirectChat = () => {
+        if (!vm.managerId) return;
+        navigate(`/dashboard/client?page=chat&contact=${vm.managerId}`);
+    };
+
     return (
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 pb-6 border-b border-foreground/5">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 lg:gap-8">
@@ -87,8 +95,18 @@ export const CalculationHeader: React.FC<CalculationHeaderProps> = ({
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-foreground/[0.02] border border-foreground/5">
                             <Briefcase className="w-3.5 h-3.5 text-primary/60" />
                             <span className="text-[10px] font-black text-foreground/50 uppercase tracking-widest">
-                                {vm.managerName}
+                                {vm.managerName || 'Не назначен'}
                             </span>
+                            {user?.role === 'client' && vm.managerId && (
+                                <button
+                                    onClick={handleDirectChat}
+                                    className="ml-2 p-1.5 rounded-md bg-primary text-white hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center gap-1.5 border-none cursor-pointer"
+                                    title="Написать менеджеру лично"
+                                >
+                                    <MessageCircle size={12} strokeWidth={3} />
+                                    <span className="text-[9px] font-black uppercase tracking-tighter">Личный чат</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

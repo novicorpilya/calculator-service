@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import {
     useCalculationActions,
     useMyCalculations,
+    useCalculation,
 } from '@/features/dashboard/hooks/useCalculations';
 import { useCalculationSync } from '@/features/dashboard/hooks/useCalculationSync';
 import { useQueryClient } from '@tanstack/react-query';
@@ -80,26 +81,29 @@ export const ClientDashboard: React.FC = () => {
         [setSearchParams]
     );
 
-    // AUTO-SELECT project from URL
+    // Single Calculation Fetch (if selected)
+    const { data: detailCalculation } = useCalculation(selectedId);
+
+    // AUTO-SELECT project from URL (Deep Linking for Notifications)
     useEffect(() => {
-        const urlProjectId = searchParams.get('project');
-        if (urlProjectId) {
-            setSelectedId(urlProjectId);
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('project');
-            setSearchParams(newParams, { replace: true });
+        const projectId = searchParams.get('project') || searchParams.get('calculation');
+        if (projectId) {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('id', projectId);
+                next.delete('project');
+                next.delete('calculation');
+                return next;
+            });
         }
-    }, [searchParams, setSelectedId, setSearchParams]);
+    }, [searchParams, setSearchParams]);
 
     // Sync Ref for real-time updates
     const state = useRef({
         inFlightSyncs: new Set<string>(),
     });
 
-    const selectedCalculation = React.useMemo(
-        () => calculations.find((c) => String(c.id) === String(selectedId)) || null,
-        [calculations, selectedId]
-    );
+    const selectedCalculation = detailCalculation || null;
 
     const syncProject = useCallback(
         async (id: string | number) => {

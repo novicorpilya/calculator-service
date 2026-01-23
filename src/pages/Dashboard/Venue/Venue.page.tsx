@@ -50,7 +50,7 @@ export const VenuePage: React.FC = () => {
         total_area: 0,
         seating_capacity: 0,
         staff_count: 0,
-        visitors_per_day: 0,
+        daily_visitors: 0,
         address: '',
         sanitary_level: 'medium',
         intensity_level: 'medium',
@@ -96,7 +96,7 @@ export const VenuePage: React.FC = () => {
                     total_area: 0,
                     seating_capacity: 0,
                     staff_count: 0,
-                    visitors_per_day: 0,
+                    daily_visitors: 0,
                     address: '',
                     sanitary_level: 'medium',
                     intensity_level: 'medium',
@@ -135,9 +135,9 @@ export const VenuePage: React.FC = () => {
             name: venue.name,
             type: venue.type,
             total_area: venue.total_area,
-            seating_capacity: venue.seating_capacity,
+            seating_capacity: venue.seating_capacity || 0,
             staff_count: venue.staff_count,
-            visitors_per_day: venue.visitors_per_day,
+            daily_visitors: venue.daily_visitors,
             address: venue.address || '',
             sanitary_level: venue.sanitary_level || 'medium',
             intensity_level: venue.intensity_level || 'medium',
@@ -166,7 +166,7 @@ export const VenuePage: React.FC = () => {
                             total_area: 0,
                             seating_capacity: 0,
                             staff_count: 0,
-                            visitors_per_day: 0,
+                            daily_visitors: 0,
                             address: '',
                             sanitary_level: 'medium',
                             intensity_level: 'medium',
@@ -252,7 +252,7 @@ export const VenuePage: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             <Users size={14} className="text-primary" />
                                             <span className="text-[12px] font-black tracking-tight">
-                                                {venue.visitors_per_day} / день
+                                                {venue.daily_visitors} / день
                                             </span>
                                         </div>
                                     </div>
@@ -359,11 +359,11 @@ export const VenuePage: React.FC = () => {
                                     </label>
                                     <input
                                         type="number"
-                                        value={formData.visitors_per_day}
+                                        value={formData.daily_visitors}
                                         onChange={(e) =>
                                             setFormData({
                                                 ...formData,
-                                                visitors_per_day: Number(e.target.value),
+                                                daily_visitors: Number(e.target.value),
                                             })
                                         }
                                         className="w-full bg-background border border-border-theme rounded-2xl px-6 py-4 text-[13px] font-black focus:border-primary outline-none transition-all"

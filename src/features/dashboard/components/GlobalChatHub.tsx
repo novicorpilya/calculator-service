@@ -7,6 +7,7 @@ import { useRecipients } from '@/features/chat/hooks/useRecipients';
 import { useMessages } from '@/features/chat/hooks/useMessages';
 import { usePresence } from '@/hooks/usePresence';
 import { useServices } from '@/app/di/ServiceContainer';
+import { authService } from '@/features/auth/auth.service';
 import type { ChatRecipient, Message, HistoryClearedPayload } from '@/features/chat/types';
 
 /**
@@ -35,8 +36,9 @@ export const GlobalChatHub = React.memo(() => {
     // 1.1 AUTO-SELECT contact from URL (Deep Linking)
     useEffect(() => {
         const contactId = searchParams.get('contact');
-        if (contactId && isRecipientsFetched && !selectedUser) {
+        if (contactId && isRecipientsFetched && contactId !== selectedUser?.id) {
             const recipient = recipients.find((r) => r.id === contactId);
+
             if (recipient) {
                 // Defer state updates to avoid cascading renders
                 queueMicrotask(() => {
@@ -46,9 +48,48 @@ export const GlobalChatHub = React.memo(() => {
                     next.delete('contact');
                     setSearchParams(next, { replace: true });
                 });
+            } else {
+                // If recipient not in list, fetch them directly
+                const fetchUnknownContact = async () => {
+                    const res = await authService.getUserProfile(contactId);
+                    if (res.success && res.data) {
+                        const newContact: ChatRecipient = {
+                            id: res.data.id,
+                            first_name: res.data.firstName || null,
+                            last_name: res.data.lastName || null,
+                            organization_name: res.data.organizationName || null,
+                            role: res.data.role,
+                            avatar_url: res.data.avatarUrl || null,
+                            lastMessage: null,
+                        };
+                        setSelectedUser(newContact);
+                        const next = new URLSearchParams(searchParams);
+                        next.delete('contact');
+                        setSearchParams(next, { replace: true });
+                    }
+                };
+                fetchUnknownContact();
             }
         }
     }, [searchParams, recipients, isRecipientsFetched, selectedUser, setSearchParams]);
+
+    // 1.2 SYNC selectedUser with recipients data (for real-time avatar/name updates)
+    useEffect(() => {
+        if (!selectedUser) return;
+        const updated = recipients.find((r) => r.id === selectedUser.id);
+        if (updated) {
+            // Compare only visible fields to prevent unnecessary re-renders
+            const hasChanged = 
+                updated.avatar_url !== selectedUser.avatar_url || 
+                updated.first_name !== selectedUser.first_name || 
+                updated.last_name !== selectedUser.last_name || 
+                updated.organization_name !== selectedUser.organization_name;
+            
+            if (hasChanged) {
+                setSelectedUser(prev => prev ? { ...prev, ...updated } : updated);
+            }
+        }
+    }, [recipients, selectedUser]);
 
     // 2. Active Chat Data & Actions
     const {

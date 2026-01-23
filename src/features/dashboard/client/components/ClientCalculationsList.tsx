@@ -83,7 +83,7 @@ export const ClientCalculationsList = React.memo<ClientCalculationsListProps>(
                                 >
                                     {/* Project ID Watermark */}
                                     <div className="absolute -right-2 top-0 text-[7rem] font-black text-foreground/[0.03] select-none pointer-events-none italic leading-none transition-transform duration-1000 group-hover:scale-110 group-hover:-translate-x-4">
-                                        {String(index + 1).padStart(3, '0')}
+                                        {vm.projectNumberDisplay}
                                     </div>
 
                                     {/* Header Section: Manager & Badges */}

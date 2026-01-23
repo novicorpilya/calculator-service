@@ -5,7 +5,7 @@ import { logger } from '@/core/logging/index.ts';
 
 export const VenueSchema = z.object({
     id: z.string().uuid(),
-    owner_id: z.string().uuid(),
+    user_id: z.string().uuid(),
     name: z.string().min(1, 'Название обязательно'),
     type: z.enum([
         'restaurant',
@@ -19,9 +19,9 @@ export const VenueSchema = z.object({
         'other',
     ]),
     total_area: z.number().nonnegative(),
-    seating_capacity: z.number().int().nonnegative(),
+    seating_capacity: z.number().int().nonnegative().optional(),
     staff_count: z.number().int().nonnegative(),
-    visitors_per_day: z.number().int().nonnegative(),
+    daily_visitors: z.number().int().nonnegative(),
     address: z.string().optional().nullable(),
     sanitary_level: z.string().optional(),
     intensity_level: z.string().optional(),
@@ -30,7 +30,7 @@ export const VenueSchema = z.object({
 
 export type Venue = z.infer<typeof VenueSchema>;
 
-export type CreateVenueData = Omit<Venue, 'id' | 'owner_id' | 'created_at'>;
+export type CreateVenueData = Omit<Venue, 'id' | 'user_id' | 'created_at'>;
 
 export interface IVenueService {
     getVenues(): Promise<ActionResult<Venue[]>>;
@@ -82,7 +82,7 @@ export class VenueService implements IVenueService {
                 .from('venues')
                 .insert({
                     ...data,
-                    owner_id: user.id,
+                    user_id: user.id,
                 })
                 .select()
                 .single();

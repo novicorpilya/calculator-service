@@ -125,7 +125,7 @@ export const useCalculationWizard = (initialData?: Calculation) => {
                 type: selectedVenue.type,
                 totalArea: selectedVenue.total_area.toString(),
                 staffCount: selectedVenue.staff_count.toString(),
-                dailyVisitors: selectedVenue.visitors_per_day.toString(),
+                dailyVisitors: selectedVenue.daily_visitors.toString(),
                 sanitaryLevel: selectedVenue.sanitary_level || 'medium',
                 intensityLevel: selectedVenue.intensity_level || 'medium',
                 selectedVenueId: venueId,
