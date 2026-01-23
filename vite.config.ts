@@ -36,16 +36,13 @@ export default defineConfig({
                         return;
                     }
 
-                    // --- VENDOR SPLITTING (AGGRESSIVE) ---
+                    // --- VENDOR SPLITTING (STABLE) ---
                     if (id.includes('@supabase')) return 'vendor-supabase';
                     if (id.includes('@tanstack')) return 'vendor-query';
                     if (id.includes('recharts')) return 'vendor-charts';
                     if (id.includes('emoji-picker-react')) return 'vendor-emoji';
                     if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
                     if (id.includes('xlsx')) return 'vendor-excel';
-                    if (id.includes('react-hook-form') || id.includes('zod')) return 'vendor-forms';
-                    if (id.includes('expr-eval')) return 'vendor-calc';
-                    if (id.includes('sonner')) return 'vendor-notifications';
 
                     return 'vendor';
                 },
@@ -56,15 +53,5 @@ export default defineConfig({
     esbuild: {
         // Strip console and debugger statements from production
         drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
-    },
-    test: {
-        globals: true,
-        environment: 'jsdom',
-        setupFiles: './src/test/setup.ts',
-        include: ['src/**/*.{test,spec}.{ts,tsx}'],
-        coverage: {
-            provider: 'v8',
-            reporter: ['text', 'json', 'html'],
-        },
     },
 });
