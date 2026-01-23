@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import type { ActionResult } from '@/core/types/results';
 
 export interface EmailResponse {

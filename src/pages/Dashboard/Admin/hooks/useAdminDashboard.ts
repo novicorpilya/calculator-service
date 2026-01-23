@@ -5,7 +5,7 @@ import type { Invitation, AdminCalculation, SystemStats } from '@/services/admin
 import type { AuditLog } from '@/services/audit.service';
 import type { User } from '@/features/auth/auth.types';
 import { toast } from 'sonner';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 
 export function useAdminDashboard() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -42,57 +42,60 @@ export function useAdminDashboard() {
 
     const { adminService, auditLogService: auditService, emailService } = useServices();
 
-    const loadData = useCallback(async (silent = false) => {
-        try {
-            if (!silent) setLoading(true);
+    const loadData = useCallback(
+        async (silent = false) => {
+            try {
+                if (!silent) setLoading(true);
 
-            const [usersRes, statsRes] = await Promise.all([
-                adminService.getUsers(),
-                adminService.getSystemStats(),
-            ]);
+                const [usersRes, statsRes] = await Promise.all([
+                    adminService.getUsers(),
+                    adminService.getSystemStats(),
+                ]);
 
-            if (usersRes.success) setUsers(usersRes.data || []);
-            if (statsRes.success) setStats(statsRes.data || null);
+                if (usersRes.success) setUsers(usersRes.data || []);
+                if (statsRes.success) setStats(statsRes.data || null);
 
-            const [invitesRes, logsRes, calcsRes] = await Promise.all([
-                adminService.getInvitations(),
-                auditService.getLogs({ 
-                    page: logPage, 
-                    pageSize: 20, 
-                    actionFilter, 
-                    userIdFilter 
-                }),
-                adminService.getAllCalculations(calcPage, 10),
-            ]);
+                const [invitesRes, logsRes, calcsRes] = await Promise.all([
+                    adminService.getInvitations(),
+                    auditService.getLogs({
+                        page: logPage,
+                        pageSize: 20,
+                        actionFilter,
+                        userIdFilter,
+                    }),
+                    adminService.getAllCalculations(calcPage, 10),
+                ]);
 
-            if (invitesRes.success) setInvitations(invitesRes.data || []);
-            if (logsRes.success) {
-                setLogs(logsRes.data?.data || []);
-                setLogTotal(logsRes.data?.total || 0);
-            }
-            if (calcsRes.success) {
-                setAllCalculations(calcsRes.data?.data || []);
-                setCalcTotal(calcsRes.data?.total || 0);
-            }
-
-            if (!silent) {
-                const firstError = [usersRes, statsRes, invitesRes, logsRes, calcsRes].find(
-                    (r) => !r.success
-                )?.error;
-                if (firstError) {
-                    toast.error(`Ошибка загрузки: ${firstError.message}`);
+                if (invitesRes.success) setInvitations(invitesRes.data || []);
+                if (logsRes.success) {
+                    setLogs(logsRes.data?.data || []);
+                    setLogTotal(logsRes.data?.total || 0);
                 }
+                if (calcsRes.success) {
+                    setAllCalculations(calcsRes.data?.data || []);
+                    setCalcTotal(calcsRes.data?.total || 0);
+                }
+
+                if (!silent) {
+                    const firstError = [usersRes, statsRes, invitesRes, logsRes, calcsRes].find(
+                        (r) => !r.success
+                    )?.error;
+                    if (firstError) {
+                        toast.error(`Ошибка загрузки: ${firstError.message}`);
+                    }
+                }
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : String(err);
+                logger.error('Ошибка при загрузке данных', { message });
+                if (!silent) {
+                    toast.error('Критическая ошибка при загрузке данных');
+                }
+            } finally {
+                if (!silent) setLoading(false);
             }
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            logger.error('Ошибка при загрузке данных', { message });
-            if (!silent) {
-                toast.error('Критическая ошибка при загрузке данных');
-            }
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    }, [adminService, auditService, calcPage, logPage, actionFilter, userIdFilter]);
+        },
+        [adminService, auditService, calcPage, logPage, actionFilter, userIdFilter]
+    );
 
     useEffect(() => {
         loadData();
@@ -188,7 +191,7 @@ export function useAdminDashboard() {
     const handleToggleBlock = async (user: User) => {
         const isBlocked = user.status === 'blocked';
         const confirmText = `Вы хотите ${isBlocked ? 'разблокировать' : 'заблокировать'} пользователя ${user.email}? ${isBlocked ? '' : 'Он потеряет доступ к системе.'}`;
-        
+
         if (!confirm(confirmText)) return;
 
         try {
@@ -205,7 +208,10 @@ export function useAdminDashboard() {
     };
 
     const handleDeleteCalculation = async (calcId: string, orgName: string) => {
-        if (!confirm(`Вы уверены, что хотите удалить проект "${orgName}"? Это действие необратимо.`)) return;
+        if (
+            !confirm(`Вы уверены, что хотите удалить проект "${orgName}"? Это действие необратимо.`)
+        )
+            return;
         try {
             const res = await adminService.adminDeleteCalculation(calcId);
             if (res.success) {
@@ -255,18 +261,18 @@ export function useAdminDashboard() {
 
     const handleExportCSV = () => {
         try {
-            const rows = allCalculations.map(c => ({
+            const rows = allCalculations.map((c) => ({
                 id: c.id,
                 org: c.organization_name || 'N/A',
                 status: c.status,
                 budget: c.results?.totalAnnualBudget || 0,
-                created: new Date(c.created_at).toLocaleDateString()
+                created: new Date(c.created_at).toLocaleDateString(),
             }));
 
             const headers = ['ID', 'Organization', 'Status', 'Budget', 'Created At'];
             const csvContent = [
                 headers.join(','),
-                ...rows.map(r => Object.values(r).join(','))
+                ...rows.map((r) => Object.values(r).join(',')),
             ].join('\n');
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -352,6 +358,6 @@ export function useAdminDashboard() {
         handleExportCSV,
         handleBulkDelete,
         handleBulkStatusUpdate,
-        refresh: loadData
+        refresh: loadData,
     };
 }

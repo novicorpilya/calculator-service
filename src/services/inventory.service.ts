@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import type { ActionResult, VoidResult } from '@/core/types/results';
 
 export interface Supplier {
@@ -123,16 +123,65 @@ export class InventoryService implements IInventoryService {
             if (isDbEmpty) {
                 // Return rich STABLE mock data for development
                 const mockSuppliers: Supplier[] = [
-                    { id: '33333333-3333-3333-3333-333333333333', name: 'Pro-Brite', description: 'Российский эксперт в химии.', status: 'active', rating: 4.8 },
-                    { id: '44444444-4444-4444-4444-444444444444', name: 'Vileda Professional', description: 'Мировой лидер в инвентаре.', status: 'active', rating: 5.0 },
-                    { id: '55555555-5555-5555-5555-555555555555', name: 'Tork (Essity)', description: 'Гигиенические решения.', status: 'active', rating: 4.9 },
-                    { id: '88888888-8888-8888-8888-888888888888', name: 'Karcher', description: 'Уборочная техника.', status: 'active', rating: 4.9 },
-                    { id: '99999999-9999-9999-9999-999999999999', name: 'Kimberly-Clark', description: 'Продукция для гигиены.', status: 'active', rating: 4.7 },
+                    {
+                        id: '33333333-3333-3333-3333-333333333333',
+                        name: 'Pro-Brite',
+                        description: 'Российский эксперт в химии.',
+                        status: 'active',
+                        rating: 4.8,
+                    },
+                    {
+                        id: '44444444-4444-4444-4444-444444444444',
+                        name: 'Vileda Professional',
+                        description: 'Мировой лидер в инвентаре.',
+                        status: 'active',
+                        rating: 5.0,
+                    },
+                    {
+                        id: '55555555-5555-5555-5555-555555555555',
+                        name: 'Tork (Essity)',
+                        description: 'Гигиенические решения.',
+                        status: 'active',
+                        rating: 4.9,
+                    },
+                    {
+                        id: '88888888-8888-8888-8888-888888888888',
+                        name: 'Karcher',
+                        description: 'Уборочная техника.',
+                        status: 'active',
+                        rating: 4.9,
+                    },
+                    {
+                        id: '99999999-9999-9999-9999-999999999999',
+                        name: 'Kimberly-Clark',
+                        description: 'Продукция для гигиены.',
+                        status: 'active',
+                        rating: 4.7,
+                    },
                 ];
 
-                const zones = ['#ef4444', '#22c55e', '#3b82f6', '#facc15', '#ec4899', '#f97316', '#78350f', '#f8fafc'];
-                const cats = ['Кухонная химия', 'Общая химия', 'Санитария', 'Оборудование', 'Инвентарь', 'Расходные материалы', 'Системы', 'Бумага', 'Гигиена'];
-                
+                const zones = [
+                    '#ef4444',
+                    '#22c55e',
+                    '#3b82f6',
+                    '#facc15',
+                    '#ec4899',
+                    '#f97316',
+                    '#78350f',
+                    '#f8fafc',
+                ];
+                const cats = [
+                    'Кухонная химия',
+                    'Общая химия',
+                    'Санитария',
+                    'Оборудование',
+                    'Инвентарь',
+                    'Расходные материалы',
+                    'Системы',
+                    'Бумага',
+                    'Гигиена',
+                ];
+
                 const mockItems: InventoryItemMaster[] = Array.from({ length: 500 }).map((_, i) => {
                     const sId = mockSuppliers[i % 5].id;
                     return {
@@ -141,19 +190,23 @@ export class InventoryService implements IInventoryService {
                         sku: `AUTO-${i + 1}`,
                         color: zones[i % 8],
                         price: 1000 + ((i * 17) % 5000), // Stable price
-                        stock: 10 + ((i * 3) % 100),    // Stable stock
+                        stock: 10 + ((i * 3) % 100), // Stable stock
                         norm_area: 0.05,
                         norm_personnel: 0.1,
                         norm_intensity: 1.2,
                         replacement_cycle_days: 30,
                         supplier_id: sId,
                         category: cats[i % 9],
-                        supplier: mockSuppliers.find(s => s.id === sId)
+                        supplier: mockSuppliers.find((s) => s.id === sId),
                     };
                 });
 
                 const filteredMock = mockItems.filter((item) => {
-                    if (search && !item.name.toLowerCase().includes(search.toLowerCase()) && !item.sku.toLowerCase().includes(search.toLowerCase()))
+                    if (
+                        search &&
+                        !item.name.toLowerCase().includes(search.toLowerCase()) &&
+                        !item.sku.toLowerCase().includes(search.toLowerCase())
+                    )
                         return false;
                     if (supplierId && item.supplier_id !== supplierId) return false;
                     if (category && item.category !== category) return false;

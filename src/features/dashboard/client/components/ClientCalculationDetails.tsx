@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useServices } from '@/app/di/ServiceContainer';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import { AlertTriangle } from 'lucide-react';
 import {
     type Calculation,
@@ -10,7 +10,7 @@ import {
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
 import { toast } from 'sonner';
-import { useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth/index';
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
 
 // Components

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import type { ActionResult, VoidResult } from '@/core/types/results';
 
 export const AuditLogSchema = z.object({
@@ -91,10 +91,7 @@ export class AuditLogService implements IAuditLogService {
 
             let query = this.supabase
                 .from('audit_logs')
-                .select(
-                    `*, profiles:user_id (email)`,
-                    { count: 'exact' }
-                )
+                .select(`*, profiles:user_id (email)`, { count: 'exact' })
                 .order('created_at', { ascending: false })
                 .range(from, to);
 
@@ -116,17 +113,18 @@ export class AuditLogService implements IAuditLogService {
             const validated = z.array(AuditLogSchema).safeParse(data);
             if (!validated.success) {
                 console.error('[AuditLogService] Validation error:', validated.error);
-                if (data && data.length > 0) return { success: true, data: { data: data as AuditLog[], total: count || 0 } };
-                
+                if (data && data.length > 0)
+                    return { success: true, data: { data: data as AuditLog[], total: count || 0 } };
+
                 return { success: false, error: { message: 'Data format error in audit logs' } };
             }
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 data: {
                     data: validated.data,
-                    total: count || 0
-                } 
+                    total: count || 0,
+                },
             };
         } catch (error) {
             console.error('[AuditLogService] Catch error:', error);

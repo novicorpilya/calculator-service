@@ -6,7 +6,7 @@ import { MessageContextMenu } from './MessageContextMenu';
 import { MessageList } from './MessageList';
 import type { Message, ChatRecipient } from '../types';
 import type { User } from '@/features/auth/auth.types';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import { toast } from 'sonner';
 
 // Components

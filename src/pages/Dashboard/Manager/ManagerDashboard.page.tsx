@@ -17,11 +17,11 @@ import type {
     CalculationStatus,
     CalculationResults,
 } from '@/features/dashboard/dashboard.types';
-import { useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth/index';
 import { useServices } from '@/app/di/ServiceContainer';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { ErrorBoundary } from '@/core/components/ErrorBoundary';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import {
     useManagerWorkload,
     useUnassignedLeads,

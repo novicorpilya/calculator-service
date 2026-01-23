@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth/index';
 import { ROUTES } from './routes.constants';
 
 export const PublicRoute: React.FC = () => {

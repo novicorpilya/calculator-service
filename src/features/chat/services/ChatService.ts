@@ -13,7 +13,7 @@ import {
 } from '../types';
 import type { ActionResult, VoidResult } from '@/core/types/results';
 import type { PaginationParams, PaginatedResult } from '@/core/types/pagination';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 
 export interface IChatService {
     getMessages(userId: string, contactId: string): Promise<ActionResult<Message[]>>;

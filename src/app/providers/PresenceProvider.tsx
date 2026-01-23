@@ -2,7 +2,7 @@ import React, { createContext, useEffect } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useServices } from '@/app/di/ServiceContainer';
 
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 
 /**
  * PresenceProvider
@@ -20,16 +20,22 @@ export const PresenceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     useEffect(() => {
         if (user) {
             // User logged in -> Track presence (WebSocket)
-            presenceService.trackUser(user.id).catch((err) => logger.error('[Presence] Track failed', err));
+            presenceService
+                .trackUser(user.id)
+                .catch((err) => logger.error('[Presence] Track failed', err));
         } else {
             // User logged out -> Untrack
-            presenceService.untrackUser().catch((err) => logger.error('[Presence] Untrack failed', err));
+            presenceService
+                .untrackUser()
+                .catch((err) => logger.error('[Presence] Untrack failed', err));
         }
 
         return () => {
             // Component unmount -> Cleanup
             if (user) {
-                presenceService.untrackUser().catch((err) => logger.error('[Presence] Cleanup untrack failed', err));
+                presenceService
+                    .untrackUser()
+                    .catch((err) => logger.error('[Presence] Cleanup untrack failed', err));
             }
         };
     }, [user, presenceService]);

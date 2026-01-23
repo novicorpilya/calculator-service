@@ -20,7 +20,7 @@ import { ROUTES } from '@/app/routes/routes.constants';
 import { setRememberMePreference } from '@/services/supabase/storage';
 import { authService } from '@/features/auth/auth.service';
 import { toast } from 'sonner';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 
 interface HicsAuthProps {
     initialMode?: AuthMode;

@@ -5,7 +5,7 @@ import { generateSecureToken } from '@/core/utils/crypto';
 import type { User } from '@/features/auth/auth.types';
 
 import type { ActionResult, VoidResult } from '@/core/types/results';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import { wrapError } from '@/core/utils/errors';
 
 export const InvitationSchema = z.object({
@@ -28,10 +28,13 @@ export const AdminCalculationSchema = z.object({
     status: z.string(),
     total_area: z.number().nonnegative(),
     manager_id: z.string().uuid().nullable().optional(),
-    manager: z.object({
-        email: z.string(),
-        first_name: z.string().nullable().optional(),
-    }).nullable().optional(),
+    manager: z
+        .object({
+            email: z.string(),
+            first_name: z.string().nullable().optional(),
+        })
+        .nullable()
+        .optional(),
     results: z
         .object({
             summary: z.array(z.unknown()).optional(),
@@ -65,7 +68,10 @@ export interface IAdminService {
     ): Promise<ActionResult<Invitation>>;
     deleteInvitation(id: string): Promise<VoidResult>;
     updateUserRole(userId: string, newRole: 'client' | 'manager' | 'admin'): Promise<VoidResult>;
-    getAllCalculations(page?: number, pageSize?: number): Promise<ActionResult<{ data: AdminCalculation[], total: number }>>;
+    getAllCalculations(
+        page?: number,
+        pageSize?: number
+    ): Promise<ActionResult<{ data: AdminCalculation[]; total: number }>>;
     getExportData(): Promise<ActionResult<AdminCalculation[]>>;
     getSystemStats(): Promise<ActionResult<SystemStats>>;
     deleteUser(userId: string): Promise<VoidResult>;
@@ -85,7 +91,6 @@ export class AdminService implements IAdminService {
         this.supabase = supabase;
         this.auditService = auditService;
     }
-
 
     async getInvitations(): Promise<ActionResult<Invitation[]>> {
         try {
@@ -118,11 +123,13 @@ export class AdminService implements IAdminService {
             // 2. calculations.manager_id -> profiles.id (via auth.users)
             const { data, error } = await this.supabase
                 .from('profiles')
-                .select(`
+                .select(
+                    `
                     id, email, role, organization_name, phone, address, created_at, status,
                     owned:calculations!user_id(count),
                     managed:calculations!manager_id(count)
-                `)
+                `
+                )
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: wrapError(error) };
@@ -130,7 +137,7 @@ export class AdminService implements IAdminService {
             const dataWithCount = (data || []).map((p) => {
                 const ownedCount = (p.owned as { count: number }[])?.[0]?.count || 0;
                 const managedCount = (p.managed as { count: number }[])?.[0]?.count || 0;
-                
+
                 return {
                     id: p.id,
                     email: p.email,
@@ -176,7 +183,9 @@ export class AdminService implements IAdminService {
 
             const validated = InvitationSchema.safeParse(data);
             if (!validated.success) {
-                logger.error('[AdminService:CreateInvitation:Validation]', { error: validated.error });
+                logger.error('[AdminService:CreateInvitation:Validation]', {
+                    error: validated.error,
+                });
                 return {
                     success: false,
                     error: { message: 'Format error after invitation creation' },
@@ -229,14 +238,18 @@ export class AdminService implements IAdminService {
         }
     }
 
-    async getAllCalculations(page = 1, pageSize = 20): Promise<ActionResult<{ data: AdminCalculation[], total: number }>> {
+    async getAllCalculations(
+        page = 1,
+        pageSize = 20
+    ): Promise<ActionResult<{ data: AdminCalculation[]; total: number }>> {
         try {
             const from = (page - 1) * pageSize;
             const to = from + pageSize - 1;
 
             const { data, error, count } = await this.supabase
                 .from('calculations')
-                .select(`
+                .select(
+                    `
                     id, 
                     organization_name, 
                     status, 
@@ -249,7 +262,9 @@ export class AdminService implements IAdminService {
                         email,
                         first_name
                     )
-                `, { count: 'exact' })
+                `,
+                    { count: 'exact' }
+                )
                 .order('created_at', { ascending: false })
                 .range(from, to);
 
@@ -264,12 +279,12 @@ export class AdminService implements IAdminService {
                 };
             }
 
-            return { 
-                success: true, 
-                data: { 
-                    data: validated.data, 
-                    total: count || 0 
-                } 
+            return {
+                success: true,
+                data: {
+                    data: validated.data,
+                    total: count || 0,
+                },
             };
         } catch (error) {
             return { success: false, error: wrapError(error) };
@@ -280,7 +295,8 @@ export class AdminService implements IAdminService {
         try {
             const { data, error } = await this.supabase
                 .from('calculations')
-                .select(`
+                .select(
+                    `
                     id, 
                     organization_name, 
                     status, 
@@ -292,13 +308,15 @@ export class AdminService implements IAdminService {
                     manager:manager_id (
                         email
                     )
-                `)
+                `
+                )
                 .order('created_at', { ascending: false });
 
             if (error) return { success: false, error: wrapError(error) };
 
             const validated = z.array(AdminCalculationSchema).safeParse(data);
-            if (!validated.success) return { success: false, error: { message: 'Export validation failed' } };
+            if (!validated.success)
+                return { success: false, error: { message: 'Export validation failed' } };
 
             return { success: true, data: validated.data };
         } catch (error) {
@@ -319,7 +337,7 @@ export class AdminService implements IAdminService {
                 activeProjects: calculations?.filter((c) => c.status !== 'draft').length || 0,
                 totalGlobalBudget: 0,
                 revenuePipeline: 0,
-                 stages: {
+                stages: {
                     draft: 0,
                     pending: 0,
                     expert: 0,
@@ -358,7 +376,8 @@ export class AdminService implements IAdminService {
             });
 
             if (previousMonthBudget > 0) {
-                stats.budgetGrowth = ((currentMonthBudget - previousMonthBudget) / previousMonthBudget) * 100;
+                stats.budgetGrowth =
+                    ((currentMonthBudget - previousMonthBudget) / previousMonthBudget) * 100;
             } else if (currentMonthBudget > 0) {
                 stats.budgetGrowth = 100;
             }
@@ -438,7 +457,7 @@ export class AdminService implements IAdminService {
                 p_calculation_id: id,
                 p_action_type: status, // Assume status is the action for admin force
                 p_message: 'Status updated by Administrator',
-                p_payload: { is_admin_force: true }
+                p_payload: { is_admin_force: true },
             });
 
             if (error) return { success: false, error: wrapError(error) };
@@ -453,9 +472,9 @@ export class AdminService implements IAdminService {
         try {
             const { error } = await this.supabase
                 .from('calculations')
-                .update({ 
+                .update({
                     manager_id: managerId,
-                    updated_at: new Date().toISOString() 
+                    updated_at: new Date().toISOString(),
                 })
                 .eq('id', calculationId);
 
@@ -474,17 +493,14 @@ export class AdminService implements IAdminService {
     }
     async bulkDeleteCalculations(ids: string[]): Promise<VoidResult> {
         try {
-            const { error } = await this.supabase
-                .from('calculations')
-                .delete()
-                .in('id', ids);
+            const { error } = await this.supabase.from('calculations').delete().in('id', ids);
 
             if (error) return { success: false, error: wrapError(error) };
 
             await this.auditService.logAction(
                 'calculations_bulk_deleted',
                 'p_calculation',
-                undefined, 
+                undefined,
                 { count: ids.length, ids }
             );
             return { success: true };
@@ -497,9 +513,11 @@ export class AdminService implements IAdminService {
         try {
             // We loop and call the RPC for each to ensure all side effects (messages, audits) trigger correctly.
             // For production, if there are hundreds, we could create a bulk RPC, but for current scale this is safer.
-            const results = await Promise.all(ids.map(id => this.adminUpdateCalculationStatus(id, status)));
-            
-            const failed = results.find(r => !r.success);
+            const results = await Promise.all(
+                ids.map((id) => this.adminUpdateCalculationStatus(id, status))
+            );
+
+            const failed = results.find((r) => !r.success);
             if (failed) return failed;
 
             return { success: true };

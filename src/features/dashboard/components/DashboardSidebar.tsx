@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
-import { useUnreadCount } from '@/features/chat/hooks';
+import { useUnreadCount } from '@/features/chat/hooks/index';
 
 interface DashboardSidebarProps {
     isOpen: boolean;

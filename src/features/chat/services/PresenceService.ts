@@ -1,5 +1,5 @@
 import { type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 
 export interface IPresenceService {
     trackUser(userId: string): Promise<void>;

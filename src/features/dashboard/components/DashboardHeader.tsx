@@ -1,6 +1,6 @@
 import React from 'react';
 import { Menu, X, LogOut, ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth/index';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/app/routes/routes.constants';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';

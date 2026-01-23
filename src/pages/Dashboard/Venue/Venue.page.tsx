@@ -24,7 +24,7 @@ import {
 import { type Venue, type CreateVenueData } from '@/services/venue.service';
 import { toast } from 'sonner';
 import { useServices } from '@/app/di/ServiceContainer';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 
 const VENUE_TYPE_CONFIG: Record<string, { label: string; icon: LucideIcon; color: string }> = {
     restaurant: { label: 'Ресторан', icon: UtensilsCrossed, color: 'text-orange-500' },

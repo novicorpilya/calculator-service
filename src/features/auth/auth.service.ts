@@ -1,6 +1,6 @@
-import { supabase } from '@/services/supabase';
+import { supabase } from '@/services/supabase/client';
 import { authStorage } from '@/services/supabase/storage';
-import { logger } from '@/core/logging';
+import { logger } from '@/core/logging/index';
 import type {
     AuthResponse,
     LoginCredentials,

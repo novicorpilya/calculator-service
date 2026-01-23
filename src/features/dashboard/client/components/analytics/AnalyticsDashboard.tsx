@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth/index';
 import { useClientAnalytics } from '../../hooks/useClientAnalytics';
 import { StatsGrid } from './StatsGrid';
 import { CategoryChart } from './CategoryChart';
