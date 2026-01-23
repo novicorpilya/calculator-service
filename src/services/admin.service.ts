@@ -5,7 +5,7 @@ import { generateSecureToken } from '@/core/utils/crypto';
 import type { User } from '@/features/auth/auth.types';
 
 import type { ActionResult, VoidResult } from '@/core/types/results';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 import { wrapError } from '@/core/utils/errors';
 
 export const InvitationSchema = z.object({

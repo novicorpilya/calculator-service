@@ -1,6 +1,6 @@
-import { supabase } from '@/services/supabase/client';
-import { authStorage } from '@/services/supabase/storage';
-import { logger } from '@/core/logging/index';
+import { supabase } from '@/services/supabase/client.ts';
+import { authStorage } from '@/services/supabase/storage.ts';
+import { logger } from '@/core/logging/index.ts';
 import type {
     AuthResponse,
     LoginCredentials,

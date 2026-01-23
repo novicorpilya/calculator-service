@@ -6,7 +6,7 @@ import { Step4_Results } from '../steps/Step4_Results';
 import { useBudgetPlanner } from '../hooks/useBudgetPlanner';
 import { CalculationFactory } from '@/core/domain/CalculationFactory';
 import { useCalculationActions } from '@/features/dashboard/hooks/useCalculations';
-import { useAuth } from '@/features/auth/index';
+import { useAuth } from '@/features/auth/index.ts';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { type Calculation } from '../../dashboard.types';
 import { type Venue } from '@/services/venue.service';
-import { useAuth } from '@/features/auth/index';
+import { useAuth } from '@/features/auth/index.ts';
 
 import { useInventoryManager } from './inventory/useInventoryManager';
 import { ProcurementSummary } from './inventory/ProcurementSummary';

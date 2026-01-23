@@ -1,4 +1,4 @@
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 
 /**
  * Переводит технические сообщения об ошибках от Supabase на русский язык

@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { ActionResult } from '@/core/types/results';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 
 export interface ProjectReview {
     id: string;

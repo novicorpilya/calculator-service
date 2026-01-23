@@ -2,7 +2,7 @@ import React from 'react';
 import { RefreshCcw, Trash2, Plus } from 'lucide-react';
 import { CalculationBreakdown } from '../CalculationBreakdown';
 import type { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
-import type { User } from '@/features/auth/index';
+import type { User } from '@/features/auth/index.ts';
 
 interface CalculationInventoryListProps {
     vm: CalculationViewModel;

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useServices } from '@/app/di/ServiceContainer';
 import { type Notification } from '@/features/dashboard/services/notification.service';
 import { toast } from 'sonner';
-import { useAuth } from '@/features/auth/index';
+import { useAuth } from '@/features/auth/index.ts';
 
 export const NotificationCenter: React.FC = () => {
     const { user } = useAuth();

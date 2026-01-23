@@ -1,4 +1,4 @@
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/services/supabase/client.ts';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { CalculatorConfig } from '@/features/calculator/calculator-config.types'; // Type-only import
 import { DEFAULT_CALCULATOR_CONFIG } from '@/features/calculator/calculator-config.types';

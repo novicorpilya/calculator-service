@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 import type { ActionResult, VoidResult } from '@/core/types/results';
 
 export const AuditLogSchema = z.object({

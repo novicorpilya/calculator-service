@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { ActionResult, VoidResult } from '@/core/types/results';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 
 export const VenueSchema = z.object({
     id: z.string().uuid(),

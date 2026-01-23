@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/index';
+import { useAuth } from '@/features/auth/index.ts';
 import { PresenceProvider } from '@/app/providers/PresenceProvider';
 import { ROUTES } from './routes.constants';
 

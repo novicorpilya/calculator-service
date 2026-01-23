@@ -10,7 +10,7 @@ import { VenuePage } from '../Venue/Venue.page';
 import { GlobalChatHub } from '@/features/dashboard/components/GlobalChatHub';
 import type { Calculation } from '@/features/dashboard/dashboard.types';
 import { useServices } from '@/app/di/ServiceContainer';
-import { useAuth } from '@/features/auth/index';
+import { useAuth } from '@/features/auth/index.ts';
 import { toast } from 'sonner';
 import {
     useCalculationActions,

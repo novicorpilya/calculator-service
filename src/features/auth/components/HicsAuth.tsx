@@ -17,10 +17,10 @@ import type {
 import { translateAuthError } from '@/utils/errorTranslations';
 import { clearAuthHash } from '@/features/auth/utils/authPathUtils';
 import { ROUTES } from '@/app/routes/routes.constants';
-import { setRememberMePreference } from '@/services/supabase/storage';
+import { setRememberMePreference } from '@/services/supabase/storage.ts';
 import { authService } from '@/features/auth/auth.service';
 import { toast } from 'sonner';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 
 interface HicsAuthProps {
     initialMode?: AuthMode;

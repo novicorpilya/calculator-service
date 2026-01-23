@@ -13,7 +13,7 @@ import { type Calculation } from '../../dashboard.types';
 import { generateInvoicePDF } from '../../utils/pdfInvoiceGenerator';
 import { CalculationEntity } from '@/core/domain/CalculationEntity';
 import { useServices } from '@/app/di/ServiceContainer';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 
 type PaymentStatus = 'awaiting_payment' | 'receipt_uploaded' | 'overdue' | 'confirmed' | 'rejected';
 

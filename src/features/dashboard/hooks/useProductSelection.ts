@@ -9,7 +9,7 @@ import type {
     ZoneResult,
     InventoryItem,
 } from '../dashboard.types';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 import { CalculationEngine } from '@/utils/calculation-engine';
 import { useCalculatorConfig } from '@/features/calculator/useCalculatorConfig';
 import { type CalculatorConfig } from '@/features/calculator/calculator-config.types';

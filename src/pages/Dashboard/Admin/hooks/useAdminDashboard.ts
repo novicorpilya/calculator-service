@@ -5,7 +5,7 @@ import type { Invitation, AdminCalculation, SystemStats } from '@/services/admin
 import type { AuditLog } from '@/services/audit.service';
 import type { User } from '@/features/auth/auth.types';
 import { toast } from 'sonner';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 
 export function useAdminDashboard() {
     const [searchParams, setSearchParams] = useSearchParams();

@@ -17,9 +17,9 @@ import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { VoiceRecorder } from '@/components/ui/VoiceRecorder';
 import { VoicePlayer } from '@/components/ui/VoicePlayer';
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 import type { Message } from '@/features/chat/types';
-import { ChatImage } from '@/features/chat/components/index';
+import { ChatImage } from '@/features/chat/components/index.ts';
 import { RatingCardWidget } from '@/features/chat/components/RatingCardWidget';
 
 const ProjectMessageItem = React.memo<{

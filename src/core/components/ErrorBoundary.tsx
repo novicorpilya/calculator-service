@@ -1,5 +1,5 @@
 import React, { Component, type ReactNode } from 'react';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {

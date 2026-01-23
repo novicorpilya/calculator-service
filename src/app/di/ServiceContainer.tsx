@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useMemo } from 'react';
-import { supabase } from '@/services/supabase/client';
-import { logger, type ILogger } from '@/core/logging/index';
+import { supabase } from '@/services/supabase/client.ts';
+import { logger, type ILogger } from '@/core/logging/index.ts';
 
 // Repositories
 import { ChatRepository } from '@/features/chat/repositories/ChatRepository';

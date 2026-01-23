@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/services/supabase/client.ts';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { authService } from '@/features/auth/auth.service';
 import { useProfileSync } from '@/features/auth/hooks/useProfileSync';
 import { checkIsRecoveryFlow } from '@/features/auth/utils/authPathUtils';
-import { logger } from '@/core/logging/index';
+import { logger } from '@/core/logging/index.ts';
 import type {
     User,
     LoginCredentials,

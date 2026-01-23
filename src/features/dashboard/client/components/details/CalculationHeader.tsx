@@ -2,7 +2,7 @@ import React from 'react';
 import { ChevronLeft, Send, FileText, Briefcase, Calendar, Trash2 } from 'lucide-react';
 import { ModernStatusBadge } from '@/features/dashboard/components/ModernStatusBadge';
 import type { CalculationViewModel } from '@/features/dashboard/presentation/CalculationViewModel';
-import type { User } from '@/features/auth/index';
+import type { User } from '@/features/auth/index.ts';
 import type { Calculation, CalculationStatus } from '@/features/dashboard/dashboard.types';
 import type { CalculationEntity } from '@/core/domain/CalculationEntity';
 
