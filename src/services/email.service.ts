@@ -48,7 +48,8 @@ export class EmailService implements IEmailService {
                 data: { session },
             } = await this.supabase.auth.getSession();
 
-            const response = await fetch('/api/send-invite', {
+            const apiUrl = import.meta.env.VITE_API_URL || '/api';
+            const response = await fetch(`${apiUrl}/send-invite`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
