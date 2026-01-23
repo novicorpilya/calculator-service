@@ -12,7 +12,7 @@ const FAQItem: React.FC<FAQItemProps> = ({ question, answer }) => {
 
     return (
         <div
-            className="group border border-border-theme rounded-2xl bg-card transition-all duration-300 hover:border-primary/50"
+            className="group border border-border-theme rounded-2xl bg-card transition-[border-color,box-shadow] duration-300 hover:border-primary/50"
             onClick={() => setIsOpen(!isOpen)}
         >
             <button
@@ -24,7 +24,7 @@ const FAQItem: React.FC<FAQItemProps> = ({ question, answer }) => {
                 </h3>
                 <div
                     className={`
-                    w-8 h-8 rounded-full bg-muted flex items-center justify-center transition-all duration-300
+                    w-8 h-8 rounded-full bg-muted flex items-center justify-center transition-[background-color,transform,color] duration-300
                     ${isOpen ? 'bg-primary text-white rotate-180' : 'text-muted-foreground'}
                 `}
                 >

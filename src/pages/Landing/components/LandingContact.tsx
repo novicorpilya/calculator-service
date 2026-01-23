@@ -31,7 +31,7 @@ const InputWrapper = ({
     <div className="space-y-1">
         <div
             className={`
-            relative rounded-xl border transition-all duration-300 bg-background/50 backdrop-blur-sm
+            relative rounded-xl border transition-[border-color,box-shadow,background-color] duration-300 bg-background/50 backdrop-blur-sm
             ${
                 error
                     ? 'border-red-500 shadow-[0_0_20px_-10px_rgba(239,68,68,0.5)] ring-1 ring-red-500/20'

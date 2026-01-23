@@ -46,7 +46,7 @@ export const LandingProblems: React.FC = () => {
                             ].map((item, i) => (
                                 <AnimateOnScroll key={i} variant="fade-up" delay={i * 150}>
                                     <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 group">
-                                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white group-hover:bg-primary group-hover:border-primary transition-all duration-500">
+                                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white group-hover:bg-primary group-hover:border-primary transition-[background-color,border-color] duration-500">
                                             <item.icon className="w-6 h-6" />
                                         </div>
                                         <div className="space-y-2 sm:space-y-3">
@@ -67,7 +67,7 @@ export const LandingProblems: React.FC = () => {
                     <AnimateOnScroll variant="fade-left" delay={200}>
                         <div className="relative flex justify-center lg:justify-end mt-12 lg:mt-0 px-2 sm:px-0">
                             <div className="absolute inset-0 bg-primary/20 blur-[80px] sm:blur-[100px] -z-10 rounded-full" />
-                            <div className="w-full max-w-lg aspect-square bg-zinc-900 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] sm:rounded-[4rem] p-8 sm:p-12 flex flex-col justify-between shadow-3xl sm:rotate-2 hover:rotate-0 transition-all duration-1000 group">
+                            <div className="w-full max-w-lg aspect-square bg-zinc-900 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] sm:rounded-[4rem] p-8 sm:p-12 flex flex-col justify-between shadow-3xl sm:rotate-2 hover:rotate-0 transition-transform duration-1000 group">
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-1 sm:space-y-2">
                                         <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-primary text-nowrap">

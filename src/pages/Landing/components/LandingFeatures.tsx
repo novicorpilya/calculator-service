@@ -106,7 +106,7 @@ export const LandingFeatures: React.FC<LandingFeaturesProps> = ({ onStart }) => 
                 <div className="adaptive-grid gap-6 sm:gap-8">
                     {features.map((feature, index) => (
                         <AnimateOnScroll key={index} variant="zoom-in" delay={index * 80}>
-                            <div className="group p-8 sm:p-12 rounded-[2rem] sm:rounded-[2.5rem] bg-card border border-border-theme hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 relative overflow-hidden h-full">
+                            <div className="group p-8 sm:p-12 rounded-[2rem] sm:rounded-[2.5rem] bg-card border border-border-theme hover:border-primary/30 transition-[border-color,box-shadow] duration-500 hover:shadow-2xl hover:shadow-primary/5 relative overflow-hidden h-full">
                                 {/* Decorative Background */}
                                 <div
                                     className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${feature.color} blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none`}

@@ -26,7 +26,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
             <div className="fluid-container">
                 <div className="flex flex-col items-center text-center max-w-5xl mx-auto space-y-10 sm:space-y-16">
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full bg-foreground/5 dark:bg-white/5 border border-border-theme backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-1000">
+                    <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full bg-foreground/5 dark:bg-white/5 border border-border-theme backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-1000 transition-[background-color,border-color]">
                         <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                         <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-foreground/60">
                             Профессиональная экосистема v2.5
@@ -81,9 +81,9 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
                     {/* Glow Effect */}
                     <div className="absolute inset-0 bg-primary/20 blur-[100px] sm:blur-[180px] -z-10 group-hover:bg-primary/30 transition-colors duration-1000" />
 
-                    <div className="glass-card !p-1.5 sm:!p-4 bg-card/60 border-primary/20 shadow-3xl max-w-6xl mx-auto transform-3d md:hover:transform-none transition-all duration-1000 ease-out cursor-default overflow-hidden rounded-[1.5rem] sm:rounded-[2.5rem]">
+                    <div className="glass-card !p-1.5 sm:!p-4 bg-card/60 border-primary/20 shadow-3xl max-w-6xl mx-auto transform-3d md:hover:transform-none transition-[transform,box-shadow,background-color] duration-1000 ease-out cursor-default overflow-hidden rounded-[1.5rem] sm:rounded-[2.5rem]">
                         <div className="relative aspect-video rounded-[1rem] sm:rounded-[2rem] overflow-hidden border border-border-theme bg-background/50 backdrop-blur-sm group-hover:border-primary/30 transition-colors">
-                            {/* Video Player - Only load on Desktop to save 2.5MB payload on Mobile */}
+                            {/* Video/Image Showcase - Fetchpriority HIGH for the main LCP element */}
                             {isDesktop ? (
                                 <video
                                     autoPlay
@@ -101,8 +101,11 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
                                 <img
                                     src="/og-preview.png"
                                     alt="Calc Demo"
-                                    className="w-full h-full object-cover opacity-50"
-                                    loading="lazy"
+                                    width="600"
+                                    height="335"
+                                    fetchPriority="high"
+                                    decoding="async"
+                                    className="w-full h-full object-cover opacity-60"
                                 />
                             )}
 
@@ -128,7 +131,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({ onStart }) => {
                     transform: rotateX(15deg) translateY(-20px) scale(0.95);
                 }
                 @keyframes fade-in {
-                    from { opacity: 0; transform: translateY(20px); }
+                    from { opacity: 0; transform: translateY(10px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
                 .animate-fade-in {

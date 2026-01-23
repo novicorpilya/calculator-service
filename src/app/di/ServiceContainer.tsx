@@ -84,62 +84,76 @@ export const ServiceProvider: React.FC<{
     services?: Partial<IServiceContainer>;
 }> = ({ children, services }) => {
     const container = useMemo<IServiceContainer>(() => {
-        // If full mock container is provided (e.g. in tests), return it combined with defaults if needed
-        // For partial mocks, we instantiate defaults and override
-
-        // 1. Infrastructure Layer
-        const chatRepo = new ChatRepository(supabase, logger);
-        const broadcast = new BroadcastService(supabase);
-        const presence = new PresenceService(supabase);
-        const calcRepo = new CalculationRepository(supabase, logger);
-        const filterRepo = new FilterPresetRepository(supabase);
-
-        // 2. Cross-cutting / Infrastructure Services
-        const audit = new AuditLogService(supabase);
-        const email = new EmailService(supabase);
-        const config = new ConfigService(supabase);
-
-        // 3. Application Services
-        const chat = new ChatService(chatRepo, broadcast);
-        const version = new VersionService(supabase);
-        const calculation = new CalculationService(calcRepo, version, config);
-
-        const admin = new AdminService(supabase, audit);
-        const venue = new VenueService(supabase);
-        const inventory = new InventoryService(supabase);
-        const supplier = new SupplierService(supabase, audit);
-        const inventoryAdmin = new InventoryAdminService(supabase, audit);
-        const partner = new PartnerService(supabase);
-
-        const document = new DocumentService(supabase);
-        const notification = new NotificationService(supabase);
-        const managerDashboard = new ManagerDashboardService(supabase);
-        const review = new ReviewService(supabase);
-        const filterPreset = new FilterPresetService(filterRepo);
-
+        // Default services container with logger pre-initialized
         const defaultServices = {
-            chatService: chat,
-            presenceService: presence,
             logger,
-            calculationService: calculation,
-            auditLogService: audit,
-            adminService: admin,
-            emailService: email,
-            venueService: venue,
-            inventoryService: inventory,
-            versionService: version,
-            documentService: document,
-            notificationService: notification,
-            managerDashboardService: managerDashboard,
-            reviewService: review,
-            filterPresetService: filterPreset,
-            supplierService: supplier,
-            inventoryAdminService: inventoryAdmin,
-            configService: config,
-            partnerService: partner,
+        } as unknown as IServiceContainer;
+
+        // Define lazy getters for each service to avoid immediate dependency instantiation
+        const defineLazyService = <K extends keyof IServiceContainer>(
+            key: K,
+            factory: () => IServiceContainer[K]
+        ) => {
+            let instance: IServiceContainer[K] | null = null;
+            Object.defineProperty(defaultServices, key, {
+                get: () => {
+                    if (!instance) {
+                        instance = factory();
+                    }
+                    return instance;
+                },
+                enumerable: true,
+                configurable: true,
+            });
         };
 
-        return { ...defaultServices, ...services };
+        // Infrastructure & Cross-cutting
+        defineLazyService('auditLogService', () => new AuditLogService(supabase));
+        defineLazyService('emailService', () => new EmailService(supabase));
+        defineLazyService('configService', () => new ConfigService(supabase));
+        defineLazyService('partnerService', () => new PartnerService(supabase));
+
+        // Application Layer (The heavy stuff)
+        defineLazyService('chatService', () => {
+            const chatRepo = new ChatRepository(supabase, logger);
+            const broadcast = new BroadcastService(supabase);
+            return new ChatService(chatRepo, broadcast);
+        });
+
+        defineLazyService('presenceService', () => new PresenceService(supabase));
+
+        defineLazyService('calculationService', () => {
+            const calcRepo = new CalculationRepository(supabase, logger);
+            const version = new VersionService(supabase);
+            const config = new ConfigService(supabase);
+            return new CalculationService(calcRepo, version, config);
+        });
+
+        defineLazyService(
+            'adminService',
+            () => new AdminService(supabase, new AuditLogService(supabase))
+        );
+        defineLazyService('venueService', () => new VenueService(supabase));
+        defineLazyService('inventoryService', () => new InventoryService(supabase));
+        defineLazyService('versionService', () => new VersionService(supabase));
+        defineLazyService('documentService', () => new DocumentService(supabase));
+        defineLazyService('notificationService', () => new NotificationService(supabase));
+        defineLazyService('managerDashboardService', () => new ManagerDashboardService(supabase));
+        defineLazyService('reviewService', () => new ReviewService(supabase));
+        defineLazyService('filterPresetService', () => {
+            const filterRepo = new FilterPresetRepository(supabase);
+            return new FilterPresetService(filterRepo);
+        });
+        defineLazyService(
+            'supplierService',
+            () => new SupplierService(supabase, new AuditLogService(supabase))
+        );
+        defineLazyService(
+            'inventoryAdminService',
+            () => new InventoryAdminService(supabase, new AuditLogService(supabase))
+        );
+
+        return { ...defaultServices, ...services } as IServiceContainer;
     }, [services]);
 
     return <ServiceContext.Provider value={container}>{children}</ServiceContext.Provider>;
