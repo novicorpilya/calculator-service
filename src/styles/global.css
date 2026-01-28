@@ -120,8 +120,7 @@
     }
 
     .glass-card {
-        @apply bg-card border border-border-theme rounded-[2rem]
-            sm:rounded-[3rem] shadow-xl;
+        @apply bg-card border border-border-theme rounded-[2rem] sm:rounded-[3rem] shadow-xl;
         box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
         padding: clamp(1.25rem, 6vw, 5rem);
     }
@@ -132,11 +131,11 @@
     }
 
     .btn-premium {
-        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5
-            rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px]
-            sm:text-[10px] uppercase tracking-[0.2em] transition-[transform,box-shadow,filter]
-            active:scale-95 flex items-center justify-center gap-3 bg-primary
-            text-white border-none cursor-pointer;
+        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5 rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] active:scale-95 flex items-center justify-center gap-3 bg-primary text-white border-none cursor-pointer;
+        transition:
+            transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 0 12px 24px -10px rgba(37, 99, 235, 0.4);
         background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
     }
@@ -148,29 +147,42 @@
     }
 
     .btn-premium-secondary {
-        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5
-            rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px]
-            sm:text-[10px] uppercase tracking-[0.2em] transition-[border-color,color,transform,box-shadow]
-            active:scale-95 flex items-center justify-center gap-3 bg-card
-            border border-border-theme text-foreground/60 hover:text-primary
-            hover:border-primary cursor-pointer;
+        @apply relative overflow-hidden px-6 sm:px-10 py-4 sm:py-5 rounded-[1rem] sm:rounded-[1.25rem] font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] active:scale-95 flex items-center justify-center gap-3 bg-card border border-border-theme text-foreground/60 hover:text-primary hover:border-primary cursor-pointer;
+        transition:
+            border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .input-premium {
-        @apply w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 font-bold
-            text-[13px] sm:text-[15px] outline-none transition-[background-color,border-color,box-shadow,box-shadow] duration-300
-            text-slate-900 dark:text-white
-            placeholder:text-slate-400 dark:placeholder:text-white/20 placeholder:font-black
-            placeholder:uppercase placeholder:tracking-widest
-            placeholder:text-[9px] focus:bg-white dark:focus:bg-white/10 focus:border-primary
-            focus:ring-4 focus:ring-primary/10;
+        @apply w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 font-bold text-[13px] sm:text-[15px] outline-none duration-300 text-foreground focus:bg-white dark:focus:bg-white/10 focus:border-primary focus:ring-4 focus:ring-primary/10;
+        transition:
+            background-color 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
         padding-top: clamp(0.875rem, 2vh, 1.125rem);
         padding-bottom: clamp(0.875rem, 2vh, 1.125rem);
+    }
+
+    .input-premium::placeholder {
+        color: #64748b !important;
+        /* slate-500 - much more visible */
+        opacity: 1 !important;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 9px;
+    }
+
+    .dark .input-premium::placeholder {
+        color: rgba(255, 255, 255, 0.3) !important;
     }
 }
 
 /* Senior Fluid System (No Media Queries) */
 @layer utilities {
+
     /* Fluid Typography - Adjusted for 320px-1920px */
     .text-fluid-xs {
         font-size: clamp(0.65rem, 0.6rem + 0.25vw, 0.875rem);
@@ -241,11 +253,11 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-foreground/20 rounded-full hover:bg-foreground/30
-        transition-colors;
+    @apply bg-foreground/20 rounded-full hover:bg-foreground/30 transition-colors;
 }
 
 @keyframes bounce-subtle {
+
     0%,
     100% {
         transform: translateY(0);
@@ -307,6 +319,7 @@ html.view-transitioning *::after {
 /* ===== WCAG 2.1 AA: Reduced Motion Support ===== */
 /* For users with vestibular disorders */
 @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
